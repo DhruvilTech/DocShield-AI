@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button, Badge, Card, SectionHeader, cn, CountUp, Reveal, RevealTilt } from '../../components/ui';
-import { ThreatNode, SecurityRing, VerificationAnimation, ScanLine, Interactive3DScanHero } from '../../components/security';
+import { ThreatNode, SecurityRing, VerificationAnimation, ScanLine, Interactive3DScanHero, HeroScanner } from '../../components/security';
 
 /* ---- Animation variants ---- */
 const fadeUp = (delay = 0) => ({
@@ -27,7 +27,7 @@ const LiveTicker: React.FC = () => {
   );
 };
 
-/* ---- Hero Section with Interactive 3D Document Arrival & Scan Console ---- */
+/* ---- Hero Section with Cinematic Live Document Security Scanner ---- */
 const Hero: React.FC = () => {
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden pt-16 pb-12">
@@ -41,7 +41,7 @@ const Hero: React.FC = () => {
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 w-full">
         <div className="grid lg:grid-cols-12 gap-10 items-center">
-          {/* Left Column: Copy & Command Callouts */}
+          {/* Left Column: Copy & Command Callouts (PRESERVED INTACT) */}
           <div className="lg:col-span-6">
             <motion.div {...fadeUp(0)} className="mb-6">
               <LiveTicker />
@@ -97,15 +97,16 @@ const Hero: React.FC = () => {
             </motion.div>
           </div>
 
-          {/* Right Column: 3D Interactive Document Arrival, Extraction & Scan Terminal */}
-          <motion.div {...fadeUp(0.12)} className="lg:col-span-6 relative">
-            <Interactive3DScanHero />
+          {/* Right Column: Live 3D Document Security Scanner */}
+          <motion.div {...fadeUp(0.12)} className="lg:col-span-6 relative flex justify-center items-center">
+            <HeroScanner />
           </motion.div>
         </div>
       </div>
     </section>
   );
 };
+
 
 /* ---- Features Grid Section with Laser-Border Hover Effects ---- */
 const FEATURES = [
@@ -455,8 +456,8 @@ const Footer: React.FC = () => (
           <div className="flex items-center gap-2.5 mb-3">
             <div className="w-6 h-6 rounded bg-[var(--accent)] flex items-center justify-center text-[#0D1117]">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                <path d="m9 12 2 2 4-4"/>
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                <path d="m9 12 2 2 4-4" />
               </svg>
             </div>
             <span className="text-sm font-bold text-[var(--text-1)]">DocShield AI</span>

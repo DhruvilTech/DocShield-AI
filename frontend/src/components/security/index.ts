@@ -6,3 +6,4 @@ export * from './ProtectionPerimeter';
 export * from './DocumentScanVisual';
 export * from './VerificationAnimation';
 export * from './Interactive3DScanHero';
+export * from './HeroScanner';

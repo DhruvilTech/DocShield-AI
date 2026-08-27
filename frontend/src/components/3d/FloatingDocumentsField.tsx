@@ -194,59 +194,57 @@ interface FloatingDocumentsFieldProps {
 }
 
 export const FloatingDocumentsField: React.FC<FloatingDocumentsFieldProps> = ({
-  count = 38,
+  count = 5,
   scrollY = 0,
   lightTheme = false,
   mouseRepel = true,
 }) => {
-  // Generate 3D document layout spread cleanly across the camera field of view
+  // Balanced set of 5 floating 3D documents across left, center-top, and right
   const documents = useMemo<DocInstanceData[]>(() => {
-    const docs: DocInstanceData[] = [];
-    const types: ('pdf' | 'folder' | 'code' | 'verified')[] = ['pdf', 'folder', 'code', 'verified'];
-    const palette = [
-      { accent: '#00F5D4', glow: '#70FFEA' }, // Electric Cyan
-      { accent: '#A78BFA', glow: '#C4B5FD' }, // Cyber Violet
-      { accent: '#38BDF8', glow: '#7DD3FC' }, // Neon Sky Blue
-      { accent: '#34D399', glow: '#6EE7B7' }, // Emerald Safe
-      { accent: '#FBBF24', glow: '#FDE047' }, // Gold Warning
+    // 1: Left-Top, 2: Left-Bottom, 3: Center-Top, 4: Right-Top, 5: Right-Bottom
+    const positions: [number, number, number, number, number, number][] = [
+      [-4.6, 2.2, -2.5, -0.25, 0.45, -0.3],   // 1. Far Left Top
+      [-4.4, -1.8, -2.8, 0.3, -0.35, 0.25],   // 2. Far Left Bottom
+      [-0.2, 3.2, -3.2, 0.2, -0.3, 0.15],     // 3. Center Top
+      [4.8, 2.4, -2.6, -0.25, -0.45, 0.3],    // 4. Far Right Top
+      [4.6, -1.8, -2.4, 0.25, 0.4, -0.25],    // 5. Far Right Bottom
     ];
 
-    for (let i = 0; i < count; i++) {
-      const phi = Math.acos(1 - 2 * ((i + 0.5) / count));
-      const theta = Math.PI * (1 + Math.sqrt(5)) * i;
+    const types: ('pdf' | 'verified' | 'code' | 'pdf' | 'verified')[] = ['pdf', 'verified', 'code', 'pdf', 'verified'];
+    const palette = [
+      { accent: '#00F5D4', glow: '#70FFEA' }, // Electric Cyan
+      { accent: '#38BDF8', glow: '#7DD3FC' }, // Neon Sky Blue
+      { accent: '#34D399', glow: '#6EE7B7' }, // Emerald Safe
+      { accent: '#A78BFA', glow: '#C4B5FD' }, // Cyber Violet
+      { accent: '#00F5D4', glow: '#70FFEA' }, // Electric Cyan
+    ];
 
-      // Distribute in background layers (z: -0.5 to -6.5) so they float around softly without obscuring text
-      const radius = 3.8 + (i % 4) * 1.8;
-      const x = Math.sin(phi) * Math.cos(theta) * radius * 1.8;
-      const y = Math.sin(phi) * Math.sin(theta) * radius * 1.1 + ((i % 5) - 2) * 1.5;
-      const z = -0.5 - (i % 4) * 1.5;
+    const numDocs = Math.min(count, positions.length);
+    const docs: DocInstanceData[] = [];
 
-      const rotX = (Math.random() - 0.5) * 1.4;
-      const rotY = (Math.random() - 0.5) * 2.2;
-      const rotZ = (Math.random() - 0.5) * 1.2;
-
+    for (let i = 0; i < numDocs; i++) {
+      const [x, y, z, rx, ry, rz] = positions[i];
       const col = palette[i % palette.length];
 
       docs.push({
         id: i,
         initialPos: new THREE.Vector3(x, y, z),
-        initialRot: new THREE.Euler(rotX, rotY, rotZ),
-        scale: 0.9 + (i % 3) * 0.35,
-        speed: 0.45 + (i % 4) * 0.18,
-        rotSpeed: new THREE.Vector3(
-          0.12 + (i % 3) * 0.08,
-          0.08 + (i % 5) * 0.06,
-          0.1 + (i % 2) * 0.06
-        ),
+        initialRot: new THREE.Euler(rx, ry, rz),
+        scale: 0.9,
+        speed: 0.35,
+        rotSpeed: new THREE.Vector3(0.06, 0.05, 0.04),
         type: types[i % types.length],
         accentColor: col.accent,
         glowColor: col.glow,
-        linesCount: 5 + (i % 3),
+        linesCount: 5,
       });
     }
 
     return docs;
   }, [count]);
+
+
+
 
   return (
     <group>

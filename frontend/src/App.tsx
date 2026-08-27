@@ -9,15 +9,15 @@ import { useTheme } from './hooks/useTheme';
 import { variantFromPath } from './lib/scene';
 import { pageTransitionVariants } from './lib/animations';
 
-const HomePage         = lazy(() => import('./pages/Home'));
-const ScannerPage      = lazy(() => import('./pages/Scanner'));
+const HomePage = lazy(() => import('./pages/Home'));
+const ScannerPage = lazy(() => import('./pages/Scanner'));
 const IntelligencePage = lazy(() => import('./pages/Intelligence'));
-const AnalysisPage     = lazy(() => import('./pages/Analysis'));
-const ThreatsPage      = lazy(() => import('./pages/Threats'));
-const SecurityPage     = lazy(() => import('./pages/Security'));
-const VaultPage        = lazy(() => import('./pages/Vault'));
-const ReportsPage      = lazy(() => import('./pages/Reports'));
-const EnterprisePage   = lazy(() => import('./pages/Enterprise'));
+const AnalysisPage = lazy(() => import('./pages/Analysis'));
+const ThreatsPage = lazy(() => import('./pages/Threats'));
+const SecurityPage = lazy(() => import('./pages/Security'));
+const VaultPage = lazy(() => import('./pages/Vault'));
+const ReportsPage = lazy(() => import('./pages/Reports'));
+const EnterprisePage = lazy(() => import('./pages/Enterprise'));
 
 /* §9 lazy-load R3F so first paint is not blocked by WebGL */
 const SceneManager = lazy(() => import('./components/3d/SceneManager'));
@@ -70,16 +70,16 @@ const AppRoutes: React.FC<{ theme: 'dark' | 'light'; onToggle: () => void }> = (
         <Suspense fallback={<PageLoader />}>
           <AnimatePresence mode="wait">
             <Routes location={location} key={location.pathname}>
-              <Route path="/"             element={<PageWrapper><HomePage /></PageWrapper>} />
-              <Route path="/scanner"      element={<PageWrapper><ScannerPage /></PageWrapper>} />
+              <Route path="/" element={<PageWrapper><HomePage /></PageWrapper>} />
+              <Route path="/scanner" element={<PageWrapper><ScannerPage /></PageWrapper>} />
               <Route path="/intelligence" element={<PageWrapper><IntelligencePage /></PageWrapper>} />
-              <Route path="/analysis"     element={<PageWrapper><AnalysisPage /></PageWrapper>} />
-              <Route path="/threats"      element={<PageWrapper><ThreatsPage /></PageWrapper>} />
-              <Route path="/security"     element={<PageWrapper><SecurityPage /></PageWrapper>} />
-              <Route path="/vault"        element={<PageWrapper><VaultPage /></PageWrapper>} />
-              <Route path="/reports"      element={<PageWrapper><ReportsPage /></PageWrapper>} />
-              <Route path="/enterprise"   element={<PageWrapper><EnterprisePage /></PageWrapper>} />
-              <Route path="*"             element={<PageWrapper><HomePage /></PageWrapper>} />
+              <Route path="/analysis" element={<PageWrapper><AnalysisPage /></PageWrapper>} />
+              <Route path="/threats" element={<PageWrapper><ThreatsPage /></PageWrapper>} />
+              <Route path="/security" element={<PageWrapper><SecurityPage /></PageWrapper>} />
+              <Route path="/vault" element={<PageWrapper><VaultPage /></PageWrapper>} />
+              <Route path="/reports" element={<PageWrapper><ReportsPage /></PageWrapper>} />
+              <Route path="/enterprise" element={<PageWrapper><EnterprisePage /></PageWrapper>} />
+              <Route path="*" element={<PageWrapper><HomePage /></PageWrapper>} />
             </Routes>
           </AnimatePresence>
         </Suspense>
