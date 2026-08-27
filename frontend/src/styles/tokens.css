@@ -1,0 +1,124 @@
+/* ============================================
+   DocShield AI — Cyber-Sentinel Design Tokens
+   §4.1 Color Palette — evolve teal identity, don't replace
+   ============================================ */
+
+:root {
+  /* ---- Brand accents (§4.1) ---- */
+  --accent-primary:        #2DD4BF;
+  --accent-primary-glow:   #5EEAD4;
+  --accent-secondary:      #7C5CFC;
+  --accent-tertiary:       #3B82F6;
+
+  --accent:        #2DD4BF;
+  --accent-bright: #5EEAD4;
+  --accent-blue:   #3B82F6;
+  --accent-violet: #7C5CFC;
+  --accent-muted:  rgba(45, 212, 191, 0.14);
+  --accent-glow:   rgba(45, 212, 191, 0.28);
+
+  /* ---- Semantic status — red/amber reserved for threats (§4.1) ---- */
+  --alert-critical: #FB4A4A;
+  --alert-warning:  #F5A623;
+  --alert-success:  #34D399;
+
+  --safe:    #34D399;
+  --safe-glow: rgba(52, 211, 153, 0.25);
+  --warning: #F5A623;
+  --warning-glow: rgba(245, 166, 35, 0.25);
+  --threat:  #FB4A4A;
+  --threat-glow: rgba(251, 74, 74, 0.35);
+  --info:    #3B82F6;
+  --info-glow: rgba(59, 130, 246, 0.25);
+  --ai:      #7C5CFC;
+  --ai-glow: rgba(124, 92, 252, 0.25);
+
+  /* ---- Motion durations ---- */
+  --duration-micro:  150ms;
+  --duration-fast:   250ms;
+  --duration-base:   400ms;
+  --duration-slow:   600ms;
+  --duration-slower: 1200ms;
+  --ease-out:        cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out:     cubic-bezier(0.4, 0, 0.2, 1);
+
+  --radius-card: 18px;
+  --glass-fill: rgba(255, 255, 255, 0.03);
+  --border-hairline: rgba(255, 255, 255, 0.08);
+}
+
+/* ---- DARK THEME (default) — §4.1 bg-void / surfaces ---- */
+:root, .dark {
+  --bg-void:         #05070A;
+  --bg-surface:      #0B0E13;
+  --bg-surface-2:    #12161D;
+
+  --bg:              #05070A;
+  --bg-secondary:    #070A0F;
+  --surface:         #0B0E13;
+  --surface-alt:     #12161D;
+  --surface-raised:  #171C25;
+  --border:          rgba(255, 255, 255, 0.08);
+  --border-strong:   rgba(255, 255, 255, 0.16);
+  --border-accent:   rgba(45, 212, 191, 0.38);
+
+  --text-primary:    #F5F7FA;
+  --text-secondary:  #9CA5B4;
+  --text-muted:      #5B6472;
+  --text-1:    #F5F7FA;
+  --text-2:    #9CA5B4;
+  --text-3:    #5B6472;
+  --text-inv:  #05070A;
+
+  --network-line: rgba(45, 212, 191, 0.06);
+  --network-node: rgba(45, 212, 191, 0.4);
+  --network-pulse: #2DD4BF;
+
+  --glow-accent: 0 0 24px rgba(45, 212, 191, 0.28);
+  --glow-sm:     0 0 12px rgba(45, 212, 191, 0.18);
+  --glow-card:   0 0 40px rgba(45, 212, 191, 0.08);
+  --glow-threat: 0 0 16px rgba(251, 74, 74, 0.35);
+
+  --shadow-sm:  0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md:  0 4px 20px rgba(0,0,0,0.55);
+  --shadow-lg:  0 12px 40px rgba(0,0,0,0.7);
+}
+
+/* ---- LIGHT THEME — 3D intensity adapts; UI stays high-contrast ---- */
+.light {
+  --bg-void:         #F4F6F8;
+  --bg-surface:      #FFFFFF;
+  --bg-surface-2:    #F8FAFC;
+
+  --bg:              #F4F6F8;
+  --bg-secondary:    #EEF1F5;
+  --surface:         #FFFFFF;
+  --surface-alt:     #F8FAFC;
+  --surface-raised:  #FFFFFF;
+  --border:          rgba(0, 0, 0, 0.08);
+  --border-strong:   rgba(0, 0, 0, 0.16);
+  --border-accent:   rgba(13, 148, 136, 0.45);
+  --glass-fill:      rgba(255, 255, 255, 0.55);
+  --border-hairline: rgba(0, 0, 0, 0.08);
+
+  --text-primary:    #0F172A;
+  --text-secondary:  #475569;
+  --text-muted:      #94A3B8;
+  --text-1:    #0F172A;
+  --text-2:    #475569;
+  --text-3:    #94A3B8;
+  --text-inv:  #FFFFFF;
+
+  --network-line: rgba(13, 148, 136, 0.10);
+  --network-node: rgba(13, 148, 136, 0.40);
+  --network-pulse: #0D9488;
+
+  --glow-accent: 0 0 20px rgba(45, 212, 191, 0.18);
+  --glow-sm:     0 0 10px rgba(45, 212, 191, 0.12);
+  --glow-card:   0 0 32px rgba(45, 212, 191, 0.10);
+  --glow-threat: 0 0 14px rgba(220, 38, 38, 0.22);
+
+  --shadow-sm:  0 1px 3px rgba(0,0,0,0.06);
+  --shadow-md:  0 4px 18px rgba(0,0,0,0.09);
+  --shadow-lg:  0 12px 36px rgba(0,0,0,0.12);
+}

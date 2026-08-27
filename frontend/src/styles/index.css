@@ -1,0 +1,292 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+/* ---- Base Styles ---- */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Inter', 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg);
+  color: var(--text-1);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  transition: background-color var(--duration-slow) var(--ease-in-out),
+              color var(--duration-slow) var(--ease-in-out);
+}
+
+/* Monospace for technical data */
+.font-mono, code, pre, kbd {
+  font-family: 'IBM Plex Mono', 'JetBrains Mono', monospace;
+}
+
+/* ---- Selection ---- */
+::selection {
+  background: rgba(0, 184, 169, 0.25);
+  color: var(--text-1);
+}
+
+/* ---- Custom Scrollbar ---- */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--surface-raised); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* ---- Focus Visible ---- */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ============================================
+   Utility Classes (Design System)
+   ============================================ */
+
+/* Surfaces */
+.surface          { background: var(--surface); }
+.surface-alt      { background: var(--surface-alt); }
+.surface-raised   { background: var(--surface-raised); }
+
+/* Borders */
+.border-token     { border: 1px solid var(--border); }
+.border-strong    { border: 1px solid var(--border-strong); }
+.border-accent    { border: 1px solid var(--border-accent); }
+
+/* Text */
+.text-1  { color: var(--text-1); }
+.text-2  { color: var(--text-2); }
+.text-3  { color: var(--text-3); }
+.text-accent { color: var(--accent); }
+
+/* Status */
+.status-safe    { color: var(--safe); }
+.status-warning { color: var(--warning); }
+.status-threat  { color: var(--threat); }
+.status-info    { color: var(--info); }
+.status-ai      { color: var(--ai); }
+
+/* ---- Accent Gradient ---- */
+.accent-gradient {
+  background: linear-gradient(135deg, var(--accent), var(--accent-bright));
+}
+
+.accent-text {
+  background: linear-gradient(135deg, var(--accent), var(--accent-bright));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ---- Technical Grid Background ---- */
+.tech-grid {
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.tech-grid-dense {
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* ---- Card Styles ---- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+
+.card-interactive {
+  position: relative;
+  overflow: hidden;
+}
+
+.card-interactive:hover {
+  border-color: var(--border-accent);
+  box-shadow: var(--shadow-md), var(--glow-sm);
+  transform: translateY(-2px);
+}
+
+/* Subtle Laser Border Scan on Interactive Cards */
+.card-interactive::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.card-interactive:hover::after {
+  opacity: 1;
+  animation: laser-slide 1.5s ease-in-out infinite;
+}
+
+@keyframes laser-slide {
+  0%   { left: -100%; }
+  100% { left: 100%; }
+}
+
+/* ---- Glass Surface ---- */
+.glass {
+  background: rgba(22, 27, 34, 0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+}
+
+.light .glass {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* ---- Scan / Technical Animations ---- */
+@keyframes scan-beam-sweep {
+  0%   { top: 0%; opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+
+@keyframes pulse-ring {
+  0%   { transform: scale(0.9); opacity: 0.8; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+@keyframes threat-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; filter: drop-shadow(0 0 4px var(--threat)); }
+  50%      { transform: scale(1.15); opacity: 0.5; filter: drop-shadow(0 0 10px var(--threat)); }
+}
+
+@keyframes radar-sweep {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes data-flow-dash {
+  to { stroke-dashoffset: -40; }
+}
+
+.animate-scan-beam    { animation: scan-beam-sweep 2.8s ease-in-out infinite; }
+.animate-pulse-ring   { animation: pulse-ring 2.2s ease-out infinite; }
+.animate-threat-pulse { animation: threat-pulse 1.4s ease-in-out infinite; }
+.animate-radar-sweep  { animation: radar-sweep 4s linear infinite; }
+.animate-data-flow    { stroke-dasharray: 6 6; animation: data-flow-dash 1.2s linear infinite; }
+
+.font-display, h1, h2, h3 {
+  font-family: 'Space Grotesk', 'Inter Tight', Inter, system-ui, sans-serif;
+  letter-spacing: -0.03em;
+}
+
+.content-scrim {
+  background:
+    radial-gradient(ellipse 85% 65% at 50% 0%, rgba(5, 7, 10, 0.35), transparent 70%),
+    linear-gradient(180deg, rgba(5, 7, 10, 0.25) 0%, rgba(5, 7, 10, 0.08) 35%, rgba(5, 7, 10, 0.3) 100%);
+}
+.light .content-scrim {
+  background:
+    radial-gradient(ellipse 85% 65% at 50% 0%, rgba(244, 246, 248, 0.5), transparent 70%),
+    linear-gradient(180deg, rgba(244, 246, 248, 0.45) 0%, rgba(244, 246, 248, 0.15) 30%, rgba(244, 246, 248, 0.4) 100%);
+}
+
+.card-magnetic:hover {
+  transform: translateY(-6px);
+  border-color: var(--accent);
+  box-shadow: var(--glow-card), var(--glow-sm);
+}
+
+.icon-conic { position: relative; }
+.icon-conic::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(from 0deg, var(--accent), var(--accent-violet), var(--accent-blue), var(--accent));
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  animation: conic-spin 3s linear infinite;
+}
+.group:hover .icon-conic::before { opacity: 0.85; }
+@keyframes conic-spin { to { transform: rotate(360deg); } }
+
+.btn-sheen { position: relative; overflow: hidden; }
+.btn-sheen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.35) 50%, transparent 60%);
+  transform: translateX(-120%);
+}
+.btn-sheen:hover::after { animation: sheen-sweep 0.7s ease; }
+@keyframes sheen-sweep { to { transform: translateX(120%); } }
+
+@keyframes tag-breathe {
+  0%, 100% { opacity: 0.72; }
+  50% { opacity: 1; }
+}
+.animate-tag-breathe { animation: tag-breathe 3s ease-in-out infinite; }
+
+@keyframes logo-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.45); }
+  50% { box-shadow: 0 0 18px 2px rgba(45, 212, 191, 0.35); }
+}
+.animate-logo-pulse { animation: logo-pulse 2.8s ease-in-out infinite; }
+
+.check-circle { stroke-dasharray: 50; stroke-dashoffset: 50; animation: check-draw 0.6s ease forwards; }
+.check-mark { stroke-dasharray: 20; stroke-dashoffset: 20; animation: check-draw 0.45s 0.35s ease forwards; }
+@keyframes check-draw { to { stroke-dashoffset: 0; } }
+
+.nav-underline { position: relative; }
+.nav-underline::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 70%;
+  height: 1px;
+  background: var(--accent);
+  transform: translateX(-50%) scaleX(0);
+  transition: transform 0.2s var(--ease-out);
+}
+.nav-underline:hover::after { transform: translateX(-50%) scaleX(1); }
+
+/* ---- Desktop Cursor System ---- */
+@media (hover: hover) and (pointer: fine) {
+  body {
+    cursor: default;
+  }
+}
+
+/* ---- Reduced Motion ---- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
