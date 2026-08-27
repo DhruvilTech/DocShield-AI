@@ -172,13 +172,15 @@ const FolderMesh: React.FC<{
 
   return (
     <group ref={groupRef} position={[0, 0, -0.3]}>
-      {/* Folder Back Plate (Translucent Deep Cyber Enclave) */}
+      {/* Folder Back Plate (Translucent Deep Cyber Enclave — Light & Illuminated) */}
       <mesh position={[0, 0, -0.06]}>
         <boxGeometry args={[2.3, 2.7, 0.04]} />
         <meshStandardMaterial
-          color="#0B131E"
+          color="#0f253a"
+          emissive="#091b2c"
+          emissiveIntensity={0.3}
           roughness={0.2}
-          metalness={0.8}
+          metalness={0.6}
           transparent
           opacity={0.92}
         />
@@ -187,28 +189,28 @@ const FolderMesh: React.FC<{
       {/* Back Plate Glowing Neon Edges */}
       <mesh position={[0, 0, -0.06]}>
         <boxGeometry args={[2.34, 2.74, 0.02]} />
-        <meshBasicMaterial color="#2DD4BF" wireframe transparent opacity={0.35} />
+        <meshBasicMaterial color="#00F5D4" wireframe transparent opacity={0.5} />
       </mesh>
 
       {/* Folder Tab at Top Left */}
       <mesh position={[-0.65, 1.45, -0.06]}>
         <boxGeometry args={[0.9, 0.24, 0.04]} />
-        <meshStandardMaterial color="#121D2C" roughness={0.3} metalness={0.7} />
+        <meshStandardMaterial color="#183654" roughness={0.3} metalness={0.7} />
       </mesh>
       <mesh position={[-0.65, 1.45, -0.04]}>
         <planeGeometry args={[0.8, 0.12]} />
-        <meshBasicMaterial color="#2DD4BF" transparent opacity={0.6} />
+        <meshBasicMaterial color="#00F5D4" transparent opacity={0.8} />
       </mesh>
 
       {/* Internal Security Pocket / Sleeve */}
       <mesh position={[0, -0.2, 0]}>
         <boxGeometry args={[2.2, 1.8, 0.08]} />
         <meshStandardMaterial
-          color="#070C14"
+          color="#091826"
           roughness={0.3}
-          metalness={0.9}
+          metalness={0.8}
           transparent
-          opacity={0.85}
+          opacity={0.88}
         />
       </mesh>
 
@@ -217,11 +219,13 @@ const FolderMesh: React.FC<{
         <mesh position={[0, 0.9, 0]}>
           <boxGeometry args={[2.25, 1.8, 0.03]} />
           <meshStandardMaterial
-            color="#0E1A29"
+            color="#142c44"
+            emissive="#0a1d2e"
+            emissiveIntensity={0.25}
             roughness={0.15}
-            metalness={0.85}
+            metalness={0.75}
             transparent
-            opacity={0.9}
+            opacity={0.92}
           />
         </mesh>
 
@@ -229,18 +233,18 @@ const FolderMesh: React.FC<{
         {[-0.6, -0.2, 0.2, 0.6].map((x, i) => (
           <mesh key={i} position={[x, 0.9, 0.02]}>
             <planeGeometry args={[0.25, 0.015]} />
-            <meshBasicMaterial color="#2DD4BF" transparent opacity={0.4} />
+            <meshBasicMaterial color="#00F5D4" transparent opacity={0.75} />
           </mesh>
         ))}
 
         {/* Holographic Security Enclave Shield Badge */}
         <mesh ref={lockRef} position={[0, 1.45, 0.03]}>
           <circleGeometry args={[0.22, 24]} />
-          <meshBasicMaterial color="#2DD4BF" transparent opacity={0.9} />
+          <meshBasicMaterial color="#00F5D4" transparent opacity={0.95} />
         </mesh>
         <mesh position={[0, 1.45, 0.035]}>
           <ringGeometry args={[0.24, 0.26, 24]} />
-          <meshBasicMaterial color="#5EEAD4" transparent opacity={0.8} />
+          <meshBasicMaterial color="#70FFEA" transparent opacity={0.9} />
         </mesh>
       </group>
     </group>
@@ -299,15 +303,17 @@ const DocumentSheetMesh: React.FC<{
 
   return (
     <group ref={sheetRef} position={[0, -0.6, -0.15]}>
-      {/* Translucent Glassmorphic Document Core */}
+      {/* Translucent Light Document Core — Glowing Light Paper Sheet */}
       <mesh position={[0, 0, 0]}>
         <boxGeometry args={[1.75, 2.35, 0.035]} />
         <meshStandardMaterial
-          color="#071018"
-          roughness={0.1}
-          metalness={0.3}
+          color="#C6F0F8"
+          emissive="#154B68"
+          emissiveIntensity={0.45}
+          roughness={0.15}
+          metalness={0.1}
           transparent
-          opacity={0.88}
+          opacity={0.92}
         />
       </mesh>
 
@@ -315,40 +321,40 @@ const DocumentSheetMesh: React.FC<{
       <mesh position={[0, 0, 0]}>
         <boxGeometry args={[1.77, 2.37, 0.038]} />
         <meshBasicMaterial
-          color={phase === 'secured' ? '#34D399' : '#2DD4BF'}
+          color={phase === 'secured' ? '#00FF9D' : '#0284C7'}
           wireframe
           transparent
-          opacity={0.45}
+          opacity={0.85}
         />
       </mesh>
 
       {/* Document Header Bar */}
       <mesh position={[0, 0.95, 0.02]}>
         <planeGeometry args={[1.5, 0.18]} />
-        <meshBasicMaterial color="#121D2C" transparent opacity={0.9} />
+        <meshBasicMaterial color="#0F2C4A" transparent opacity={0.95} />
       </mesh>
 
       {/* Document Header Accent Tag */}
       <mesh position={[-0.45, 0.95, 0.025]}>
         <planeGeometry args={[0.42, 0.08]} />
-        <meshBasicMaterial color="#2DD4BF" transparent opacity={0.8} />
+        <meshBasicMaterial color="#00F5D4" transparent opacity={0.95} />
       </mesh>
 
-      {/* Document Lines (Simulated Paragraphs / Security AST) */}
+      {/* Document Lines (Simulated Paragraphs / Security AST) — High Contrast Lines on Light Sheet */}
       {[0.75, 0.62, 0.48, 0.35, 0.22, 0.08, -0.05, -0.18, -0.32, -0.45, -0.6, -0.75, -0.88].map(
         (y, i) => {
           const isThreatLine = doc.threats.some((t) => Math.abs(t.pos[1] - y) < 0.12);
           const isRemediated = phase === 'secured';
 
-          let lineColor = '#2DD4BF';
-          let lineOpacity = 0.35;
+          let lineColor = '#0B2B47';
+          let lineOpacity = 0.85;
 
           if (isThreatLine && (phase === 'scanning' || phase === 'extracting')) {
-            lineColor = '#FB4A4A';
-            lineOpacity = 0.85;
+            lineColor = '#EF4444';
+            lineOpacity = 1.0;
           } else if (isThreatLine && isRemediated) {
-            lineColor = '#34D399';
-            lineOpacity = 0.75;
+            lineColor = '#059669';
+            lineOpacity = 0.95;
           }
 
           const width = i % 4 === 0 ? 1.4 : i % 3 === 0 ? 1.2 : i % 2 === 0 ? 1.45 : 1.1;
@@ -356,7 +362,7 @@ const DocumentSheetMesh: React.FC<{
 
           return (
             <mesh key={i} position={[xOffset, y, 0.022]}>
-              <planeGeometry args={[width, 0.032]} />
+              <planeGeometry args={[width, 0.038]} />
               <meshBasicMaterial color={lineColor} transparent opacity={lineOpacity} />
             </mesh>
           );
@@ -367,9 +373,9 @@ const DocumentSheetMesh: React.FC<{
       <mesh position={[0.74, 1.04, 0.025]} rotation={[0, 0, Math.PI / 4]}>
         <planeGeometry args={[0.22, 0.22]} />
         <meshBasicMaterial
-          color={phase === 'secured' ? '#34D399' : '#5EEAD4'}
+          color={phase === 'secured' ? '#00FF9D' : '#70FFEA'}
           transparent
-          opacity={0.85}
+          opacity={0.95}
         />
       </mesh>
 

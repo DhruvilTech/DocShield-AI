@@ -91,15 +91,17 @@ const FloatingDocumentMesh: React.FC<{
 
   return (
     <group ref={groupRef} position={data.initialPos} rotation={data.initialRot} scale={data.scale}>
-      {/* 3D Glassmorphic Document Base Plate */}
+      {/* 3D Glassmorphic Document Base Plate — Light Glowing Paper Sheet */}
       <mesh>
         <boxGeometry args={[width, height, 0.03]} />
         <meshStandardMaterial
-          color={lightTheme ? '#FFFFFF' : '#071018'}
-          roughness={0.1}
-          metalness={0.4}
+          color={lightTheme ? '#FFFFFF' : '#BFEBF7'}
+          emissive={lightTheme ? '#E0F2FE' : '#184969'}
+          emissiveIntensity={lightTheme ? 0.2 : 0.45}
+          roughness={0.15}
+          metalness={0.1}
           transparent
-          opacity={lightTheme ? 0.6 : 0.85}
+          opacity={lightTheme ? 0.75 : 0.65}
         />
       </mesh>
 
@@ -110,23 +112,23 @@ const FloatingDocumentMesh: React.FC<{
           color={data.accentColor}
           wireframe
           transparent
-          opacity={lightTheme ? 0.5 : 0.8}
+          opacity={0.85}
         />
       </mesh>
 
       {/* Document Header Bar */}
       <mesh position={[0, height * 0.38, 0.02]}>
         <planeGeometry args={[width * 0.82, height * 0.12]} />
-        <meshBasicMaterial color={data.accentColor} transparent opacity={0.7} />
+        <meshBasicMaterial color={data.accentColor} transparent opacity={0.85} />
       </mesh>
 
       {/* Small Header Tag */}
       <mesh position={[-width * 0.22, height * 0.38, 0.025]}>
         <planeGeometry args={[width * 0.3, height * 0.05]} />
-        <meshBasicMaterial color={data.glowColor} transparent opacity={0.9} />
+        <meshBasicMaterial color={data.glowColor} transparent opacity={0.95} />
       </mesh>
 
-      {/* Document Lines (Simulated Paragraphs / Security AST) */}
+      {/* Document Lines (Simulated Paragraphs / AST) — High Contrast Lines */}
       {Array.from({ length: data.linesCount }).map((_, i) => {
         const yPos = height * 0.22 - i * (height * 0.12);
         const lineWidth = (i % 4 === 0 ? 0.82 : i % 3 === 0 ? 0.65 : i % 2 === 0 ? 0.75 : 0.55) * width * 0.85;
@@ -135,11 +137,11 @@ const FloatingDocumentMesh: React.FC<{
 
         return (
           <mesh key={i} position={[xOffset, yPos, 0.02]}>
-            <planeGeometry args={[lineWidth, height * 0.04]} />
+            <planeGeometry args={[lineWidth, height * 0.045]} />
             <meshBasicMaterial
-              color={isHighlight ? data.glowColor : data.accentColor}
+              color={lightTheme ? (isHighlight ? data.glowColor : data.accentColor) : (isHighlight ? '#07243A' : '#0D3654')}
               transparent
-              opacity={isHighlight ? 0.8 : 0.45}
+              opacity={isHighlight ? 0.95 : 0.85}
             />
           </mesh>
         );
@@ -149,7 +151,7 @@ const FloatingDocumentMesh: React.FC<{
       {data.type !== 'folder' && (
         <mesh position={[width * 0.42, height * 0.42, 0.022]} rotation={[0, 0, Math.PI / 4]}>
           <planeGeometry args={[0.18, 0.18]} />
-          <meshBasicMaterial color={data.glowColor} transparent opacity={0.9} />
+          <meshBasicMaterial color={data.glowColor} transparent opacity={0.95} />
         </mesh>
       )}
 
@@ -158,11 +160,11 @@ const FloatingDocumentMesh: React.FC<{
         <group position={[width * 0.25, -height * 0.32, 0.022]}>
           <mesh>
             <circleGeometry args={[0.12, 20]} />
-            <meshBasicMaterial color="#34D399" transparent opacity={0.8} />
+            <meshBasicMaterial color="#34D399" transparent opacity={0.85} />
           </mesh>
           <mesh position={[0, 0, 0.002]}>
             <ringGeometry args={[0.13, 0.15, 20]} />
-            <meshBasicMaterial color="#5EEAD4" transparent opacity={0.95} />
+            <meshBasicMaterial color="#5EEAD4" transparent opacity={0.98} />
           </mesh>
         </group>
       )}
@@ -171,7 +173,7 @@ const FloatingDocumentMesh: React.FC<{
       {data.type === 'folder' && (
         <mesh position={[-width * 0.28, height * 0.52, 0.015]}>
           <boxGeometry args={[width * 0.4, height * 0.14, 0.025]} />
-          <meshBasicMaterial color={data.accentColor} transparent opacity={0.8} />
+          <meshBasicMaterial color={data.accentColor} transparent opacity={0.85} />
         </mesh>
       )}
 
@@ -197,27 +199,27 @@ export const FloatingDocumentsField: React.FC<FloatingDocumentsFieldProps> = ({
   lightTheme = false,
   mouseRepel = true,
 }) => {
-  // Generate 3D document layout spread cleanly across the entire camera field of view
+  // Generate 3D document layout spread cleanly across the camera field of view
   const documents = useMemo<DocInstanceData[]>(() => {
     const docs: DocInstanceData[] = [];
     const types: ('pdf' | 'folder' | 'code' | 'verified')[] = ['pdf', 'folder', 'code', 'verified'];
     const palette = [
-      { accent: '#2DD4BF', glow: '#5EEAD4' }, // Teal / Cyan
-      { accent: '#7C5CFC', glow: '#A78BFA' }, // Violet AI
-      { accent: '#3B82F6', glow: '#93C5FD' }, // Blue Data
+      { accent: '#00F5D4', glow: '#70FFEA' }, // Electric Cyan
+      { accent: '#A78BFA', glow: '#C4B5FD' }, // Cyber Violet
+      { accent: '#38BDF8', glow: '#7DD3FC' }, // Neon Sky Blue
       { accent: '#34D399', glow: '#6EE7B7' }, // Emerald Safe
-      { accent: '#F5A623', glow: '#FCD34D' }, // Amber Warning
+      { accent: '#FBBF24', glow: '#FDE047' }, // Gold Warning
     ];
 
     for (let i = 0; i < count; i++) {
       const phi = Math.acos(1 - 2 * ((i + 0.5) / count));
       const theta = Math.PI * (1 + Math.sqrt(5)) * i;
 
-      // Distribute in foreground (z: 0.5 to 1.8), midground (z: -1.5 to -3), and deep background (z: -4 to -7)
-      const radius = 3.6 + (i % 4) * 1.8;
+      // Distribute in background layers (z: -0.5 to -6.5) so they float around softly without obscuring text
+      const radius = 3.8 + (i % 4) * 1.8;
       const x = Math.sin(phi) * Math.cos(theta) * radius * 1.8;
       const y = Math.sin(phi) * Math.sin(theta) * radius * 1.1 + ((i % 5) - 2) * 1.5;
-      const z = Math.cos(phi) * radius * 0.8 - ((i % 4) * 1.6);
+      const z = -0.5 - (i % 4) * 1.5;
 
       const rotX = (Math.random() - 0.5) * 1.4;
       const rotY = (Math.random() - 0.5) * 2.2;

@@ -55,9 +55,9 @@
 
   --bg:              #05070A;
   --bg-secondary:    #070A0F;
-  --surface:         #0B0E13;
-  --surface-alt:     #12161D;
-  --surface-raised:  #171C25;
+  --surface:         rgba(11, 14, 19, 0.88);
+  --surface-alt:     rgba(18, 22, 29, 0.90);
+  --surface-raised:  rgba(23, 28, 37, 0.94);
   --border:          rgba(255, 255, 255, 0.08);
   --border-strong:   rgba(255, 255, 255, 0.16);
   --border-accent:   rgba(45, 212, 191, 0.38);
