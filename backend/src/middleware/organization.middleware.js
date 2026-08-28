@@ -9,16 +9,29 @@ export const resolveOrganization = async (req, res, next) => {
       return next(AppError.unauthorized('Authentication required before resolving organization', 'AUTH_REQUIRED'));
     }
 
-    const orgId =
+    let orgId =
       req.headers['x-organization-id'] ||
       req.params.organizationId ||
       req.params.orgId ||
       req.query.organizationId;
 
     if (!orgId) {
+      // Graceful fallback: check if user belongs to an active organization
+      const userOrgs = await organizationRepository.findByUserId(req.user.userId);
+      if (userOrgs && userOrgs.length > 0) {
+        orgId = userOrgs[0].id;
+      } else if (req.user.roles && req.user.roles.includes('super_admin')) {
+        const defaultOrg = await organizationRepository.findBySlug('global-security');
+        if (defaultOrg) {
+          orgId = defaultOrg.id;
+        }
+      }
+    }
+
+    if (!orgId) {
       return next(
         AppError.badRequest(
-          'Organization context missing. Please supply x-organization-id header or route parameter.',
+          'Organization context missing. Please supply x-organization-id header or establish an organization.',
           'ORGANIZATION_CONTEXT_REQUIRED'
         )
       );

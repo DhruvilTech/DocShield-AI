@@ -6,8 +6,8 @@ export class DocumentRepository {
     const sql = `
       INSERT INTO documents (
         id, organization_id, uploaded_by, name, original_filename,
-        mime_type, file_size, storage_key, document_type, status, description, current_version
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        mime_type, file_size, storage_key, document_type, status, processing_status, description, current_version
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
     const params = [
       doc.id,
@@ -20,6 +20,7 @@ export class DocumentRepository {
       doc.storageKey,
       doc.documentType || 'OTHER',
       doc.status || 'ACTIVE',
+      doc.processingStatus || 'UPLOADED',
       doc.description || null,
       doc.currentVersion || 1,
     ];
@@ -83,6 +84,11 @@ export class DocumentRepository {
       queryParams.push(params.status);
     }
 
+    if (params.processingStatus) {
+      sql += ' AND d.processing_status = ?';
+      queryParams.push(params.processingStatus);
+    }
+
     sql += ' ORDER BY d.created_at DESC';
 
     const page = parseInt(params.page, 10) || 1;
@@ -129,6 +135,10 @@ export class DocumentRepository {
     if (data.status !== undefined) {
       fields.push('status = ?');
       params.push(data.status);
+    }
+    if (data.processingStatus !== undefined || data.processing_status !== undefined) {
+      fields.push('processing_status = ?');
+      params.push(data.processingStatus !== undefined ? data.processingStatus : data.processing_status);
     }
     if (data.currentVersion !== undefined) {
       fields.push('current_version = ?');

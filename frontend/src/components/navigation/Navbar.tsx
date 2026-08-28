@@ -147,26 +147,39 @@ export const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
             <ThemeSwitcher theme={theme} onToggle={onToggleTheme} />
 
             {/* Organization Switcher Dropdown (When Authenticated) */}
-            {isAuthenticated && activeOrganization && (
+            {isAuthenticated && (
               <div className="relative" ref={orgDropdownRef}>
-                <button
-                  onClick={() => setOrgDropdownOpen(!orgDropdownOpen)}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[var(--surface-raised)] hover:bg-[var(--surface-alt)] border border-[var(--border)] transition-colors text-xs font-mono text-[var(--text-1)]"
-                  title="Switch Active Organization"
-                >
-                  <svg className="w-3.5 h-3.5 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                  </svg>
-                  <span className="max-w-[110px] truncate hidden md:inline font-medium">
-                    {activeOrganization.name}
-                  </span>
-                  <svg className="w-3 h-3 text-[var(--text-3)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
+                {activeOrganization ? (
+                  <button
+                    onClick={() => setOrgDropdownOpen(!orgDropdownOpen)}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[var(--surface-raised)] hover:bg-[var(--surface-alt)] border border-[var(--border)] transition-colors text-xs font-mono text-[var(--text-1)]"
+                    title="Switch Active Organization"
+                  >
+                    <svg className="w-3.5 h-3.5 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    <span className="max-w-[110px] truncate hidden md:inline font-medium">
+                      {activeOrganization.name}
+                    </span>
+                    <svg className="w-3 h-3 text-[var(--text-3)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                ) : (
+                  <Link
+                    to="/admin/organization"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[var(--accent-muted)] hover:bg-[var(--accent)]/20 border border-[var(--border-accent)] transition-colors text-xs font-mono text-[var(--accent)]"
+                    title="Establish Organization"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    <span className="hidden md:inline font-medium">Establish Org</span>
+                  </Link>
+                )}
 
                 <AnimatePresence>
-                  {orgDropdownOpen && (
+                  {orgDropdownOpen && activeOrganization && (
                     <motion.div
                       initial={{ opacity: 0, y: 8, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}

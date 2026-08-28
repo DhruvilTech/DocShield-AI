@@ -97,8 +97,9 @@ export async function apiClient<T = any>(endpoint: string, options: RequestOptio
     defaultHeaders['Authorization'] = `Bearer ${currentAccessToken}`;
   }
 
-  if (activeOrgId) {
-    defaultHeaders['x-organization-id'] = activeOrgId;
+  const currentOrgId = activeOrgId || localStorage.getItem('docshield_active_org_id');
+  if (currentOrgId) {
+    defaultHeaders['x-organization-id'] = currentOrgId;
   }
 
   const config: RequestInit = {

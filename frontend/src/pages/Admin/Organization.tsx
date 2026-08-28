@@ -165,9 +165,9 @@ export const OrganizationManagementPage: React.FC = () => {
 
   if (!activeOrganization) {
     return (
-      <div className="min-h-screen pt-24 pb-16 px-4 max-w-7xl mx-auto flex items-center justify-center">
-        <Card className="p-8 text-center max-w-md w-full">
-          <div className="w-12 h-12 rounded-xl bg-[var(--accent-muted)] text-[var(--accent)] flex items-center justify-center mx-auto mb-4">
+      <div className="min-h-screen pt-24 pb-16 px-4 max-w-7xl mx-auto flex items-center justify-center font-mono">
+        <Card className="p-8 text-center max-w-md w-full border-[var(--border-accent)]">
+          <div className="w-12 h-12 rounded-xl bg-[var(--accent-muted)] text-[var(--accent)] flex items-center justify-center mx-auto mb-4 border border-[var(--border-accent)]">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
             </svg>
@@ -177,6 +177,72 @@ export const OrganizationManagementPage: React.FC = () => {
           <Button onClick={() => setShowCreateOrgModal(true)} variant="primary" className="w-full">
             Establish Organization
           </Button>
+
+          {/* Create Organization Modal */}
+          {showCreateOrgModal && (
+            <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 text-left">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-[var(--surface)] border border-[var(--border-strong)] rounded-2xl max-w-md w-full p-6 shadow-2xl font-mono text-xs"
+              >
+                <div className="flex items-center justify-between mb-4 border-b border-[var(--border)] pb-3">
+                  <h3 className="text-sm font-bold text-[var(--text-1)]">Establish New Organization Context</h3>
+                  <button onClick={() => setShowCreateOrgModal(false)} className="text-[var(--text-3)] hover:text-[var(--text-1)]">
+                    ✕
+                  </button>
+                </div>
+
+                <form onSubmit={handleCreateOrg} className="space-y-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-[var(--text-2)] mb-1 uppercase tracking-wider">
+                      Organization Name
+                    </label>
+                    <Input
+                      value={newOrgName}
+                      onChange={(e) => setNewOrgName(e.target.value)}
+                      placeholder="e.g. Interpol Cyber Taskforce Alpha"
+                      required
+                      className="w-full text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-[var(--text-2)] mb-1 uppercase tracking-wider">
+                      Operational Description (Optional)
+                    </label>
+                    <textarea
+                      value={newOrgDesc}
+                      onChange={(e) => setNewOrgDesc(e.target.value)}
+                      rows={3}
+                      placeholder="Security domain and jurisdiction scope..."
+                      className="w-full bg-[var(--surface-raised)] border border-[var(--border)] rounded-xl p-3 text-xs text-[var(--text-1)] focus:outline-none focus:border-[var(--accent)] font-mono"
+                    />
+                  </div>
+
+                  <div className="pt-2 flex gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-1/2"
+                      onClick={() => setShowCreateOrgModal(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      className="w-1/2"
+                      disabled={isCreatingOrg || !newOrgName.trim()}
+                      loading={isCreatingOrg}
+                    >
+                      Establish
+                    </Button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          )}
         </Card>
       </div>
     );

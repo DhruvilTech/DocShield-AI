@@ -1,0 +1,26 @@
+-- Migration 018: Create Analysis Findings Table
+CREATE TABLE IF NOT EXISTS analysis_findings (
+  id VARCHAR(36) PRIMARY KEY,
+  analysis_id VARCHAR(36) NOT NULL,
+  document_id VARCHAR(36) NOT NULL,
+  version_id VARCHAR(36) NOT NULL,
+  organization_id VARCHAR(36) NOT NULL,
+  category ENUM('IDENTITY', 'DOCUMENT', 'VALIDATION', 'FRAUD', 'SECURITY', 'DATA_CONSISTENCY') NOT NULL,
+  severity ENUM('CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO') NOT NULL DEFAULT 'INFO',
+  title VARCHAR(255) NOT NULL,
+  description TEXT NOT NULL,
+  evidence TEXT NULL,
+  confidence DECIMAL(5, 2) NOT NULL DEFAULT 1.00,
+  location VARCHAR(255) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_af_analysis (analysis_id),
+  INDEX idx_af_doc (document_id),
+  INDEX idx_af_version (version_id),
+  INDEX idx_af_org (organization_id),
+  INDEX idx_af_severity (severity),
+  INDEX idx_af_category (category),
+  FOREIGN KEY (analysis_id) REFERENCES document_analyses(id) ON DELETE CASCADE,
+  FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
+  FOREIGN KEY (version_id) REFERENCES document_versions(id) ON DELETE CASCADE,
+  FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

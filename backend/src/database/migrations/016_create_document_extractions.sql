@@ -1,0 +1,26 @@
+-- Migration 016: Create Document Extractions Table
+CREATE TABLE IF NOT EXISTS document_extractions (
+  id VARCHAR(36) PRIMARY KEY,
+  document_id VARCHAR(36) NOT NULL,
+  version_id VARCHAR(36) NOT NULL,
+  organization_id VARCHAR(36) NOT NULL,
+  status ENUM('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED') NOT NULL DEFAULT 'PENDING',
+  extractor_name VARCHAR(100) NOT NULL,
+  document_type VARCHAR(50) NOT NULL DEFAULT 'OTHER',
+  raw_text LONGTEXT NULL,
+  normalized_text LONGTEXT NULL,
+  extracted_fields JSON NULL,
+  confidence_score DECIMAL(5, 2) NULL,
+  page_count INT NOT NULL DEFAULT 1,
+  metadata JSON NULL,
+  error_message TEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_dext_doc (document_id),
+  INDEX idx_dext_version (version_id),
+  INDEX idx_dext_org (organization_id),
+  INDEX idx_dext_status (status),
+  FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
+  FOREIGN KEY (version_id) REFERENCES document_versions(id) ON DELETE CASCADE,
+  FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

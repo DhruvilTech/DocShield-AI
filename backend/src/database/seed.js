@@ -26,7 +26,7 @@ const PERMISSIONS_LIST = [
   { slug: SYSTEM_PERMISSIONS.ORGANIZATIONS_MANAGE_MEMBERS, resource: 'organizations', action: 'manage_members', description: 'Manage organization members and roles' },
   { slug: SYSTEM_PERMISSIONS.ORGANIZATIONS_INVITE, resource: 'organizations', action: 'invite', description: 'Send organization invitations' },
 
-  // Document Management & Screening
+  // Document Management, Processing & Screening
   { slug: SYSTEM_PERMISSIONS.DOCUMENTS_READ, resource: 'documents', action: 'read', description: 'View screened documents' },
   { slug: SYSTEM_PERMISSIONS.DOCUMENTS_CREATE, resource: 'documents', action: 'create', description: 'Upload documents for screening' },
   { slug: SYSTEM_PERMISSIONS.DOCUMENTS_UPDATE, resource: 'documents', action: 'update', description: 'Update document metadata' },
@@ -35,8 +35,15 @@ const PERMISSIONS_LIST = [
   { slug: SYSTEM_PERMISSIONS.DOCUMENTS_UPLOAD_VERSION, resource: 'documents', action: 'upload_version', description: 'Upload new document version' },
   { slug: SYSTEM_PERMISSIONS.DOCUMENTS_VIEW_VERSIONS, resource: 'documents', action: 'view_versions', description: 'View document version history' },
   { slug: SYSTEM_PERMISSIONS.DOCUMENTS_ARCHIVE, resource: 'documents', action: 'archive', description: 'Archive documents' },
+  { slug: SYSTEM_PERMISSIONS.DOCUMENTS_PROCESS, resource: 'documents', action: 'process', description: 'Trigger document processing pipeline' },
+  { slug: SYSTEM_PERMISSIONS.DOCUMENTS_VIEW_EXTRACTION, resource: 'documents', action: 'view_extraction', description: 'View extracted text and structured OCR fields' },
   { slug: SYSTEM_PERMISSIONS.SCREENING_RUN, resource: 'screening', action: 'run', description: 'Execute AI document screening pipeline' },
   { slug: SYSTEM_PERMISSIONS.SCREENING_READ, resource: 'screening', action: 'read', description: 'View screening analysis and telemetry' },
+
+  // AI & Document Intelligence
+  { slug: SYSTEM_PERMISSIONS.ANALYSIS_READ, resource: 'analysis', action: 'read', description: 'View AI document intelligence analyses and risk indicators' },
+  { slug: SYSTEM_PERMISSIONS.ANALYSIS_RUN, resource: 'analysis', action: 'run', description: 'Execute AI document intelligence analysis' },
+  { slug: SYSTEM_PERMISSIONS.FINDINGS_READ, resource: 'findings', action: 'read', description: 'View security findings and anomalies' },
 
   // Forensics & Threats
   { slug: SYSTEM_PERMISSIONS.FORENSICS_READ, resource: 'forensics', action: 'read', description: 'View document tampering forensics' },
@@ -72,8 +79,13 @@ const ROLES_LIST = [
       SYSTEM_PERMISSIONS.DOCUMENTS_DOWNLOAD,
       SYSTEM_PERMISSIONS.DOCUMENTS_UPLOAD_VERSION,
       SYSTEM_PERMISSIONS.DOCUMENTS_VIEW_VERSIONS,
+      SYSTEM_PERMISSIONS.DOCUMENTS_PROCESS,
+      SYSTEM_PERMISSIONS.DOCUMENTS_VIEW_EXTRACTION,
       SYSTEM_PERMISSIONS.SCREENING_RUN,
       SYSTEM_PERMISSIONS.SCREENING_READ,
+      SYSTEM_PERMISSIONS.ANALYSIS_READ,
+      SYSTEM_PERMISSIONS.ANALYSIS_RUN,
+      SYSTEM_PERMISSIONS.FINDINGS_READ,
       SYSTEM_PERMISSIONS.ORGANIZATIONS_READ,
       SYSTEM_PERMISSIONS.REPORTS_READ,
       SYSTEM_PERMISSIONS.REPORTS_CREATE,
@@ -89,7 +101,12 @@ const ROLES_LIST = [
       SYSTEM_PERMISSIONS.DOCUMENTS_READ,
       SYSTEM_PERMISSIONS.DOCUMENTS_DOWNLOAD,
       SYSTEM_PERMISSIONS.DOCUMENTS_VIEW_VERSIONS,
+      SYSTEM_PERMISSIONS.DOCUMENTS_PROCESS,
+      SYSTEM_PERMISSIONS.DOCUMENTS_VIEW_EXTRACTION,
       SYSTEM_PERMISSIONS.SCREENING_READ,
+      SYSTEM_PERMISSIONS.ANALYSIS_READ,
+      SYSTEM_PERMISSIONS.ANALYSIS_RUN,
+      SYSTEM_PERMISSIONS.FINDINGS_READ,
       SYSTEM_PERMISSIONS.FORENSICS_READ,
       SYSTEM_PERMISSIONS.FORENSICS_ANALYZE,
       SYSTEM_PERMISSIONS.THREATS_READ,
@@ -109,7 +126,10 @@ const ROLES_LIST = [
     permissionSlugs: [
       SYSTEM_PERMISSIONS.DOCUMENTS_READ,
       SYSTEM_PERMISSIONS.DOCUMENTS_VIEW_VERSIONS,
+      SYSTEM_PERMISSIONS.DOCUMENTS_VIEW_EXTRACTION,
       SYSTEM_PERMISSIONS.SCREENING_READ,
+      SYSTEM_PERMISSIONS.ANALYSIS_READ,
+      SYSTEM_PERMISSIONS.FINDINGS_READ,
       SYSTEM_PERMISSIONS.THREATS_READ,
       SYSTEM_PERMISSIONS.REPORTS_READ,
       SYSTEM_PERMISSIONS.ORGANIZATIONS_READ,

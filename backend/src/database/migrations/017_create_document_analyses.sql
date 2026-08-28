@@ -1,0 +1,27 @@
+-- Migration 017: Create Document Analyses Table
+CREATE TABLE IF NOT EXISTS document_analyses (
+  id VARCHAR(36) PRIMARY KEY,
+  document_id VARCHAR(36) NOT NULL,
+  version_id VARCHAR(36) NOT NULL,
+  organization_id VARCHAR(36) NOT NULL,
+  status ENUM('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED') NOT NULL DEFAULT 'PENDING',
+  provider VARCHAR(50) NOT NULL DEFAULT 'heuristic',
+  model VARCHAR(100) NOT NULL DEFAULT 'docshield-intelligence-v1',
+  prompt_version VARCHAR(20) NOT NULL DEFAULT 'v1.0',
+  document_type VARCHAR(50) NOT NULL DEFAULT 'OTHER',
+  confidence DECIMAL(5, 2) NOT NULL DEFAULT 0.00,
+  summary TEXT NULL,
+  structured_result JSON NULL,
+  processing_duration_ms INT NULL,
+  error_message TEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_da_doc (document_id),
+  INDEX idx_da_version (version_id),
+  INDEX idx_da_org (organization_id),
+  INDEX idx_da_status (status),
+  INDEX idx_da_created (created_at),
+  FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
+  FOREIGN KEY (version_id) REFERENCES document_versions(id) ON DELETE CASCADE,
+  FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

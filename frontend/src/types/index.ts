@@ -184,6 +184,9 @@ export interface OrganizationInvitation {
 /* ---- Document & Versioning Types ---- */
 export type DocType = 'PASSPORT' | 'VISA' | 'NATIONAL_ID' | 'DRIVERS_LICENSE' | 'CONTRACT' | 'INVOICE' | 'FINANCIAL_STATEMENT' | 'SECURITY_CLEARANCE' | 'LEGAL_BRIEF' | 'OTHER';
 export type DocStatus = 'ACTIVE' | 'ARCHIVED' | 'DELETED' | 'FLAGGED';
+export type ProcessingStatus = 'UPLOADED' | 'QUEUED' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+export type FindingCategory = 'IDENTITY' | 'DOCUMENT' | 'VALIDATION' | 'FRAUD' | 'SECURITY' | 'DATA_CONSISTENCY';
+export type FindingSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
 
 export interface VaultDocument {
   id: string;
@@ -196,6 +199,7 @@ export interface VaultDocument {
   storage_key: string;
   document_type: DocType;
   status: DocStatus;
+  processing_status?: ProcessingStatus;
   description: string | null;
   current_version: number;
   created_at: string;
@@ -219,5 +223,110 @@ export interface DocumentVersion {
   uploader_name?: string;
   uploader_email?: string;
 }
+
+/* ---- Phase 5: Processing & Extraction Types ---- */
+export interface ProcessingJob {
+  id: string;
+  document_id: string;
+  version_id: string;
+  organization_id: string;
+  job_type: 'FULL_PIPELINE' | 'EXTRACTION_ONLY' | 'ANALYSIS_ONLY';
+  status: ProcessingStatus;
+  attempts: number;
+  max_attempts: number;
+  error_message: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  failed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProcessingStatusResponse {
+  documentId: string;
+  currentVersion: number;
+  processingStatus: ProcessingStatus;
+  latestJob: ProcessingJob | null;
+  jobCount: number;
+  history: ProcessingJob[];
+}
+
+export interface DocumentExtraction {
+  id: string;
+  document_id: string;
+  version_id: string;
+  organization_id: string;
+  status: string;
+  extractor_name: string;
+  document_type: string;
+  raw_text: string | null;
+  normalized_text: string | null;
+  extracted_fields: Record<string, { value: any; confidence: number }> | null;
+  confidence_score: number;
+  page_count: number;
+  metadata: any;
+  created_at: string;
+  updated_at: string;
+}
+
+/* ---- Phase 6: AI Intelligence, Findings & Risk Indicators ---- */
+export interface AnalysisFinding {
+  id: string;
+  analysis_id: string;
+  document_id: string;
+  version_id: string;
+  organization_id: string;
+  category: FindingCategory;
+  severity: FindingSeverity;
+  title: string;
+  description: string;
+  evidence: string | null;
+  confidence: number;
+  location: string | null;
+  created_at: string;
+}
+
+export interface RiskIndicator {
+  id: string;
+  analysis_id: string;
+  document_id: string;
+  version_id: string;
+  organization_id: string;
+  indicator: string;
+  category: string;
+  severity: FindingSeverity;
+  confidence: number;
+  evidence: string | null;
+  created_at: string;
+}
+
+export interface DocumentAnalysis {
+  id: string;
+  document_id: string;
+  version_id: string;
+  organization_id: string;
+  status: string;
+  provider: string;
+  model: string;
+  prompt_version: string;
+  document_type: string;
+  confidence: number;
+  summary: string | null;
+  structured_result: {
+    documentType?: string;
+    confidence?: number;
+    summary?: string;
+    findings?: any[];
+    recommendations?: string[];
+    riskIndicators?: any[];
+  } | null;
+  processing_duration_ms: number | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+  findings?: AnalysisFinding[];
+  risk_indicators?: RiskIndicator[];
+}
+
 
 

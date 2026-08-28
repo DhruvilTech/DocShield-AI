@@ -42,7 +42,7 @@ export const SYSTEM_PERMISSIONS = {
   ORGANIZATIONS_MANAGE_MEMBERS: 'organizations:manage_members',
   ORGANIZATIONS_INVITE: 'organizations:invite',
   
-  // Documents & Screening
+  // Documents, Processing & Screening
   DOCUMENTS_READ: 'documents:read',
   DOCUMENTS_CREATE: 'documents:create',
   DOCUMENTS_UPDATE: 'documents:update',
@@ -51,8 +51,15 @@ export const SYSTEM_PERMISSIONS = {
   DOCUMENTS_UPLOAD_VERSION: 'documents:upload_version',
   DOCUMENTS_VIEW_VERSIONS: 'documents:view_versions',
   DOCUMENTS_ARCHIVE: 'documents:archive',
+  DOCUMENTS_PROCESS: 'documents:process',
+  DOCUMENTS_VIEW_EXTRACTION: 'documents:view_extraction',
   SCREENING_RUN: 'screening:run',
   SCREENING_READ: 'screening:read',
+  
+  // AI & Document Intelligence
+  ANALYSIS_READ: 'analysis:read',
+  ANALYSIS_RUN: 'analysis:run',
+  FINDINGS_READ: 'findings:read',
   
   // Forensics & Threats
   FORENSICS_READ: 'forensics:read',
@@ -84,6 +91,14 @@ export const DOCUMENT_STATUSES = {
   ARCHIVED: 'ARCHIVED',
   DELETED: 'DELETED',
   PROCESSING: 'PROCESSING',
+};
+
+export const PROCESSING_STATUSES = {
+  UPLOADED: 'UPLOADED',
+  QUEUED: 'QUEUED',
+  PROCESSING: 'PROCESSING',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED',
 };
 
 export const ORGANIZATION_STATUSES = {
@@ -146,6 +161,18 @@ export const AUDIT_ACTIONS = {
   DOCUMENT_ARCHIVED: 'DOCUMENT_ARCHIVED',
   DOCUMENT_DELETED: 'DOCUMENT_DELETED',
   DOCUMENT_ACCESS_DENIED: 'DOCUMENT_ACCESS_DENIED',
+
+  // Processing & Extractions
+  DOCUMENT_PROCESSING_STARTED: 'DOCUMENT_PROCESSING_STARTED',
+  DOCUMENT_PROCESSING_COMPLETED: 'DOCUMENT_PROCESSING_COMPLETED',
+  DOCUMENT_PROCESSING_FAILED: 'DOCUMENT_PROCESSING_FAILED',
+  OCR_COMPLETED: 'OCR_COMPLETED',
+
+  // AI & Document Intelligence
+  AI_ANALYSIS_STARTED: 'AI_ANALYSIS_STARTED',
+  AI_ANALYSIS_COMPLETED: 'AI_ANALYSIS_COMPLETED',
+  AI_ANALYSIS_FAILED: 'AI_ANALYSIS_FAILED',
+  ANALYSIS_VIEWED: 'ANALYSIS_VIEWED',
 
   // RBAC
   ROLE_ASSIGNED: 'ROLE_ASSIGNED',

@@ -1,0 +1,26 @@
+-- Migration 015: Create Document Processing Jobs Table
+CREATE TABLE IF NOT EXISTS document_processing_jobs (
+  id VARCHAR(36) PRIMARY KEY,
+  document_id VARCHAR(36) NOT NULL,
+  version_id VARCHAR(36) NOT NULL,
+  organization_id VARCHAR(36) NOT NULL,
+  job_type ENUM('FULL_PIPELINE', 'EXTRACTION_ONLY', 'ANALYSIS_ONLY') NOT NULL DEFAULT 'FULL_PIPELINE',
+  status ENUM('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED') NOT NULL DEFAULT 'PENDING',
+  attempts INT NOT NULL DEFAULT 0,
+  max_attempts INT NOT NULL DEFAULT 3,
+  error_message TEXT NULL,
+  error_details JSON NULL,
+  started_at DATETIME NULL,
+  completed_at DATETIME NULL,
+  failed_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_dpj_doc (document_id),
+  INDEX idx_dpj_version (version_id),
+  INDEX idx_dpj_org (organization_id),
+  INDEX idx_dpj_status (status),
+  INDEX idx_dpj_created (created_at),
+  FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
+  FOREIGN KEY (version_id) REFERENCES document_versions(id) ON DELETE CASCADE,
+  FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

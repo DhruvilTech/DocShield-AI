@@ -34,6 +34,19 @@ const envSchema = z.object({
   BCRYPT_SALT_ROUNDS: z.coerce.number().default(12),
   EMAIL_VERIFICATION_EXPIRATION_HOURS: z.coerce.number().default(24),
   PASSWORD_RESET_EXPIRATION_HOURS: z.coerce.number().default(1),
+
+  // Cloudinary Storage
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
+  CLOUDINARY_URL: z.string().optional(),
+  CLOUDINARY_SECURE: z.coerce.boolean().default(true),
+
+  // AI & Document Intelligence Provider
+  AI_PROVIDER: z.enum(['heuristic', 'gemini', 'openai', 'mock']).default('heuristic'),
+  AI_MODEL: z.string().default('docshield-intelligence-v1'),
+  GEMINI_API_KEY: z.string().optional(),
+  OPENAI_API_KEY: z.string().optional(),
 });
 
 const parseEnv = () => {
