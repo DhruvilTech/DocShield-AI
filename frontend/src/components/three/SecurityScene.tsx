@@ -15,32 +15,32 @@ const DocumentMesh: React.FC<{ scanning?: boolean }> = ({ scanning = false }) =>
   });
   return (
     <group ref={ref}>
-      {/* Document body */}
+      {/* Document body — Light Paper Sheet */}
       <mesh position={[0, 0, 0]} castShadow>
         <boxGeometry args={[1.6, 2.1, 0.04]} />
         <MeshTransmissionMaterial
           backside
           samples={4}
           thickness={0.05}
-          roughness={0.05}
-          transmission={0.85}
+          roughness={0.1}
+          transmission={0.82}
           ior={1.3}
-          color="#00B8A9"
-          attenuationColor="#00B8A9"
-          attenuationDistance={0.5}
+          color="#BDE6F2"
+          attenuationColor="#154B68"
+          attenuationDistance={0.6}
         />
       </mesh>
       {/* Doc lines (text simulation) */}
       {[0.6, 0.3, 0, -0.3, -0.6, -0.85].map((y, i) => (
         <mesh key={i} position={[i % 2 === 0 ? -0.1 : 0.1, y, 0.025]}>
-          <boxGeometry args={[i % 3 === 0 ? 0.9 : 1.1, 0.035, 0.001]} />
-          <meshBasicMaterial color="#00B8A9" opacity={0.35} transparent />
+          <boxGeometry args={[i % 3 === 0 ? 0.9 : 1.1, 0.038, 0.001]} />
+          <meshBasicMaterial color="#0A2B47" opacity={0.85} transparent />
         </mesh>
       ))}
       {/* Corner fold */}
       <mesh position={[0.7, 0.95, 0.025]} rotation={[0, 0, Math.PI / 4]}>
         <boxGeometry args={[0.2, 0.2, 0.001]} />
-        <meshBasicMaterial color="#14DCC8" opacity={0.5} transparent />
+        <meshBasicMaterial color="#00F5D4" opacity={0.9} transparent />
       </mesh>
     </group>
   );

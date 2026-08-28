@@ -2,7 +2,9 @@
 @import "./tokens.css";
 
 /* ---- Base Styles ---- */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
@@ -19,11 +21,14 @@ body {
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
   transition: background-color var(--duration-slow) var(--ease-in-out),
-              color var(--duration-slow) var(--ease-in-out);
+    color var(--duration-slow) var(--ease-in-out);
 }
 
 /* Monospace for technical data */
-.font-mono, code, pre, kbd {
+.font-mono,
+code,
+pre,
+kbd {
   font-family: 'IBM Plex Mono', 'JetBrains Mono', monospace;
 }
 
@@ -34,10 +39,23 @@ body {
 }
 
 /* ---- Custom Scrollbar ---- */
-::-webkit-scrollbar { width: 5px; height: 5px; }
-::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: var(--surface-raised); border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--surface-raised);
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
 
 /* ---- Focus Visible ---- */
 :focus-visible {
@@ -51,27 +69,68 @@ body {
    ============================================ */
 
 /* Surfaces */
-.surface          { background: var(--surface); }
-.surface-alt      { background: var(--surface-alt); }
-.surface-raised   { background: var(--surface-raised); }
+.surface {
+  background: var(--surface);
+}
+
+.surface-alt {
+  background: var(--surface-alt);
+}
+
+.surface-raised {
+  background: var(--surface-raised);
+}
 
 /* Borders */
-.border-token     { border: 1px solid var(--border); }
-.border-strong    { border: 1px solid var(--border-strong); }
-.border-accent    { border: 1px solid var(--border-accent); }
+.border-token {
+  border: 1px solid var(--border);
+}
+
+.border-strong {
+  border: 1px solid var(--border-strong);
+}
+
+.border-accent {
+  border: 1px solid var(--border-accent);
+}
 
 /* Text */
-.text-1  { color: var(--text-1); }
-.text-2  { color: var(--text-2); }
-.text-3  { color: var(--text-3); }
-.text-accent { color: var(--accent); }
+.text-1 {
+  color: var(--text-1);
+}
+
+.text-2 {
+  color: var(--text-2);
+}
+
+.text-3 {
+  color: var(--text-3);
+}
+
+.text-accent {
+  color: var(--accent);
+}
 
 /* Status */
-.status-safe    { color: var(--safe); }
-.status-warning { color: var(--warning); }
-.status-threat  { color: var(--threat); }
-.status-info    { color: var(--info); }
-.status-ai      { color: var(--ai); }
+.status-safe {
+  color: var(--safe);
+}
+
+.status-warning {
+  color: var(--warning);
+}
+
+.status-threat {
+  color: var(--threat);
+}
+
+.status-info {
+  color: var(--info);
+}
+
+.status-ai {
+  color: var(--ai);
+}
 
 /* ---- Accent Gradient ---- */
 .accent-gradient {
@@ -105,6 +164,8 @@ body {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   transition:
     border-color var(--duration-fast) var(--ease-out),
     box-shadow var(--duration-fast) var(--ease-out),
@@ -146,8 +207,13 @@ body {
 }
 
 @keyframes laser-slide {
-  0%   { left: -100%; }
-  100% { left: 100%; }
+  0% {
+    left: -100%;
+  }
+
+  100% {
+    left: 100%;
+  }
 }
 
 /* ---- Glass Surface ---- */
@@ -166,38 +232,94 @@ body {
 
 /* ---- Scan / Technical Animations ---- */
 @keyframes scan-beam-sweep {
-  0%   { top: 0%; opacity: 0; }
-  15%  { opacity: 1; }
-  85%  { opacity: 1; }
-  100% { top: 100%; opacity: 0; }
+  0% {
+    top: 0%;
+    opacity: 0;
+  }
+
+  15% {
+    opacity: 1;
+  }
+
+  85% {
+    opacity: 1;
+  }
+
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
 }
 
 @keyframes pulse-ring {
-  0%   { transform: scale(0.9); opacity: 0.8; }
-  100% { transform: scale(2.2); opacity: 0; }
+  0% {
+    transform: scale(0.9);
+    opacity: 0.8;
+  }
+
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
 }
 
 @keyframes threat-pulse {
-  0%, 100% { transform: scale(1); opacity: 1; filter: drop-shadow(0 0 4px var(--threat)); }
-  50%      { transform: scale(1.15); opacity: 0.5; filter: drop-shadow(0 0 10px var(--threat)); }
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    filter: drop-shadow(0 0 4px var(--threat));
+  }
+
+  50% {
+    transform: scale(1.15);
+    opacity: 0.5;
+    filter: drop-shadow(0 0 10px var(--threat));
+  }
 }
 
 @keyframes radar-sweep {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes data-flow-dash {
-  to { stroke-dashoffset: -40; }
+  to {
+    stroke-dashoffset: -40;
+  }
 }
 
-.animate-scan-beam    { animation: scan-beam-sweep 2.8s ease-in-out infinite; }
-.animate-pulse-ring   { animation: pulse-ring 2.2s ease-out infinite; }
-.animate-threat-pulse { animation: threat-pulse 1.4s ease-in-out infinite; }
-.animate-radar-sweep  { animation: radar-sweep 4s linear infinite; }
-.animate-data-flow    { stroke-dasharray: 6 6; animation: data-flow-dash 1.2s linear infinite; }
+.animate-scan-beam {
+  animation: scan-beam-sweep 2.8s ease-in-out infinite;
+}
 
-.font-display, h1, h2, h3 {
+.animate-pulse-ring {
+  animation: pulse-ring 2.2s ease-out infinite;
+}
+
+.animate-threat-pulse {
+  animation: threat-pulse 1.4s ease-in-out infinite;
+}
+
+.animate-radar-sweep {
+  animation: radar-sweep 4s linear infinite;
+}
+
+.animate-data-flow {
+  stroke-dasharray: 6 6;
+  animation: data-flow-dash 1.2s linear infinite;
+}
+
+.font-display,
+h1,
+h2,
+h3 {
   font-family: 'Space Grotesk', 'Inter Tight', Inter, system-ui, sans-serif;
   letter-spacing: -0.03em;
 }
@@ -207,6 +329,7 @@ body {
     radial-gradient(ellipse 85% 65% at 50% 0%, rgba(5, 7, 10, 0.35), transparent 70%),
     linear-gradient(180deg, rgba(5, 7, 10, 0.25) 0%, rgba(5, 7, 10, 0.08) 35%, rgba(5, 7, 10, 0.3) 100%);
 }
+
 .light .content-scrim {
   background:
     radial-gradient(ellipse 85% 65% at 50% 0%, rgba(244, 246, 248, 0.5), transparent 70%),
@@ -219,7 +342,10 @@ body {
   box-shadow: var(--glow-card), var(--glow-sm);
 }
 
-.icon-conic { position: relative; }
+.icon-conic {
+  position: relative;
+}
+
 .icon-conic::before {
   content: '';
   position: absolute;
@@ -231,37 +357,94 @@ body {
   transition: opacity 0.2s ease;
   animation: conic-spin 3s linear infinite;
 }
-.group:hover .icon-conic::before { opacity: 0.85; }
-@keyframes conic-spin { to { transform: rotate(360deg); } }
 
-.btn-sheen { position: relative; overflow: hidden; }
+.group:hover .icon-conic::before {
+  opacity: 0.85;
+}
+
+@keyframes conic-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.btn-sheen {
+  position: relative;
+  overflow: hidden;
+}
+
 .btn-sheen::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.35) 50%, transparent 60%);
+  background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.35) 50%, transparent 60%);
   transform: translateX(-120%);
 }
-.btn-sheen:hover::after { animation: sheen-sweep 0.7s ease; }
-@keyframes sheen-sweep { to { transform: translateX(120%); } }
+
+.btn-sheen:hover::after {
+  animation: sheen-sweep 0.7s ease;
+}
+
+@keyframes sheen-sweep {
+  to {
+    transform: translateX(120%);
+  }
+}
 
 @keyframes tag-breathe {
-  0%, 100% { opacity: 0.72; }
-  50% { opacity: 1; }
+
+  0%,
+  100% {
+    opacity: 0.72;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }
-.animate-tag-breathe { animation: tag-breathe 3s ease-in-out infinite; }
+
+.animate-tag-breathe {
+  animation: tag-breathe 3s ease-in-out infinite;
+}
 
 @keyframes logo-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.45); }
-  50% { box-shadow: 0 0 18px 2px rgba(45, 212, 191, 0.35); }
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.45);
+  }
+
+  50% {
+    box-shadow: 0 0 18px 2px rgba(45, 212, 191, 0.35);
+  }
 }
-.animate-logo-pulse { animation: logo-pulse 2.8s ease-in-out infinite; }
 
-.check-circle { stroke-dasharray: 50; stroke-dashoffset: 50; animation: check-draw 0.6s ease forwards; }
-.check-mark { stroke-dasharray: 20; stroke-dashoffset: 20; animation: check-draw 0.45s 0.35s ease forwards; }
-@keyframes check-draw { to { stroke-dashoffset: 0; } }
+.animate-logo-pulse {
+  animation: logo-pulse 2.8s ease-in-out infinite;
+}
 
-.nav-underline { position: relative; }
+.check-circle {
+  stroke-dasharray: 50;
+  stroke-dashoffset: 50;
+  animation: check-draw 0.6s ease forwards;
+}
+
+.check-mark {
+  stroke-dasharray: 20;
+  stroke-dashoffset: 20;
+  animation: check-draw 0.45s 0.35s ease forwards;
+}
+
+@keyframes check-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.nav-underline {
+  position: relative;
+}
+
 .nav-underline::after {
   content: '';
   position: absolute;
@@ -273,7 +456,10 @@ body {
   transform: translateX(-50%) scaleX(0);
   transition: transform 0.2s var(--ease-out);
 }
-.nav-underline:hover::after { transform: translateX(-50%) scaleX(1); }
+
+.nav-underline:hover::after {
+  transform: translateX(-50%) scaleX(1);
+}
 
 /* ---- Desktop Cursor System ---- */
 @media (hover: hover) and (pointer: fine) {
@@ -282,9 +468,57 @@ body {
   }
 }
 
+/* ============================================
+   Hero Scanner Straight Front-Facing Animations
+   ============================================ */
+@keyframes hero-ring-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes hero-ring-rotate-reverse {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+
+@keyframes hero-laser-sweep {
+  0% { top: 0%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+
+@keyframes hero-laser-veil {
+  0% { top: -20%; opacity: 0; }
+  15% { opacity: 0.35; }
+  85% { opacity: 0.35; }
+  100% { top: 100%; opacity: 0; }
+}
+
+@keyframes hero-doc-breathe {
+  0% {
+    transform: perspective(1100px) rotateX(15deg) rotateY(-18deg) rotateZ(5deg) translateY(0px);
+  }
+  100% {
+    transform: perspective(1100px) rotateX(15deg) rotateY(-18deg) rotateZ(5deg) translateY(-10px);
+  }
+}
+
+@keyframes hero-frag-float {
+  0% {
+    opacity: 0.35;
+  }
+  100% {
+    opacity: 0.5;
+  }
+}
+
+
 /* ---- Reduced Motion ---- */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

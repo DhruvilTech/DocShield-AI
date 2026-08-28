@@ -44,11 +44,12 @@ const SceneInner: React.FC<{ theme: Theme }> = ({ theme }) => {
 
       {/* Floating 3D Documents Background Field across all pages */}
       <FloatingDocumentsField
-        count={tier.reduced ? 16 : 38}
+        count={6}
         scrollY={scrollY}
         lightTheme={light}
         mouseRepel={tier.mouseRepel}
       />
+
 
       <CameraRig reduced={tier.reduced} />
       {tier.bloom && (
