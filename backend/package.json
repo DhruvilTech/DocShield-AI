@@ -1,0 +1,42 @@
+{
+  "name": "docshield-backend",
+  "version": "1.0.0",
+  "description": "DocShield AI Backend - JavaScript, MySQL, Authentication, RBAC & Audit Trail",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "migrate": "node src/database/migrate.js",
+    "seed": "node src/database/seed.js",
+    "test": "node tests/run_all.js",
+    "test:auth": "node --test tests/auth.test.js",
+    "test:rbac": "node --test tests/rbac.test.js",
+    "test:org": "node --test tests/organization.test.js",
+    "test:doc": "node --test tests/document.test.js"
+  },
+  "keywords": [
+    "docshield",
+    "security",
+    "authentication",
+    "rbac",
+    "mysql",
+    "javascript"
+  ],
+  "author": "DocShield AI Team",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.2.0",
+    "mysql2": "^3.13.0",
+    "uuid": "^11.1.0",
+    "zod": "^3.24.2"
+  }
+}

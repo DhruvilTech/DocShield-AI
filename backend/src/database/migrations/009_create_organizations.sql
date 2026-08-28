@@ -1,0 +1,15 @@
+-- Migration 009: Create Organizations Table
+CREATE TABLE IF NOT EXISTS organizations (
+  id VARCHAR(36) PRIMARY KEY,
+  name VARCHAR(150) NOT NULL,
+  slug VARCHAR(100) NOT NULL UNIQUE,
+  description TEXT NULL,
+  logo_url VARCHAR(500) NULL,
+  status ENUM('ACTIVE', 'INACTIVE', 'SUSPENDED') NOT NULL DEFAULT 'ACTIVE',
+  created_by VARCHAR(36) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_org_slug (slug),
+  INDEX idx_org_status (status),
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

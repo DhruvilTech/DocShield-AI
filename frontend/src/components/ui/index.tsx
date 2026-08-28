@@ -56,7 +56,35 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
 });
 Button.displayName = 'Button';
 
+/* ---- Input ---- */
+export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  error?: string;
+}
+
+export const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, error, ...props }, ref) => {
+    return (
+      <div className="w-full">
+        <input
+          ref={ref}
+          className={cn(
+            'w-full bg-[var(--surface-raised)] border border-[var(--border)] rounded-xl px-3.5 py-2.5 text-xs text-[var(--text-1)] placeholder-[var(--text-3)] font-mono transition-all duration-150',
+            'focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)]',
+            'disabled:opacity-50 disabled:cursor-not-allowed',
+            error && 'border-[var(--threat)] focus:border-[var(--threat)] focus:ring-[var(--threat)]',
+            className
+          )}
+          {...props}
+        />
+        {error && <p className="mt-1 text-[11px] text-[var(--threat)] font-mono">{error}</p>}
+      </div>
+    );
+  }
+);
+Input.displayName = 'Input';
+
 /* ---- Badge ---- */
+
 interface BadgeProps {
   children: React.ReactNode;
   variant?: 'safe' | 'warning' | 'threat' | 'info' | 'ai' | 'neutral' | 'accent';

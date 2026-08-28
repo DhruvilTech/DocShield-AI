@@ -5,19 +5,34 @@ import { Navbar } from './components/navigation/Navbar';
 import { CustomCursor } from './components/common/CustomCursor';
 import { SmoothScroll } from './components/layout/SmoothScroll';
 import { SceneProvider, useScene } from './context/SceneContext';
+import { AuthProvider } from './context/AuthContext';
+import { OrganizationProvider } from './context/OrganizationContext';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { useTheme } from './hooks/useTheme';
 import { variantFromPath } from './lib/scene';
 import { pageTransitionVariants } from './lib/animations';
 
-const HomePage         = lazy(() => import('./pages/Home'));
-const ScannerPage      = lazy(() => import('./pages/Scanner'));
+const HomePage = lazy(() => import('./pages/Home'));
+const ScannerPage = lazy(() => import('./pages/Scanner'));
 const IntelligencePage = lazy(() => import('./pages/Intelligence'));
-const AnalysisPage     = lazy(() => import('./pages/Analysis'));
-const ThreatsPage      = lazy(() => import('./pages/Threats'));
-const SecurityPage     = lazy(() => import('./pages/Security'));
-const VaultPage        = lazy(() => import('./pages/Vault'));
-const ReportsPage      = lazy(() => import('./pages/Reports'));
-const EnterprisePage   = lazy(() => import('./pages/Enterprise'));
+const AnalysisPage = lazy(() => import('./pages/Analysis'));
+const ThreatsPage = lazy(() => import('./pages/Threats'));
+const SecurityPage = lazy(() => import('./pages/Security'));
+const VaultPage = lazy(() => import('./pages/Vault'));
+const ReportsPage = lazy(() => import('./pages/Reports'));
+const EnterprisePage = lazy(() => import('./pages/Enterprise'));
+
+// Auth & Admin Pages
+const LoginPage = lazy(() => import('./pages/Auth/Login'));
+const RegisterPage = lazy(() => import('./pages/Auth/Register'));
+const ForgotPasswordPage = lazy(() => import('./pages/Auth/ForgotPassword'));
+const ResetPasswordPage = lazy(() => import('./pages/Auth/ResetPassword'));
+const VerifyEmailPage = lazy(() => import('./pages/Auth/VerifyEmail'));
+const AcceptInvitationPage = lazy(() => import('./pages/Auth/AcceptInvitation').then(m => ({ default: m.AcceptInvitationPage })));
+const ProfilePage = lazy(() => import('./pages/Profile'));
+const AdminUsersPage = lazy(() => import('./pages/Admin/Users'));
+const AuditTrailPage = lazy(() => import('./pages/Admin/AuditTrail'));
+const OrganizationManagementPage = lazy(() => import('./pages/Admin/Organization').then(m => ({ default: m.OrganizationManagementPage })));
 
 /* §9 lazy-load R3F so first paint is not blocked by WebGL */
 const SceneManager = lazy(() => import('./components/3d/SceneManager'));
@@ -70,16 +85,60 @@ const AppRoutes: React.FC<{ theme: 'dark' | 'light'; onToggle: () => void }> = (
         <Suspense fallback={<PageLoader />}>
           <AnimatePresence mode="wait">
             <Routes location={location} key={location.pathname}>
-              <Route path="/"             element={<PageWrapper><HomePage /></PageWrapper>} />
-              <Route path="/scanner"      element={<PageWrapper><ScannerPage /></PageWrapper>} />
+              {/* Public Core Routes */}
+              <Route path="/" element={<PageWrapper><HomePage /></PageWrapper>} />
+              <Route path="/scanner" element={<PageWrapper><ScannerPage /></PageWrapper>} />
               <Route path="/intelligence" element={<PageWrapper><IntelligencePage /></PageWrapper>} />
-              <Route path="/analysis"     element={<PageWrapper><AnalysisPage /></PageWrapper>} />
-              <Route path="/threats"      element={<PageWrapper><ThreatsPage /></PageWrapper>} />
-              <Route path="/security"     element={<PageWrapper><SecurityPage /></PageWrapper>} />
-              <Route path="/vault"        element={<PageWrapper><VaultPage /></PageWrapper>} />
-              <Route path="/reports"      element={<PageWrapper><ReportsPage /></PageWrapper>} />
-              <Route path="/enterprise"   element={<PageWrapper><EnterprisePage /></PageWrapper>} />
-              <Route path="*"             element={<PageWrapper><HomePage /></PageWrapper>} />
+              <Route path="/analysis" element={<PageWrapper><AnalysisPage /></PageWrapper>} />
+              <Route path="/threats" element={<PageWrapper><ThreatsPage /></PageWrapper>} />
+              <Route path="/security" element={<PageWrapper><SecurityPage /></PageWrapper>} />
+              <Route path="/vault" element={<PageWrapper><VaultPage /></PageWrapper>} />
+              <Route path="/reports" element={<PageWrapper><ReportsPage /></PageWrapper>} />
+              <Route path="/enterprise" element={<PageWrapper><EnterprisePage /></PageWrapper>} />
+
+              {/* Authentication & Invitation Routes */}
+              <Route path="/login" element={<PageWrapper><LoginPage /></PageWrapper>} />
+              <Route path="/register" element={<PageWrapper><RegisterPage /></PageWrapper>} />
+              <Route path="/forgot-password" element={<PageWrapper><ForgotPasswordPage /></PageWrapper>} />
+              <Route path="/reset-password" element={<PageWrapper><ResetPasswordPage /></PageWrapper>} />
+              <Route path="/verify-email" element={<PageWrapper><VerifyEmailPage /></PageWrapper>} />
+              <Route path="/invitations/accept" element={<PageWrapper><AcceptInvitationPage /></PageWrapper>} />
+
+              {/* Protected User & Admin Routes */}
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <PageWrapper><ProfilePage /></PageWrapper>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/organization"
+                element={
+                  <ProtectedRoute>
+                    <PageWrapper><OrganizationManagementPage /></PageWrapper>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/users"
+                element={
+                  <ProtectedRoute requiredPermission="users:read">
+                    <PageWrapper><AdminUsersPage /></PageWrapper>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/audit-trail"
+                element={
+                  <ProtectedRoute requiredPermission="audit_logs:read">
+                    <PageWrapper><AuditTrailPage /></PageWrapper>
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route path="*" element={<PageWrapper><HomePage /></PageWrapper>} />
             </Routes>
           </AnimatePresence>
         </Suspense>
@@ -93,11 +152,15 @@ const App: React.FC = () => {
 
   return (
     <BrowserRouter>
-      <SceneProvider>
-        <SmoothScroll>
-          <AppRoutes theme={theme} onToggle={toggle} />
-        </SmoothScroll>
-      </SceneProvider>
+      <AuthProvider>
+        <OrganizationProvider>
+          <SceneProvider>
+            <SmoothScroll>
+              <AppRoutes theme={theme} onToggle={toggle} />
+            </SmoothScroll>
+          </SceneProvider>
+        </OrganizationProvider>
+      </AuthProvider>
     </BrowserRouter>
   );
 };
