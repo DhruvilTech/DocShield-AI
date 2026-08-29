@@ -129,16 +129,18 @@ def run_forensic_pipeline(
     # 5. Fusion & Localization (Placeholders & Aggregations)
     fusion_res = fuse_signals(signals)
     
-    # Combine localized regions from active detectors (ELA, Noise, Copy-Move, and Stamp)
-    regions = []
-    if ela_sig.available and ela_sig.regions:
-        regions.extend(ela_sig.regions)
-    if noise_sig.available and noise_sig.regions:
-        regions.extend(noise_sig.regions)
-    if copymove_sig.available and copymove_sig.regions:
-        regions.extend(copymove_sig.regions)
-    if stamp_sig.available and stamp_sig.regions:
-        regions.extend(stamp_sig.regions)
+    # Run unified suspicious region localization (Phase 7)
+    regions = localize_suspicious_regions(
+        ela_regions=ela_sig.regions if (ela_sig and ela_sig.available) else [],
+        noise_regions=noise_sig.regions if (noise_sig and noise_sig.available) else [],
+        copy_move_regions=copymove_sig.regions if (copymove_sig and copymove_sig.available) else [],
+        stamp_regions=stamp_sig.regions if (stamp_sig and stamp_sig.available) else [],
+        overlap_threshold=0.3,
+        working_image_rgb=working_rgb,
+        coordinate_mapper=mapper,
+        save_debug=save_debug,
+        debug_dir=debug_dir
+    )
 
     # 6. Save Debug outputs if requested
     if save_debug:
