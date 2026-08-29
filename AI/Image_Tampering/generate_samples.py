@@ -97,6 +97,13 @@ def main():
     with open(os.path.join(tampered_dir, "invalid.txt"), "w") as f:
         f.write("Some simple text data.")
         
+    # 9. copy_move.jpg (1920x1080) - Tampered copy-move sample
+    img_clean_load = Image.open(os.path.join(clean_dir, "passport.jpg"))
+    img_copymove = img_clean_load.copy()
+    stamp_crop = img_clean_load.crop((1400, 650, 1700, 950))
+    img_copymove.paste(stamp_crop, (900, 150))
+    img_copymove.save(os.path.join(tampered_dir, "copy_move.jpg"), format="JPEG", quality=95)
+        
     print("Sample images generated successfully.")
 
 if __name__ == "__main__":

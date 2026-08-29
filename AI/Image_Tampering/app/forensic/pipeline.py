@@ -88,7 +88,12 @@ def run_forensic_pipeline(
         save_debug=save_debug,
         debug_dir=debug_dir
     )
-    copymove_sig = analyze_copy_move(working_rgb, original_rgb, mapper)
+    copymove_sig = analyze_copy_move(
+        working_image_rgb=working_rgb,
+        coordinate_mapper=mapper,
+        save_debug=save_debug,
+        debug_dir=debug_dir
+    )
     metadata_sig = analyze_metadata(image_bytes)
     
     # Stamp detector needs access to all representations
@@ -117,12 +122,14 @@ def run_forensic_pipeline(
     # 5. Fusion & Localization (Placeholders & Aggregations)
     fusion_res = fuse_signals(signals)
     
-    # Combine localized regions from active detectors (ELA and Noise in Phase 3)
+    # Combine localized regions from active detectors (ELA, Noise, and Copy-Move in Phase 4)
     regions = []
     if ela_sig.available and ela_sig.regions:
         regions.extend(ela_sig.regions)
     if noise_sig.available and noise_sig.regions:
         regions.extend(noise_sig.regions)
+    if copymove_sig.available and copymove_sig.regions:
+        regions.extend(copymove_sig.regions)
 
     # 6. Save Debug outputs if requested
     if save_debug:

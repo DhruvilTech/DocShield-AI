@@ -1,11 +1,11 @@
 # DocShield AI — Document Tampering Forensic Analysis Engine
 
-## Phase 3: Noise / Compression Forensic Analysis
+## Phase 4: Copy-Move Detection
 
 This directory houses the Python-based Document Tampering and Forensic Analysis module for the **DocShield AI** platform.
 
 > [!NOTE]
-> **Phase 3 Status:** ELA and Noise forensic engines are fully functional active detectors in the DocShield pipeline. All other signals (Copy-Move, Metadata, Stamp, Splicing) remain placeholder skeletons that return `None`/`available = False` in this phase.
+> **Phase 4 Status:** ELA, Noise, and Copy-Move forensic engines are fully functional active detectors in the DocShield pipeline. All other signals (Metadata, Stamp, Splicing) remain placeholder skeletons that return `None`/`available = False` in this phase.
 
 ---
 
@@ -26,8 +26,8 @@ AI/
     │   │   ├── representations.py      # Conversions (Grayscale, HSV, LAB, Noise Residual)
     │   │   ├── ela.py                  # [Active] ELA Forensic Engine
     │   │   ├── noise.py                # [Active] Noise Forensic Engine
+    │   │   ├── copy_move.py            # [Active] Copy-Move Forensic Engine
     │   │   │
-    │   │   ├── copy_move.py            # [Skeleton] Copy-Move Detector Placeholder
     │   │   ├── metadata.py             # [Skeleton] Metadata Forensics Placeholder
     │   │   ├── stamp.py                # [Skeleton] Stamp Tampering Placeholder
     │   │   ├── splicing.py             # [Skeleton] Splicing Detector Placeholder
@@ -41,7 +41,8 @@ AI/
     │   ├── test_preprocessing.py
     │   ├── test_quality.py
     │   ├── test_ela.py                 # [Phase 2] ELA test suite
-    │   └── test_noise.py               # [Phase 3] Noise test suite
+    │   ├── test_noise.py               # [Phase 3] Noise test suite
+    │   └── test_copy_move.py           # [Phase 4] Copy-Move test suite
     │
     ├── samples/                        # Mock clean and tampered document images
     │   ├── clean/
@@ -81,6 +82,8 @@ ELA forensic analysis    (JPEG recompression, error amplification, stats, score,
      ↓
 NOISE forensic analysis  (Local standard deviation, contextual comparison, anomaly map, and bounding boxes)
      ↓
+COPY-MOVE analysis       (SIFT extraction, k-NN self-filtering, RANSAC homography, source/target mapping)
+     ↓
 QUALITY METRIC CALC      (Computes mean brightness, contrast, sharpness via Laplacian variance, and blur status)
      ↓
 FORENSIC SIGNAL BUNDLING (Fills and returns the standard ForensicResult Pydantic schema)
@@ -93,7 +96,7 @@ When processing high-resolution scans, downscaling is necessary to remain CPU-fr
 $$scale_x = \frac{width_{working}}{width_{original}}$$
 $$scale_y = \frac{height_{working}}{height_{original}}$$
 
-This ensures that whenever ELA or Noise analysis locates suspicious regions in the working image, the bounding boxes can be mapped back to the original document coordinates with pixel accuracy.
+This ensures that whenever ELA, Noise, or Copy-Move analysis locates suspicious regions in the working image, the bounding boxes can be mapped back to the original document coordinates with pixel accuracy.
 
 ---
 
@@ -148,7 +151,7 @@ Noise Forensic Analysis identifies regions within a document whose high-frequenc
 To remain CPU-friendly and eliminate slow Python nested loops, the engine uses OpenCV's box filters to calculate local noise standard deviations inside a small window ($7 \times 7$ px) in-memory:
 1. Extract the high-frequency **Noise Residual** map $I$ (grayscale difference $I = |\text{Original} - \text{GaussianBlur}|$).
 2. Compute local mean $E[I]$ using `cv2.boxFilter(I, -1, (7, 7))`.
-3. Compute local mean of squares $E[I^2]$ using `cv2.boxFilter(I * I, -1, (7, 7))`.
+3. Compute local mean of squares $E[I^2]$ using `cv2.boxFilter(I * I, (7, 7))`.
 4. Calculate local variance $Var(I) = E[I^2] - (E[I])^2$ and extract standard deviation:
    $$\text{std\_small} = \sqrt{\text{clip}(Var(I), 0, \text{None})}$$
 
@@ -179,6 +182,45 @@ $$\text{score} = \max(\text{region\_score}) \quad (\text{or } 0.0 \text{ if no r
 
 ---
 
+## Phase 4: Copy-Move Duplicate Tampering Detection
+
+> [!WARNING]
+> **Forensic Limit:** Copy-move detection provides evidence of possible duplicated content and does not by itself prove document forgery. Documents naturally contain repeated visual patterns such as background security guillochés, repeated official letters, icons, stamps, and layout borders.
+
+### Objective
+Copy-Move Detection flags duplicate regions within a document, identifying cases where a signature, stamp, photo, or block of text was duplicated and pasted from one location of the document to another.
+
+### Feature Extraction (SIFT)
+The engine extracts local visual features using SIFT (Scale-Invariant Feature Transform) which is highly robust against minor rotations, scaling, and lighting changes:
+* **Feature Density Cap**: Capped at $1,000$ keypoints on the grayscale working image to keep matching CPU-friendly.
+* If fewer than $15$ keypoints are found, the document is considered too plain to run copy-move check, and returns a clean signal.
+
+### Self-Match Rejection
+Since the image is matched against itself, we perform Brute-Force $k$-NN matching ($k=3$). We filter candidates as follows:
+1. **Symmetry Check**: We check `queryIdx < trainIdx` to ensure each matched pair is processed only once.
+2. **Lowe's Ratio Test**: The 2nd nearest neighbor (closest other feature) must be significantly closer than the 3rd nearest neighbor:
+   $$\text{dist}_{2\text{nd}} < 0.7 \times \text{dist}_{3\text{rd}}$$
+3. **Spatial Separation**: Matched keypoints must be separated by a minimum distance of $5\%$ of the maximum image dimension:
+   $$\text{dist}_{spatial} \ge 0.05 \times \max(width, height)$$
+   This effectively prevents adjacent letters or layout borders from generating high false positives.
+
+### Iterative RANSAC Consistency
+To cluster matches and support multiple duplicate sections:
+1. We compute a homography transformation between query and train points.
+2. RANSAC filters out isolated mismatches. If a cluster contains at least $5$ inliers, it is registered as a copy-move region.
+3. Inliers are removed from the candidate set, and RANSAC is iteratively rerun on the remaining matches to find other duplicated areas.
+
+### Region Mapping (Source & Target)
+For each RANSAC cluster, we split the coordinates into two separate groups using the **anchor-distance split** method (points closer to the anchor match belong to the Source region, while points farther belong to the Target region). We compute bounding boxes with a $15$px padding and map coordinates to the original image dimensions using `CoordinateMapper`:
+* `x, y, width, height`: Source region bounding box.
+* `target_x, target_y, target_width, target_height`: Target region bounding box.
+
+### Copy-Move Score
+The document-wide **Copy-Move Anomaly Score** (ranging from $0.0$ to $1.0$) is calculated as:
+$$\text{score} = \text{clip}(0.02 \times \text{verified\_matches} + 0.1 \times \text{clusters}, 0.0, 1.0)$$
+
+---
+
 ## Installation & Setup
 
 Ensure Python 3.10+ is installed on your system. Run these commands from the `AI/Image_Tampering/` folder:
@@ -205,42 +247,33 @@ Ensure Python 3.10+ is installed on your system. Run these commands from the `AI
 
 ---
 
-## Running & Verifying Phase 3
+## Running & Verifying Phase 4
 
 ### 1. Generate Clean & Tampered Samples
-Generate test images featuring mixed-compression and local grain mismatches:
 ```bash
 python generate_samples.py
 ```
 This builds mock documents in `samples/`:
-* `samples/clean/passport.jpg`: Clean passport image.
-* `samples/tampered/passport_edited.jpg`: Edited passport containing a grainy noise patch pasted into the photo area (simulating photo replacement) and a bold blue forged seal (simulating stamp forgery).
+* `samples/clean/passport.jpg`: Clean passport.
+* `samples/tampered/copy_move.jpg`: Passport with the official red stamp duplicated at the top.
 
 ### 2. Run the CLI Test Runner
-Run the pipeline against the clean and edited images:
 ```bash
-# Analyze Clean Passport (should report low ELA/Noise scores and no false regions)
+# Analyze Clean Passport
 python test_pipeline.py samples/clean/passport.jpg
 
-# Analyze Tampered Passport (should flag Photo replacing and Forged Seal regions)
-python test_pipeline.py samples/tampered/passport_edited.jpg
+# Analyze Copy-Move Passport
+python test_pipeline.py samples/tampered/copy_move.jpg
 ```
 
-Observe that on `passport_edited.jpg`, ELA and Noise successfully localize:
-* The photo replace block: `Coords: x=192, y=240, w=211, h=222` with **HIGH** severity.
-* The forged seal: `Coords: x=790, y=689, w=184, h=182` with **MEDIUM** severity.
+Observe that on `copy_move.jpg`, Copy-Move successfully localizes the stamp duplication:
+* **Score**: `0.6800`
+* **Suspicious Regions**: 3 regions with coordinate mappings pointing to source and target stamp locations.
 
 ### 3. Check Visual Debug Outputs
-Verify anomaly maps in `outputs/debug/`:
-* `document_ela_heatmap.jpg` & `document_ela_map.png`
-* `document_noise_heatmap.jpg` & `document_noise_anomaly_map.png`
-
-### 4. Running the Web API
-To run the FastAPI server:
-```bash
-uvicorn app.main:app --reload
-```
-Test the `/analyze` endpoint using Swagger docs at `http://127.0.0.1:8000/docs`.
+Verify matches visualization in `outputs/debug/`:
+* `document_copy_move_matches.jpg`: Draws lines connecting matching keypoints between duplicated stamps.
+* `document_copy_move_map.png`: Shows binary masks of duplicated locations.
 
 ---
 
@@ -250,12 +283,4 @@ Run automated tests using pytest:
 ```bash
 python -m pytest tests/
 ```
-All **25 tests** must pass.
-
----
-
-## Known Noise Forensics Limitations
-
-1. **Digital Document Silence**: Pure digitally created documents have exactly $0$ noise. A single line or text stroke on such pages represents a $100\%$ noise anomaly relative to background "silence". We employ a noise floor ($\ge 4.0$) to counteract this.
-2. **Scanner & Camera Artifacts**: Uneven lighting, paper textures, or camera sensor noise (particularly in low-light environments) can create natural noise inconsistencies.
-3. **JPEG Compression Smoothing**: High JPEG compression rates (low quality) smooth out grain, which makes it harder for the noise residual analyzer to isolate discrepancies.
+All **30 tests** must pass.

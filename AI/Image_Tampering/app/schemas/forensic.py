@@ -30,6 +30,12 @@ class SuspiciousRegion(BaseModel):
     severity: str  # "LOW", "MEDIUM", "HIGH"
     source: str
     reason: str
+    
+    # Optional fields for copy-move mapping (source to target)
+    target_x: Optional[int] = None
+    target_y: Optional[int] = None
+    target_width: Optional[int] = None
+    target_height: Optional[int] = None
 
 class ForensicSignal(BaseModel):
     name: str
