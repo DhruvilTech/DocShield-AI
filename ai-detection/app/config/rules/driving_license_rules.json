@@ -1,0 +1,23 @@
+{
+  "required_fields": [
+    "license_number",
+    "name",
+    "date_of_birth",
+    "date_of_expiry"
+  ],
+  "patterns": {
+    "license_number": "^[A-Z]{2}[0-9]{2}(?:19|20)[0-9]{2}[0-9]{7}$",
+    "name":           "^[A-Z][A-Z ]{1,98}[A-Z]$",
+    "vehicle_class":  "^(?:LMV|MCWG|MCWOG|HPMV|HTV|HGV|MGV|LPV|LDRXCV|ADAPT|TR)(?:[,/](?:LMV|MCWG|MCWOG|HPMV|HTV|HGV|MGV|LPV|LDRXCV|ADAPT|TR))*$",
+    "rto_code":       "^[A-Z]{2}[0-9]{2}$",
+    "blood_group":    "^(?:A|B|AB|O)[+-]$"
+  },
+  "date_rules": {
+    "date_of_birth": {
+      "must_be_past": true
+    },
+    "date_of_expiry": {
+      "must_be_after_today": true
+    }
+  }
+}

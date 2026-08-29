@@ -1,0 +1,7 @@
+-r requirements.txt
+pytest==8.2.0
+pytest-asyncio==0.23.6
+httpx==0.27.0
+hypothesis==6.100.1
+ruff==0.4.4
+mypy==1.10.0

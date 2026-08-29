@@ -1,0 +1,18 @@
+{
+  "required_fields": [
+    "visa_number",
+    "visa_type",
+    "entry_validation",
+    "stay_duration"
+  ],
+  "patterns": {
+    "visa_number":      "^(?:[A-Z0-9]{8,12}|\\d{8})$",
+    "visa_type":        "^(?:tourist|business|student|employment|medical|conference|transit|journalist|project|research|entry|x-misc)$",
+    "entry_validation": "^(?:single|double|multiple)$",
+    "stay_duration":    "^(?:[1-9]|[1-9][0-9]{1,3})\\s*(?:day|days|month|months|year|years)$",
+    "port_of_issue":    "^[A-Z][A-Za-z .\\-]{2,49}$",
+    "eta_number":       "^[A-Z0-9]{8,12}$",
+    "application_id":   "^[A-Z][0-9]{3}[A-Z][0-9A-Z]{7,9}$"
+  },
+  "date_rules": {}
+}
