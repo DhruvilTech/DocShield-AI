@@ -67,9 +67,13 @@ describe('Phase 6: Biometric Face Verification & Liveness End-to-End Tests', () 
     const otherOrgData = await otherOrgRes.json();
     otherOrgId = otherOrgData.data.organization.id;
 
-    // 4. Upload a passport image using sample_faces/person_a_doc.jpg
-    const docPath = path.resolve(process.cwd(), '../sample_faces/person_a_doc.jpg');
-    const livePath = path.resolve(process.cwd(), '../sample_faces/person_a_live.jpg');
+    // 4. Upload a passport image using AI/sample_faces/person_a_doc.jpg
+    let docPath = path.resolve(process.cwd(), '../AI/sample_faces/person_a_doc.jpg');
+    let livePath = path.resolve(process.cwd(), '../AI/sample_faces/person_a_live.jpg');
+    if (!fs.existsSync(docPath)) {
+      docPath = path.resolve(process.cwd(), '../sample_faces/person_a_doc.jpg');
+      livePath = path.resolve(process.cwd(), '../sample_faces/person_a_live.jpg');
+    }
     
     let docBuffer = Buffer.from('%PDF-1.4 Mock passport');
     try {

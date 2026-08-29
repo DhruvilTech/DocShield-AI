@@ -9,6 +9,7 @@ import organizationRoutes from './organization.routes.js';
 import invitationRoutes from './invitation.routes.js';
 import documentRoutes from './document.routes.js';
 import watchlistRoutes from './watchlist.routes.js';
+import adminRoutes from './admin.routes.js';
 
 const router = Router();
 
@@ -22,5 +23,6 @@ router.use('/invitations', invitationRoutes);
 router.use('/documents', documentRoutes);
 router.use('/watchlists', watchlistRoutes);
 router.use('/watchlist', watchlistRoutes);
+router.use('/admin', adminRoutes);
 
 export default router;

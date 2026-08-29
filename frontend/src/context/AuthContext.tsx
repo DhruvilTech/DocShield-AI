@@ -9,6 +9,8 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isSuperAdmin: boolean;
+  isAdmin: boolean;
   roles: string[];
   permissions: string[];
   login: (credentials: { email: string; password: string }) => Promise<void>;
@@ -113,10 +115,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return required.every((p) => userPerms.has(p));
   };
 
+  const isSuperAdmin = Boolean(user?.roles?.includes('super_admin'));
+  const isAdmin = Boolean(user?.roles?.includes('super_admin') || user?.roles?.includes('admin'));
+
   const value: AuthContextType = {
     user,
     isAuthenticated: Boolean(user),
     isLoading,
+    isSuperAdmin,
+    isAdmin,
     roles: user?.roles || [],
     permissions: user?.permissions || [],
     login,

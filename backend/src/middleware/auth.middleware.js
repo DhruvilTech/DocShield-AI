@@ -87,6 +87,21 @@ export const requireRole = (...requiredRoles) => {
   };
 };
 
+export const requireSuperAdmin = (req, res, next) => {
+  if (!req.user) {
+    return next(AppError.unauthorized('Authentication required', 'AUTH_REQUIRED'));
+  }
+  if (!req.user.roles.includes('super_admin')) {
+    return next(
+      AppError.forbidden(
+        'Access restricted to Super Administrators only.',
+        'FORBIDDEN_SUPER_ADMIN_REQUIRED'
+      )
+    );
+  }
+  next();
+};
+
 export const optionalAuth = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
