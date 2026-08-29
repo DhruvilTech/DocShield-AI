@@ -1,11 +1,11 @@
 # DocShield AI — Document Tampering Forensic Analysis Engine
 
-## Phase 1: Forensic Image Processing Foundation
+## Phase 2: Error Level Analysis (ELA) Implementation
 
-This directory houses the Python-based Document Tampering and Forensic Analysis module for the **DocShield AI** platform. 
+This directory houses the Python-based Document Tampering and Forensic Analysis module for the **DocShield AI** platform.
 
-> [!WARNING]
-> **Phase 1 Limitation:** This foundation phase handles validation, preprocessing, scaling, color space extraction, and high-frequency noise residual generation. **It does not perform active tampering detection.** All future detection signal scores (ELA, noise, copy-move, metadata, stamps, splicing) will be returned as `null` with `available = false`.
+> [!NOTE]
+> **Phase 2 Status:** ELA is the first active forensic detector in the DocShield pipeline. All other signals (Noise, Copy-Move, Metadata, Stamp, Splicing) remain placeholder skeletons that return `None`/`available = False` in this phase.
 
 ---
 
@@ -20,33 +20,34 @@ AI/
     │   │
     │   ├── forensic/
     │   │   ├── __init__.py
-    │   │   ├── pipeline.py             # Orchestrates the image processing foundation
+    │   │   ├── pipeline.py             # Orchestrates the image processing pipeline
     │   │   ├── preprocessing.py        # Safe loading, EXIF correction, resizing, coordinate mapping
     │   │   ├── quality.py              # Quality calculations (brightness, contrast, sharpness, blur flag)
     │   │   ├── representations.py      # Conversions (Grayscale, HSV, LAB, Noise Residual)
+    │   │   ├── ela.py                  # [Active] ELA Forensic Engine
     │   │   │
-    │   │   ├── ela.py                  # [Future] ELA Analysis Placeholder
-    │   │   ├── noise.py                # [Future] Noise Inconsistency Placeholder
-    │   │   ├── copy_move.py            # [Future] Copy-Move Detector Placeholder
-    │   │   ├── metadata.py             # [Future] Metadata Forensics Placeholder
-    │   │   ├── stamp.py                # [Future] Stamp Tampering Placeholder
-    │   │   ├── splicing.py             # [Future] Splicing Detector Placeholder
-    │   │   └── fusion.py               # [Future] AI/ML Signal Fusion Placeholder
+    │   │   ├── noise.py                # [Skeleton] Noise Inconsistency Placeholder
+    │   │   ├── copy_move.py            # [Skeleton] Copy-Move Detector Placeholder
+    │   │   ├── metadata.py             # [Skeleton] Metadata Forensics Placeholder
+    │   │   ├── stamp.py                # [Skeleton] Stamp Tampering Placeholder
+    │   │   ├── splicing.py             # [Skeleton] Splicing Detector Placeholder
+    │   │   └── fusion.py               # [Skeleton] AI/ML Signal Fusion Placeholder
     │   │
     │   └── schemas/
     │       ├── __init__.py
     │       └── forensic.py             # Pydantic schemas validating API payloads
     │
-    ├── tests/                          # Suite of automated pytest scripts
+    ├── tests/                          # Automated unit tests (pytest)
     │   ├── test_preprocessing.py
-    │   └── test_quality.py
+    │   ├── test_quality.py
+    │   └── test_ela.py                 # [Phase 2] ELA test suite
     │
     ├── samples/                        # Mock clean and tampered document images
     │   ├── clean/
     │   └── tampered/
     │
     ├── outputs/
-    │   └── debug/                      # Generated visual debug images
+    │   └── debug/                      # Generated visual debug images (Heatmap, maps)
     │
     ├── test_pipeline.py                # CLI test runner script
     ├── generate_samples.py             # Helper to build mock passport and documents
@@ -75,6 +76,8 @@ COLOR REPRESENTATIONS    (Extracts RGB, Grayscale, HSV, and LAB representations)
      ↓
 NOISE RESIDUAL MAP       (Computes high-frequency details: Original Grayscale - Gaussian Blur)
      ↓
+ELA forensic analysis    (JPEG recompression, error amplification, stats, score, and bounding boxes)
+     ↓
 QUALITY METRIC CALC      (Computes mean brightness, contrast, sharpness via Laplacian variance, and blur status)
      ↓
 FORENSIC SIGNAL BUNDLING (Fills and returns the standard ForensicResult Pydantic schema)
@@ -82,12 +85,51 @@ FORENSIC SIGNAL BUNDLING (Fills and returns the standard ForensicResult Pydantic
 
 ### Coordinate Mapping
 
-When processing high-resolution scans on CPU-friendly dev servers, downscaling is necessary. The `CoordinateMapper` class tracks the exact spatial mapping:
+When processing high-resolution scans, downscaling is necessary to remain CPU-friendly. The `CoordinateMapper` class tracks the exact spatial mapping:
 
 $$scale_x = \frac{width_{working}}{width_{original}}$$
 $$scale_y = \frac{height_{working}}{height_{original}}$$
 
-This ensures that whenever future modules locate suspicious regions in the working image, the bounding boxes can be mapped back to the original document coordinates with pixel accuracy.
+This ensures that whenever ELA locates suspicious regions in the working image, the bounding boxes can be mapped back to the original document coordinates with pixel accuracy.
+
+---
+
+## Phase 2: Error Level Analysis (ELA) Engine
+
+### What is ELA?
+Error Level Analysis (ELA) identifies compression inconsistencies within a digital document by comparing the original image with its recompressed counterpart. Since digital modifications (pasting, cloning, overlays, text insertions) alter the local frequency layout, edited regions compress differently than un-edited regions.
+
+### Recompression Process
+1. The normalized working RGB image is compressed entirely in-memory using OpenCV's JPEG encoder at a specified quality level (default $95$).
+2. The JPEG stream is decompressed back to an RGB image array.
+3. The absolute pixel difference is calculated:
+   $$diff = |OriginalRGB - RecompressedRGB|$$
+
+### Difference Amplification
+Because raw JPEG differences are extremely minute, the absolute difference is converted to a single-channel grayscale map and amplified by a factor of $20$, generating a **Raw ELA Map** (`ela_gray`):
+$$\text{ela\_gray} = \text{clip}(diff_{gray} \times 20, 0, 255)$$
+
+### Anomaly Score Formula
+The **ELA Anomaly Score** (ranging from $0.0$ to $1.0$) is a deterministic representation of compression inconsistency:
+
+$$\text{score} = 0.4 \times \left(\frac{\text{mean\_error}}{8.0}\right) + 0.4 \times \left(\frac{\text{std\_error}}{6.0}\right) + 0.2 \times \left(\frac{\text{high\_error\_ratio}}{0.10}\right)$$
+
+*Where:*
+* **$\text{mean\_error}$**: The average pixel difference in the grayscale absolute error map.
+* **$\text{std\_error}$**: The standard deviation of the grayscale absolute error map.
+* **$\text{high\_error\_ratio}$**: The proportion of pixels where the raw error is $> 10$ out of $255$.
+* The score is capped at $1.0$.
+
+### Suspicious Region Localization
+1. **Thresholding**: The amplified ELA map is binarized at a threshold of $40$.
+2. **Morphological Cleanup**: A morphological `CLOSE` followed by `OPEN` using a $5 \times 5$ rectangular kernel merges adjacent high-error pixels and filters out stray single-pixel compression noise.
+3. **Contour Extraction**: Connected components are isolated using OpenCV's `findContours`.
+4. **Dimension Filtering**: Bounding boxes with a width or height $< 15$ pixels are discarded.
+5. **Severity Evaluation**: Each bounding box is assigned a severity based on the average amplified ELA error inside the box:
+   * **$\text{HIGH}$**: Mean region error $> 100$
+   * **$\text{MEDIUM}$**: Mean region error $> 50$
+   * **$\text{LOW}$**: Mean region error $\le 50$
+6. **Coordinate Restoration**: Box coordinates are mapped back to the original image dimensions using `CoordinateMapper.box_to_original`.
 
 ---
 
@@ -101,11 +143,11 @@ Ensure Python 3.10+ is installed on your system. Run these commands from the `AI
    ```
 
 2. **Activate the Environment**:
-   - **Windows (PowerShell)**:
+   * **Windows (PowerShell)**:
      ```powershell
      .\venv\Scripts\Activate.ps1
      ```
-   - **macOS/Linux**:
+   * **macOS/Linux**:
      ```bash
      source venv/bin/activate
      ```
@@ -117,108 +159,56 @@ Ensure Python 3.10+ is installed on your system. Run these commands from the `AI
 
 ---
 
-## Running Phase 1
+## Running & Verifying Phase 2
 
-### 1. Generate Mock Images
-To run pipeline tests, you can generate mock passport and certificate documents by running:
+### 1. Generate Clean & Edited Test Images
+To verify that ELA responds to modifications, generate test images by running:
 ```bash
 python generate_samples.py
 ```
-This generates mock documents under `samples/clean/` and `samples/tampered/`.
+This builds mock documents in `samples/`:
+* `samples/clean/passport.jpg`: A clean passport image saved uniformly at JPEG quality 95.
+* `samples/tampered/passport_edited.jpg`: An edited passport containing a base quality of 70, overwritten with a solid gray photo overlay and a bold blue forged seal, and saved at quality 95.
 
 ### 2. Run the CLI Test Runner
-Execute the test runner script against any document image:
+Run the pipeline against the clean and edited images:
 ```bash
+# Analyze Clean Passport
 python test_pipeline.py samples/clean/passport.jpg
+
+# Analyze Edited Passport
+python test_pipeline.py samples/tampered/passport_edited.jpg
 ```
 
-**Example Output**:
-```
-========================================
-DOCSHIELD AI — PHASE 1 TEST
-========================================
-Input:
-samples/clean/passport.jpg
-
-Image:
-  Width: 1920
-  Height: 1080
-  Channels: 3
-  Format: JPEG
-
-Working Image:
-  Width: 1600
-  Height: 900
-
-Quality:
-  Brightness: 233.9
-  Contrast: 34.0
-  Sharpness: 413.7
-  Blur Detected: False
-
-Representations:
-  Grayscale: ✓
-  HSV: ✓
-  LAB: ✓
-  Noise Residual: ✓
-
-Forensic Signals:
-  ELA: Not implemented
-  Noise: Not implemented
-  Copy-Move: Not implemented
-  Metadata: Not implemented
-  Stamp: Not implemented
-  Splicing: Not implemented
-
-Fusion:
-  Score: Not available
-  Risk Level: Not available
-
-Debug files:
-  outputs/debug/document_processed.jpg
-  outputs/debug/document_gray.jpg
-  outputs/debug/document_noise_residual.jpg
-
-========================================
-PHASE 1 TEST PASSED
-========================================
-```
+Observe that on `passport_edited.jpg`, ELA successfully localizes the forged seal at:
+`Coords: x=797, y=692, w=172, h=172` (corresponds to the seal drawn at $x=800, y=700$ with $160 \times 160$ dimensions in the original image).
 
 ### 3. Check Visual Debug Outputs
-Open the `outputs/debug/` folder to manually verify output results:
-- `document_processed.jpg`: The resolution-normalized image (max 1600px).
-- `document_gray.jpg`: The grayscale conversion.
-- `document_noise_residual.jpg`: Visualizes high-frequency noise deviations.
+Verify ELA maps in `outputs/debug/`:
+* `document_ela_heatmap.jpg`: false-color ELA visual representation using a Jet colormap.
+* `document_ela_map.png`: Raw amplified grayscale error map.
 
 ### 4. Running the Web API
-To start the FastAPI web server for API-based interaction:
+To run the FastAPI server:
 ```bash
 uvicorn app.main:app --reload
 ```
-Once started, you can access the Swagger documentation at `http://127.0.0.1:8000/docs` to test `/analyze` and `/health` endpoints.
+Test the `/analyze` endpoint using Swagger docs at `http://127.0.0.1:8000/docs`.
 
 ---
 
 ## Automated Tests
 
-To run the automated verification test suite:
+Run automated tests using pytest:
 ```bash
 python -m pytest tests/
 ```
-
-All 13 tests covering loaders, resizing, coordinate translation, quality metrics, and formats must pass.
+All **19 tests** must pass.
 
 ---
 
-## Integration Plan for Future Modules
+## Known ELA Limitations
 
-The Phase 1 architecture is engineered to easily receive future detection modules without modifying core loading logic:
-
-### 1. ELA (Error Level Analysis)
-* **Integration**: In `app/forensic/ela.py`, we will save the working image at a specific JPEG quality (e.g. 95%), reload it, compute the absolute difference between it and the working image, and scale the differences to isolate compression artifacts. Bounding boxes of highly mismatched compression rate regions will be mapped via `CoordinateMapper` and returned in `SuspiciousRegion` formats.
-
-### 2. Stamp Analysis
-* **Integration**: In `app/forensic/stamp.py`, the stamp analyzer is already designed to receive the color representations (HSV, LAB), grayscale, and noise residual maps. It will run color thresholding (to isolate red/blue/purple stamp inks), detect circular or rectangular geometries via OpenCV Hough transforms, and evaluate textural/edge consistency within identified boundaries.
-
-### 3. AI/ML Signal Fusion
-* **Integration**: In `app/forensic/fusion.py`, once individual detector engines return normalized scores from $0.0$ (no tampered evidence) to $1.0$ (high tampered evidence), the fusion module will weight individual scores (e.g., ELA weight=0.3, Copy-Move weight=0.4, Stamp weight=0.3) or evaluate them using a lightweight Scikit-Learn Logistic Regression classifier to yield a combined threat score, confidence value, and threat risk level (`LOW`, `MEDIUM`, `HIGH`).
+1. **False Positives**: Sharp, high-contrast boundaries (like black text on white backgrounds or stamp borders) naturally produce higher reconstruction errors. These are normal JPEG compression artifacts and do not indicate tampering.
+2. **False Negatives**: If a document is edited digitally and then resaved multiple times at low qualities, the error level becomes uniform, masking the editing history.
+3. **Single-Feature Reliance**: ELA is not a definitive proof of forgery. It is only one indicator and must be combined with noise analysis, metadata checks, and stamp inspection to form a comprehensive forensic verdict.

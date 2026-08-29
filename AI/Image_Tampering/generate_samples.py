@@ -12,8 +12,20 @@ def main():
     draw = ImageDraw.Draw(img)
     # Draw passport border
     draw.rectangle([50, 50, 1870, 1030], outline=(40, 60, 100), width=10)
-    # Draw photo placeholder
-    draw.rectangle([100, 150, 500, 650], fill=(200, 200, 200), outline=(0, 0, 0), width=3)
+    # Draw photo placeholder with a mathematical gradient texture (simulating a real photo)
+    import numpy as np
+    photo_w, photo_h = 400, 500
+    photo_arr = np.zeros((photo_h, photo_w, 3), dtype=np.uint8)
+    for y in range(photo_h):
+        for x in range(photo_w):
+            photo_arr[y, x, 0] = int(x * 255 / photo_w)
+            photo_arr[y, x, 1] = int(y * 255 / photo_h)
+            photo_arr[y, x, 2] = int(128 + np.sin(x/10.0)*64 + np.cos(y/10.0)*64)
+    photo_img = Image.fromarray(photo_arr)
+    img.paste(photo_img, (100, 150))
+    # Draw a thin black border around the photo
+    draw.rectangle([100, 150, 500, 650], outline=(0, 0, 0), width=3)
+    
     # Draw some text lines
     draw.text((600, 150), "REPUBLIC OF DOCSHIELD")
     draw.text((600, 220), "PASSPORT")
@@ -23,7 +35,28 @@ def main():
     draw.text((600, 470), "Passport No: DS12345678")
     # Draw stamp placeholder
     draw.ellipse([1400, 650, 1700, 950], outline=(220, 50, 50), width=5)
-    img.save(os.path.join(clean_dir, "passport.jpg"), format="JPEG")
+    img.save(os.path.join(clean_dir, "passport.jpg"), format="JPEG", quality=95)
+    
+    # 1b. passport_edited.jpg (1920x1080) - A deliberately edited passport to test ELA anomalies
+    # First, compress the clean image at a lower quality (70) in-memory to establish a base compression history
+    import io
+    temp_buf = io.BytesIO()
+    img.save(temp_buf, format="JPEG", quality=70)
+    temp_buf.seek(0)
+    img_base = Image.open(temp_buf)
+    
+    img_edited = img_base.copy()
+    draw_edited = ImageDraw.Draw(img_edited)
+    # Erase the original passport number by drawing a rectangle block with background color
+    draw_edited.rectangle([600, 460, 900, 490], fill=(245, 245, 240))
+    # Overwrite with a forged passport number
+    draw_edited.text((600, 470), "Passport No: DS99999999")
+    # Draw a solid gray block inside the photo to simulate photo replacement / overlay tampering
+    draw_edited.rectangle([200, 250, 400, 450], fill=(100, 100, 100))
+    # Add a bold forged stamp/seal in the middle of the document to test ELA anomaly detection
+    draw_edited.ellipse([800, 700, 960, 860], outline=(0, 0, 200), width=10)
+    # Save the final tampered image at a higher quality (95)
+    img_edited.save(os.path.join(tampered_dir, "passport_edited.jpg"), format="JPEG", quality=95)
     
     # 2. document.png (800x600)
     img_png = Image.new("RGB", (800, 600), color=(255, 255, 255))

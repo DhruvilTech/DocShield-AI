@@ -38,6 +38,12 @@ class ForensicSignal(BaseModel):
     regions: List[SuspiciousRegion] = []
     evidence: List[Dict[str, Any]] = []
     available: bool = False
+    
+    # ELA and engine-specific metadata
+    statistics: Optional[Dict[str, float]] = None
+    quality: Optional[int] = None
+    heatmap_path: Optional[str] = None
+    map_path: Optional[str] = None
 
 class Signals(BaseModel):
     ela: Optional[ForensicSignal] = None

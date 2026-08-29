@@ -73,8 +73,14 @@ def run_forensic_pipeline(
     # 3. Quality Analysis (Laplacian Variance, brightness, contrast)
     quality_data = calculate_quality_metrics(grayscale)
 
-    # 4. Generate Future Forensic Signals (Placeholders return score=None, available=False)
-    ela_sig = analyze_ela(working_rgb, original_rgb, mapper)
+    # 4. Generate Forensic Signals (ELA active in Phase 2, others remain skeletons)
+    ela_sig = analyze_ela(
+        working_image_rgb=working_rgb,
+        quality=95,
+        coordinate_mapper=mapper,
+        save_debug=save_debug,
+        debug_dir=debug_dir
+    )
     noise_sig = analyze_noise(working_rgb, original_rgb, mapper)
     copymove_sig = analyze_copy_move(working_rgb, original_rgb, mapper)
     metadata_sig = analyze_metadata(image_bytes)
@@ -102,9 +108,13 @@ def run_forensic_pipeline(
         splicing=splicing_sig
     )
 
-    # 5. Fusion & Localization (Placeholders)
+    # 5. Fusion & Localization (Placeholders & Aggregations)
     fusion_res = fuse_signals(signals)
-    regions = localize_suspicious_regions(working_rgb)
+    
+    # Combine localized regions from active detectors (ELA in Phase 2)
+    regions = []
+    if ela_sig.available and ela_sig.regions:
+        regions.extend(ela_sig.regions)
 
     # 6. Save Debug outputs if requested
     if save_debug:

@@ -62,7 +62,27 @@ def main():
         def format_signal(sig_obj):
             if sig_obj is None or not sig_obj.available:
                 return "Not implemented"
-            return f"Available (Score: {sig_obj.score})"
+            
+            output = f"Available\n"
+            output += f"    Anomaly Score: {sig_obj.score:.4f}\n"
+            if sig_obj.statistics:
+                output += "    Statistics:\n"
+                for k, v in sig_obj.statistics.items():
+                    output += f"      {k}: {v:.4f}\n"
+            if sig_obj.regions:
+                output += f"    Suspicious Regions ({len(sig_obj.regions)}):\n"
+                for idx, r in enumerate(sig_obj.regions[:5]):  # Show up to 5 regions
+                    output += f"      [{idx+1}] Coords: x={r.x}, y={r.y}, w={r.width}, h={r.height} | Score: {r.score:.3f} | Severity: {r.severity}\n"
+                    output += f"          Reason: {r.reason}\n"
+                if len(sig_obj.regions) > 5:
+                    output += f"      ... and {len(sig_obj.regions) - 5} more regions.\n"
+            else:
+                output += "    Suspicious Regions: None detected\n"
+            if sig_obj.heatmap_path:
+                output += f"    Heatmap Path: {sig_obj.heatmap_path}\n"
+            if sig_obj.map_path:
+                output += f"    Raw Map Path: {sig_obj.map_path}"
+            return output
 
         print(f"  ELA: {format_signal(result.signals.ela)}")
         print(f"  Noise: {format_signal(result.signals.noise)}")
