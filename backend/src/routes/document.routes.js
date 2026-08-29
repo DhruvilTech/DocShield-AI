@@ -4,6 +4,10 @@ import multer from 'multer';
 import * as docController from '../controllers/document.controller.js';
 import * as processingController from '../controllers/processing.controller.js';
 import * as analysisController from '../controllers/analysis.controller.js';
+import { tamperingController } from '../controllers/tampering.controller.js';
+import { faceVerificationController } from '../controllers/faceVerification.controller.js';
+import { riskController } from '../controllers/risk.controller.js';
+import { screeningController } from '../controllers/screening.controller.js';
 import { requireAuth } from '../middleware/auth.middleware.js';
 import { resolveOrganization, requireOrgPermission } from '../middleware/organization.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
@@ -11,6 +15,10 @@ import { uploadLimiter } from '../middleware/rateLimiter.middleware.js';
 import { uploadDocumentSchema, updateDocumentSchema } from '../validators/document.validator.js';
 import { triggerProcessingSchema } from '../validators/processing.validator.js';
 import { runAnalysisSchema } from '../validators/analysis.validator.js';
+import { runTamperingSchema } from '../validators/tampering.validator.js';
+import { faceVerificationSchema } from '../validators/faceVerification.validator.js';
+import { calculateRiskSchema } from '../validators/risk.validator.js';
+import { runScreeningSchema } from '../validators/screening.validator.js';
 import { SYSTEM_PERMISSIONS, UPLOAD_LIMITS } from '../config/constants.js';
 
 const upload = multer({
@@ -179,6 +187,82 @@ router.get(
   resolveOrganization,
   requireOrgPermission(SYSTEM_PERMISSIONS.ANALYSIS_READ),
   analysisController.getRiskIndicators
+);
+
+// Phase 7: Run Tampering Forensics Analysis
+router.post(
+  '/:id/tampering/analyze',
+  requireAuth,
+  resolveOrganization,
+  requireOrgPermission(SYSTEM_PERMISSIONS.TAMPERING_RUN),
+  validate(runTamperingSchema),
+  tamperingController.runTamperingAnalysis
+);
+
+// Phase 7: Get Tampering Forensics Analysis
+router.get(
+  '/:id/tampering',
+  requireAuth,
+  resolveOrganization,
+  requireOrgPermission(SYSTEM_PERMISSIONS.TAMPERING_READ),
+  tamperingController.getTamperingAnalysis
+);
+
+// Phase 7: Run Face Verification
+router.post(
+  '/:id/face-verification',
+  requireAuth,
+  resolveOrganization,
+  requireOrgPermission(SYSTEM_PERMISSIONS.FACE_VERIFICATION_RUN),
+  validate(faceVerificationSchema),
+  faceVerificationController.runFaceVerification
+);
+
+// Phase 7: Get Face Verification
+router.get(
+  '/:id/face-verification',
+  requireAuth,
+  resolveOrganization,
+  requireOrgPermission(SYSTEM_PERMISSIONS.FACE_VERIFICATION_READ),
+  faceVerificationController.getFaceVerification
+);
+
+// Phase 8: Calculate Risk Score
+router.post(
+  '/:id/risk/calculate',
+  requireAuth,
+  resolveOrganization,
+  requireOrgPermission(SYSTEM_PERMISSIONS.RISK_RUN),
+  validate(calculateRiskSchema),
+  riskController.calculateRisk
+);
+
+// Phase 8: Get Risk Score
+router.get(
+  '/:id/risk',
+  requireAuth,
+  resolveOrganization,
+  requireOrgPermission(SYSTEM_PERMISSIONS.RISK_READ),
+  riskController.getRiskScore
+);
+
+// Phase 8: Run Unified Document Screening Intelligence
+router.post(
+  '/:id/screening/run',
+  requireAuth,
+  resolveOrganization,
+  requireOrgPermission(SYSTEM_PERMISSIONS.SCREENING_RUN),
+  validate(runScreeningSchema),
+  screeningController.runScreening
+);
+
+// Phase 8: Get Unified Document Screening Intelligence
+router.get(
+  '/:id/screening',
+  requireAuth,
+  resolveOrganization,
+  requireOrgPermission(SYSTEM_PERMISSIONS.SCREENING_READ),
+  screeningController.getScreening
 );
 
 export default router;

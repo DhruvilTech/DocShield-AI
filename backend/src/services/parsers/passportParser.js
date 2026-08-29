@@ -3,6 +3,28 @@ import { TextNormalizer } from '../extractors/normalizer.js';
 
 export class PassportParser {
   /**
+   * Compute standard ICAO Doc 9303 7-3-1 check digit
+   */
+  static computeIcaoCheckDigit(str) {
+    if (!str) return 0;
+    const weights = [7, 3, 1];
+    let sum = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charAt(i).toUpperCase();
+      let val = 0;
+      if (char >= '0' && char <= '9') {
+        val = parseInt(char, 10);
+      } else if (char >= 'A' && char <= 'Z') {
+        val = char.charCodeAt(0) - 55;
+      } else if (char === '<') {
+        val = 0;
+      }
+      sum += val * weights[i % 3];
+    }
+    return sum % 10;
+  }
+
+  /**
    * Parse structured passport fields from text or OCR stream
    */
   static parse(text) {
@@ -15,6 +37,17 @@ export class PassportParser {
       gender: { value: null, confidence: 0 },
       issuingCountry: { value: null, confidence: 0 },
       mrzLines: { value: [], confidence: 0 },
+      mrzValidation: {
+        value: {
+          isValid: false,
+          docNumberCheck: null,
+          dobCheck: null,
+          expiryCheck: null,
+          compositeCheck: null,
+          errors: [],
+        },
+        confidence: 0,
+      },
     };
 
     if (!text) return fields;
@@ -48,17 +81,48 @@ export class PassportParser {
 
       // Line 2: 1234567897USA7001014M2501014<<<<<<<<<<<<<<6
       if (line2.length >= 28) {
-        const passNum = line2.substring(0, 9).replace(/</g, '');
+        const rawPassNum = line2.substring(0, 9);
+        const passNum = rawPassNum.replace(/</g, '');
+        const passNumCheckDigit = line2.charAt(9);
         const nationality = line2.substring(10, 13).replace(/</g, '');
         const dob = line2.substring(13, 19);
+        const dobCheckDigit = line2.charAt(19);
         const gender = line2.charAt(20);
         const expiry = line2.substring(21, 27);
+        const expiryCheckDigit = line2.charAt(27);
 
         if (passNum) fields.passportNumber = { value: passNum, confidence: 0.96 };
         if (nationality) fields.nationality = { value: nationality, confidence: 0.95 };
         if (dob) fields.dateOfBirth = { value: TextNormalizer.standardizeDate(dob), confidence: 0.94 };
         if (['M', 'F', 'X'].includes(gender)) fields.gender = { value: gender, confidence: 0.97 };
         if (expiry) fields.dateOfExpiry = { value: TextNormalizer.standardizeDate(expiry), confidence: 0.94 };
+
+        // ICAO 9303 Checksum Validations
+        const calcPassCheck = PassportParser.computeIcaoCheckDigit(rawPassNum);
+        const calcDobCheck = PassportParser.computeIcaoCheckDigit(dob);
+        const calcExpiryCheck = PassportParser.computeIcaoCheckDigit(expiry);
+
+        const isPassCheckValid = !passNumCheckDigit || passNumCheckDigit === '<' || parseInt(passNumCheckDigit, 10) === calcPassCheck;
+        const isDobCheckValid = !dobCheckDigit || dobCheckDigit === '<' || parseInt(dobCheckDigit, 10) === calcDobCheck;
+        const isExpiryCheckValid = !expiryCheckDigit || expiryCheckDigit === '<' || parseInt(expiryCheckDigit, 10) === calcExpiryCheck;
+
+        const mrzErrors = [];
+        if (!isPassCheckValid) mrzErrors.push(`Document number check digit mismatch (expected ${calcPassCheck}, found ${passNumCheckDigit})`);
+        if (!isDobCheckValid) mrzErrors.push(`Date of birth check digit mismatch (expected ${calcDobCheck}, found ${dobCheckDigit})`);
+        if (!isExpiryCheckValid) mrzErrors.push(`Expiry date check digit mismatch (expected ${calcExpiryCheck}, found ${expiryCheckDigit})`);
+
+        const isOverallMrzValid = isPassCheckValid && isDobCheckValid && isExpiryCheckValid;
+
+        fields.mrzValidation = {
+          value: {
+            isValid: isOverallMrzValid,
+            docNumberCheck: { expected: calcPassCheck, actual: passNumCheckDigit, valid: isPassCheckValid },
+            dobCheck: { expected: calcDobCheck, actual: dobCheckDigit, valid: isDobCheckValid },
+            expiryCheck: { expected: calcExpiryCheck, actual: expiryCheckDigit, valid: isExpiryCheckValid },
+            errors: mrzErrors,
+          },
+          confidence: isOverallMrzValid ? 0.98 : 0.65,
+        };
       }
     }
 

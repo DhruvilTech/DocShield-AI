@@ -5,6 +5,7 @@ import { TextNormalizer } from './normalizer.js';
 import { PassportParser } from '../parsers/passportParser.js';
 import { VisaParser } from '../parsers/visaParser.js';
 import { NationalIdParser } from '../parsers/nationalIdParser.js';
+import { PermitParser } from '../parsers/permitParser.js';
 import { DOCUMENT_TYPES } from '../../config/constants.js';
 
 export class DocumentExtractor {
@@ -47,20 +48,25 @@ export class DocumentExtractor {
       extractedFields = PassportParser.parse(normalizedText || extractionResult.rawText);
     } else if (documentType === DOCUMENT_TYPES.VISA || /visa/i.test(originalFilename)) {
       extractedFields = VisaParser.parse(normalizedText || extractionResult.rawText);
+    } else if (documentType === DOCUMENT_TYPES.PERMIT || /permit|transit|clearance/i.test(originalFilename)) {
+      extractedFields = PermitParser.parse(normalizedText || extractionResult.rawText);
     } else if (
-      [DOCUMENT_TYPES.NATIONAL_ID, DOCUMENT_TYPES.DRIVING_LICENSE, DOCUMENT_TYPES.PERMIT].includes(documentType) ||
+      [DOCUMENT_TYPES.NATIONAL_ID, DOCUMENT_TYPES.DRIVING_LICENSE].includes(documentType) ||
       /license|id_card|national/i.test(originalFilename)
     ) {
       extractedFields = NationalIdParser.parse(normalizedText || extractionResult.rawText);
     } else {
-      // General attempt: try passport, visa, and ID parsers to see if any match
+      // General attempt: try passport, visa, permit, and ID parsers to see if any match
       const passportAttempt = PassportParser.parse(normalizedText);
       const visaAttempt = VisaParser.parse(normalizedText);
+      const permitAttempt = PermitParser.parse(normalizedText);
 
       if (passportAttempt.passportNumber.value || passportAttempt.mrzLines.value.length > 0) {
         extractedFields = passportAttempt;
       } else if (visaAttempt.visaNumber.value || visaAttempt.visaType.value) {
         extractedFields = visaAttempt;
+      } else if (permitAttempt.permitNumber.value || permitAttempt.permitType.value) {
+        extractedFields = permitAttempt;
       } else {
         extractedFields = passportAttempt;
       }

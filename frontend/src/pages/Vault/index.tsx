@@ -7,6 +7,10 @@ import { useOrganization } from '../../context/OrganizationContext';
 import { documentApi, DocumentListParams } from '../../lib/api/document.api';
 import { processingApi } from '../../lib/api/processing.api';
 import { analysisApi } from '../../lib/api/analysis.api';
+import { tamperingApi } from '../../lib/api/tampering.api';
+import { faceVerificationApi } from '../../lib/api/faceVerification.api';
+import { riskApi } from '../../lib/api/risk.api';
+import { screeningApi } from '../../lib/api/screening.api';
 import {
   VaultDocument,
   DocumentVersion,
@@ -16,6 +20,10 @@ import {
   AnalysisFinding,
   RiskIndicator,
   ProcessingStatus,
+  TamperingAnalysis,
+  FaceVerification,
+  RiskScore,
+  DocumentScreening,
 } from '../../types';
 
 const STATUS_META = {
@@ -29,7 +37,7 @@ const PROCESSING_META: Record<ProcessingStatus, { label: string; variant: 'safe'
   UPLOADED:   { label: 'Uploaded',    variant: 'info' },
   QUEUED:     { label: 'Queued',      variant: 'warning' },
   PROCESSING: { label: 'Processing',  variant: 'accent' },
-  COMPLETED:  { label: 'Analyzed',    variant: 'safe' },
+  COMPLETED:  { label: 'Screened',    variant: 'safe' },
   FAILED:     { label: 'Failed',      variant: 'threat' },
 };
 
@@ -39,6 +47,19 @@ const SEVERITY_BADGE: Record<string, 'threat' | 'warning' | 'info' | 'safe' | 'a
   MEDIUM: 'warning',
   LOW: 'info',
   INFO: 'safe',
+};
+
+const VERDICT_BADGE: Record<string, 'safe' | 'warning' | 'threat'> = {
+  PASSED: 'safe',
+  REVIEW_REQUIRED: 'warning',
+  REJECTED: 'threat',
+};
+
+const RISK_LEVEL_BADGE: Record<string, 'safe' | 'warning' | 'threat'> = {
+  LOW: 'safe',
+  MEDIUM: 'warning',
+  HIGH: 'threat',
+  CRITICAL: 'threat',
 };
 
 const FILE_ICONS: Record<string, string> = {
@@ -69,7 +90,7 @@ export const formatFileSize = (bytes: number): string => {
 };
 
 export const VaultPage: React.FC = () => {
-  const { activeOrganization, createOrganization, refreshOrganizations } = useOrganization();
+  const { activeOrganization, createOrganization } = useOrganization();
   const [documents, setDocuments] = useState<VaultDocument[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<VaultDocument | null>(null);
   const [versions, setVersions] = useState<DocumentVersion[]>([]);
@@ -81,14 +102,25 @@ export const VaultPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Inspector Tabs
-  const [activeTab, setActiveTab] = useState<'overview' | 'extraction' | 'analysis' | 'versions'>('overview');
+  // Inspector Tabs (Phase 5, 6, 7 & 8)
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'extraction' | 'analysis' | 'tampering' | 'face' | 'risk' | 'screening' | 'versions'
+  >('overview');
 
-  // Extraction & Analysis Data
+  // Extraction & AI Data
   const [extraction, setExtraction] = useState<DocumentExtraction | null>(null);
   const [analysis, setAnalysis] = useState<DocumentAnalysis | null>(null);
   const [findings, setFindings] = useState<AnalysisFinding[]>([]);
   const [riskIndicators, setRiskIndicators] = useState<RiskIndicator[]>([]);
+
+  // Phase 7 Data: Tampering & Face Verification
+  const [tampering, setTampering] = useState<TamperingAnalysis | null>(null);
+  const [faceVerification, setFaceVerification] = useState<FaceVerification | null>(null);
+
+  // Phase 8 Data: Risk Scoring & Screening Intelligence
+  const [riskScore, setRiskScore] = useState<RiskScore | null>(null);
+  const [screening, setScreening] = useState<DocumentScreening | null>(null);
+
   const [isProcessingTriggered, setIsProcessingTriggered] = useState<boolean>(false);
   const [rawTextExpanded, setRawTextExpanded] = useState<boolean>(false);
 
@@ -170,6 +202,34 @@ export const VaultPage: React.FC = () => {
       setFindings([]);
       setRiskIndicators([]);
     }
+
+    try {
+      const tamp = await tamperingApi.getTamperingAnalysis(docId);
+      setTampering(tamp);
+    } catch (err) {
+      setTampering(null);
+    }
+
+    try {
+      const face = await faceVerificationApi.getFaceVerification(docId);
+      setFaceVerification(face);
+    } catch (err) {
+      setFaceVerification(null);
+    }
+
+    try {
+      const rScore = await riskApi.getRiskScore(docId);
+      setRiskScore(rScore);
+    } catch (err) {
+      setRiskScore(null);
+    }
+
+    try {
+      const scr = await screeningApi.getScreening(docId);
+      setScreening(scr);
+    } catch (err) {
+      setScreening(null);
+    }
   };
 
   useEffect(() => {
@@ -219,7 +279,7 @@ export const VaultPage: React.FC = () => {
       setIsProcessingTriggered(true);
       setError(null);
       await processingApi.triggerProcessing(selectedDoc.id, { jobType: 'FULL_PIPELINE' });
-      setSuccessMsg(`Processing and AI intelligence pipeline queued for "${selectedDoc.name}"`);
+      setSuccessMsg(`End-to-end AI screening & forensics pipeline queued for "${selectedDoc.name}"`);
       setSelectedDoc((prev) => (prev ? { ...prev, processing_status: 'QUEUED' } : null));
       setDocuments((prev) =>
         prev.map((d) => (d.id === selectedDoc.id ? { ...d, processing_status: 'QUEUED' } : d))
@@ -343,8 +403,8 @@ export const VaultPage: React.FC = () => {
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
           <SectionHeader
             eyebrow="Zero-Trust Document Vault & AI Enclave"
-            title="Encrypted Document Intelligence"
-            description="Tenant-isolated identity and travel documents with Cloudinary storage, automated text extraction, OCR normalization, and AI fraud intelligence."
+            title="Encrypted Screening & Intelligence Enclave"
+            description="Tenant-isolated identity and travel documents with Cloudinary storage, automated text extraction, optical tampering detection, face verification, and multi-factor risk assessment."
             className="mb-0"
           />
 
@@ -441,7 +501,7 @@ export const VaultPage: React.FC = () => {
           <div className="lg:col-span-5 space-y-3">
             <div className="text-xs font-mono font-bold text-[var(--text-3)] uppercase px-1 flex justify-between">
               <span>Encrypted Vault Artifacts ({documents.length})</span>
-              <span>Tenant: {activeOrganization?.slug}</span>
+              <span>Tenant: {activeOrganization?.slug || 'Enclave'}</span>
             </div>
 
             {isLoading ? (
@@ -463,7 +523,6 @@ export const VaultPage: React.FC = () => {
               </Card>
             ) : (
               documents.map((doc, i) => {
-                const meta = STATUS_META[doc.status] || STATUS_META.ACTIVE;
                 const procStatus = doc.processing_status || 'UPLOADED';
                 const procMeta = PROCESSING_META[procStatus] || PROCESSING_META.UPLOADED;
                 const isSelected = selectedDoc?.id === doc.id;
@@ -545,11 +604,16 @@ export const VaultPage: React.FC = () => {
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] font-mono font-bold uppercase text-[var(--accent)] block">
-                            Document Intelligence Enclave
+                            Document Screening Enclave
                           </span>
                           <Badge variant={PROCESSING_META[selectedDoc.processing_status || 'UPLOADED'].variant} size="sm">
                             {PROCESSING_META[selectedDoc.processing_status || 'UPLOADED'].label}
                           </Badge>
+                          {screening && (
+                            <Badge variant={VERDICT_BADGE[screening.verdict] || 'info'} size="sm">
+                              Verdict: {screening.verdict}
+                            </Badge>
+                          )}
                         </div>
                         <span className="text-base font-bold text-[var(--text-1)] truncate block max-w-sm">
                           {selectedDoc.name}
@@ -567,24 +631,28 @@ export const VaultPage: React.FC = () => {
                           <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                           </svg>
-                          {selectedDoc.processing_status === 'COMPLETED' ? 'Re-Analyze' : 'Run AI Processing'}
+                          {selectedDoc.processing_status === 'COMPLETED' ? 'Re-Screen Pipeline' : 'Run Full Screening'}
                         </Button>
                       </div>
                     </div>
 
-                    {/* Navigation Tabs */}
-                    <div className="flex gap-2 mb-4 border-b border-[var(--border)] pb-2 overflow-x-auto text-xs">
+                    {/* Navigation Tabs (Phases 5 - 8) */}
+                    <div className="flex gap-1.5 mb-4 border-b border-[var(--border)] pb-2 overflow-x-auto text-xs">
                       {[
-                        { id: 'overview', label: 'Overview & SHA-256' },
-                        { id: 'extraction', label: `Extracted Data ${extraction ? '✓' : ''}` },
-                        { id: 'analysis', label: `AI Intelligence ${analysis ? `(${findings.length})` : ''}` },
+                        { id: 'overview', label: 'Overview' },
+                        { id: 'extraction', label: `OCR Data ${extraction ? '✓' : ''}` },
+                        { id: 'analysis', label: `AI Findings ${analysis ? `(${findings.length})` : ''}` },
+                        { id: 'tampering', label: `Tampering ${tampering?.has_tampering_detected ? '⚠️' : tampering ? '✓' : ''}` },
+                        { id: 'face', label: `Face ${faceVerification ? `(${faceVerification.status})` : ''}` },
+                        { id: 'risk', label: `Risk ${riskScore ? `(${riskScore.risk_score})` : ''}` },
+                        { id: 'screening', label: `Screening Verdict ${screening ? `[${screening.verdict}]` : ''}` },
                         { id: 'versions', label: `Versions (${versions.length})` },
                       ].map((t) => (
                         <button
                           key={t.id}
                           onClick={() => setActiveTab(t.id as any)}
                           className={cn(
-                            'px-3 py-1.5 rounded-lg font-mono text-xs transition-colors whitespace-nowrap',
+                            'px-2.5 py-1.5 rounded-lg font-mono text-[11px] transition-colors whitespace-nowrap',
                             activeTab === t.id
                               ? 'bg-[var(--accent)] text-white font-bold'
                               : 'text-[var(--text-3)] hover:text-[var(--text-1)] bg-[var(--surface-raised)]'
@@ -648,7 +716,7 @@ export const VaultPage: React.FC = () => {
                       </div>
                     )}
 
-                    {/* TAB 2: EXTRACTED DATA */}
+                    {/* TAB 2: EXTRACTED DATA (OCR) */}
                     {activeTab === 'extraction' && (
                       <div className="space-y-3 font-mono text-xs">
                         {!extraction ? (
@@ -718,7 +786,7 @@ export const VaultPage: React.FC = () => {
                       </div>
                     )}
 
-                    {/* TAB 3: AI INTELLIGENCE & FINDINGS */}
+                    {/* TAB 3: AI INTELLIGENCE */}
                     {activeTab === 'analysis' && (
                       <div className="space-y-3 font-mono text-xs">
                         {!analysis ? (
@@ -730,7 +798,6 @@ export const VaultPage: React.FC = () => {
                           </div>
                         ) : (
                           <>
-                            {/* Summary & Confidence Bar */}
                             <div className="p-3 bg-[var(--surface-alt)] rounded-lg border border-[var(--border)] space-y-2">
                               <div className="flex justify-between items-center">
                                 <span className="text-[10px] text-[var(--text-3)] uppercase font-bold">
@@ -792,7 +859,271 @@ export const VaultPage: React.FC = () => {
                       </div>
                     )}
 
-                    {/* TAB 4: VERSIONS */}
+                    {/* TAB 4: TAMPERING FORENSICS (Phase 7) */}
+                    {activeTab === 'tampering' && (
+                      <div className="space-y-3 font-mono text-xs">
+                        {!tampering ? (
+                          <div className="p-8 text-center bg-[var(--surface-alt)] rounded-xl border border-[var(--border)]">
+                            <p className="text-[var(--text-3)] text-xs mb-3">No optical or forensic tampering analysis performed.</p>
+                            <Button size="sm" variant="primary" onClick={handleTriggerProcessing}>
+                              Run Tampering Forensics
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="p-4 rounded-xl bg-[var(--surface-alt)] border border-[var(--border)] flex justify-between items-center">
+                              <div>
+                                <span className="text-[10px] text-[var(--text-3)] uppercase block font-bold">
+                                  Forensic Tampering Score
+                                </span>
+                                <div className="text-xl font-bold text-[var(--text-1)] mt-0.5">
+                                  {Math.round(tampering.overall_tampering_score * 100)} / 100
+                                </div>
+                              </div>
+                              <Badge variant={tampering.has_tampering_detected ? 'threat' : 'safe'} size="md">
+                                {tampering.has_tampering_detected ? '⚠️ Tampering Detected' : '✓ Authentic Structure'}
+                              </Badge>
+                            </div>
+
+                            <div className="space-y-2">
+                              <span className="text-[10px] text-[var(--text-3)] uppercase block font-bold px-1">
+                                Forensic Anomaly Indicators ({tampering.indicators?.length || 0})
+                              </span>
+                              {!tampering.indicators || tampering.indicators.length === 0 ? (
+                                <div className="p-4 bg-[var(--surface-alt)] rounded-lg text-center text-xs text-[var(--safe)]">
+                                  ✓ No metadata discrepancies, photo overlays, or character alteration indicators detected.
+                                </div>
+                              ) : (
+                                tampering.indicators.map((ind) => (
+                                  <div key={ind.id} className="p-3 rounded-lg bg-[var(--surface-alt)] border border-[var(--border)] space-y-1 text-[11px]">
+                                    <div className="flex justify-between items-center">
+                                      <div className="flex items-center gap-2">
+                                        <Badge variant={SEVERITY_BADGE[ind.severity] || 'warning'} size="sm">{ind.severity}</Badge>
+                                        <span className="font-bold text-[var(--text-1)]">{ind.category.replace(/_/g, ' ')}</span>
+                                      </div>
+                                      <span className="text-[10px] text-[var(--text-3)]">{Math.round(ind.confidence * 100)}% Confidence</span>
+                                    </div>
+                                    <p className="text-[var(--text-2)]">{ind.description}</p>
+                                    {ind.evidence && (
+                                      <div className="text-[10px] text-[var(--accent)] bg-[var(--surface-raised)] p-1.5 rounded border border-[var(--border)]/60">
+                                        <span className="font-bold mr-1">Forensic Evidence:</span> {ind.evidence}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* TAB 5: FACE VERIFICATION (Phase 7) */}
+                    {activeTab === 'face' && (
+                      <div className="space-y-3 font-mono text-xs">
+                        {!faceVerification ? (
+                          <div className="p-8 text-center bg-[var(--surface-alt)] rounded-xl border border-[var(--border)]">
+                            <p className="text-[var(--text-3)] text-xs mb-3">No biometric facial verification recorded.</p>
+                            <Button size="sm" variant="primary" onClick={handleTriggerProcessing}>
+                              Run Biometric Verification
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="p-4 rounded-xl bg-[var(--surface-alt)] border border-[var(--border)] flex justify-between items-center">
+                              <div>
+                                <span className="text-[10px] text-[var(--text-3)] uppercase block font-bold">
+                                  Facial Similarity Score
+                                </span>
+                                <div className="text-xl font-bold text-[var(--text-1)] mt-0.5">
+                                  {Math.round(faceVerification.similarity_score * 100)}%
+                                </div>
+                              </div>
+                              <Badge
+                                variant={
+                                  faceVerification.status === 'MATCH'
+                                    ? 'safe'
+                                    : faceVerification.status === 'INCONCLUSIVE'
+                                    ? 'warning'
+                                    : 'threat'
+                                }
+                                size="md"
+                              >
+                                {faceVerification.status}
+                              </Badge>
+                            </div>
+
+                            <div className="p-3 bg-[var(--surface-alt)] rounded-lg border border-[var(--border)] space-y-2 text-[11px]">
+                              <div className="flex justify-between">
+                                <span className="text-[var(--text-3)]">Face Detected in Document:</span>
+                                <span className="text-[var(--text-1)] font-bold">{faceVerification.face_detected_in_doc ? 'Yes' : 'No'}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-[var(--text-3)]">Match Threshold:</span>
+                                <span className="text-[var(--text-1)]">{Math.round(faceVerification.match_threshold * 100)}%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-[var(--text-3)]">Biometric Model:</span>
+                                <span className="text-[var(--accent)] font-mono">{faceVerification.model_name}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-[var(--text-3)]">Processing Latency:</span>
+                                <span className="text-[var(--text-2)]">{faceVerification.processing_time_ms} ms</span>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* TAB 6: RISK ASSESSMENT (Phase 8) */}
+                    {activeTab === 'risk' && (
+                      <div className="space-y-3 font-mono text-xs">
+                        {!riskScore ? (
+                          <div className="p-8 text-center bg-[var(--surface-alt)] rounded-xl border border-[var(--border)]">
+                            <p className="text-[var(--text-3)] text-xs mb-3">No multi-signal risk assessment calculated.</p>
+                            <Button size="sm" variant="primary" onClick={handleTriggerProcessing}>
+                              Evaluate Risk Score
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="p-4 rounded-xl bg-[var(--surface-alt)] border border-[var(--border)] flex justify-between items-center">
+                              <div>
+                                <span className="text-[10px] text-[var(--text-3)] uppercase block font-bold">
+                                  Overall Risk Score (0 - 100)
+                                </span>
+                                <div className="text-2xl font-bold text-[var(--text-1)] mt-0.5">
+                                  {riskScore.risk_score} <span className="text-xs text-[var(--text-3)]">/ 100</span>
+                                </div>
+                              </div>
+                              <Badge variant={RISK_LEVEL_BADGE[riskScore.risk_level] || 'info'} size="md">
+                                Level: {riskScore.risk_level}
+                              </Badge>
+                            </div>
+
+                            {/* Component Score Breakdown */}
+                            <div className="p-3 bg-[var(--surface-alt)] rounded-lg border border-[var(--border)]">
+                              <span className="text-[10px] text-[var(--text-3)] uppercase block mb-2 font-bold">
+                                Deterministic Score Breakdown
+                              </span>
+                              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                                <div className="p-2 rounded bg-[var(--surface-raised)] border border-[var(--border)]/50">
+                                  <div className="text-[10px] text-[var(--text-3)]">Tampering Forensics</div>
+                                  <div className="text-sm font-bold text-[var(--text-1)]">
+                                    {riskScore.score_breakdown?.tamperingScore || 0} pts <span className="text-[10px] text-[var(--text-3)]">(max 40)</span>
+                                  </div>
+                                </div>
+                                <div className="p-2 rounded bg-[var(--surface-raised)] border border-[var(--border)]/50">
+                                  <div className="text-[10px] text-[var(--text-3)]">AI Validation Anomalies</div>
+                                  <div className="text-sm font-bold text-[var(--text-1)]">
+                                    {riskScore.score_breakdown?.validationScore || 0} pts <span className="text-[10px] text-[var(--text-3)]">(max 30)</span>
+                                  </div>
+                                </div>
+                                <div className="p-2 rounded bg-[var(--surface-raised)] border border-[var(--border)]/50">
+                                  <div className="text-[10px] text-[var(--text-3)]">Biometric Consistency</div>
+                                  <div className="text-sm font-bold text-[var(--text-1)]">
+                                    {riskScore.score_breakdown?.biometricScore || 0} pts <span className="text-[10px] text-[var(--text-3)]">(max 20)</span>
+                                  </div>
+                                </div>
+                                <div className="p-2 rounded bg-[var(--surface-raised)] border border-[var(--border)]/50">
+                                  <div className="text-[10px] text-[var(--text-3)]">OCR & Scan Quality</div>
+                                  <div className="text-sm font-bold text-[var(--text-1)]">
+                                    {riskScore.score_breakdown?.ocrQualityScore || 0} pts <span className="text-[10px] text-[var(--text-3)]">(max 10)</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="p-3 bg-[var(--surface-alt)] rounded-lg border border-[var(--border)] text-[11px] leading-relaxed">
+                              <span className="text-[10px] text-[var(--text-3)] uppercase block mb-1 font-bold">Assessment Explanation</span>
+                              <p className="text-[var(--text-2)]">{riskScore.explanation}</p>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* TAB 7: UNIFIED SCREENING (Phase 8) */}
+                    {activeTab === 'screening' && (
+                      <div className="space-y-3 font-mono text-xs">
+                        {!screening ? (
+                          <div className="p-8 text-center bg-[var(--surface-alt)] rounded-xl border border-[var(--border)]">
+                            <p className="text-[var(--text-3)] text-xs mb-3">No comprehensive screening intelligence summary available.</p>
+                            <Button size="sm" variant="primary" onClick={handleTriggerProcessing}>
+                              Execute Screening Intelligence
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            {/* Verdict Header */}
+                            <div className="p-4 rounded-xl bg-[var(--surface-alt)] border border-[var(--border)] flex justify-between items-center">
+                              <div>
+                                <span className="text-[10px] text-[var(--text-3)] uppercase block font-bold">
+                                  Screening Intelligence Verdict
+                                </span>
+                                <div className="text-xl font-bold text-[var(--text-1)] mt-0.5">
+                                  {screening.verdict}
+                                </div>
+                              </div>
+                              <Badge variant={VERDICT_BADGE[screening.verdict] || 'info'} size="md">
+                                {screening.verdict} · {screening.overall_risk_score}/100 Risk
+                              </Badge>
+                            </div>
+
+                            <div className="p-3 bg-[var(--surface-alt)] rounded-lg border border-[var(--border)] text-[11px] space-y-1">
+                              <span className="text-[10px] text-[var(--text-3)] uppercase font-bold block">Executive Summary</span>
+                              <p className="text-[var(--text-1)] leading-relaxed">{screening.summary}</p>
+                            </div>
+
+                            {/* Recommendations */}
+                            {screening.recommendations && screening.recommendations.length > 0 && (
+                              <div className="p-3 bg-[var(--surface-alt)] rounded-lg border border-[var(--border)] space-y-2">
+                                <span className="text-[10px] text-[var(--text-3)] uppercase block font-bold">
+                                  Operational Recommendations
+                                </span>
+                                <ul className="space-y-1.5 text-[11px]">
+                                  {screening.recommendations.map((rec, i) => (
+                                    <li key={i} className="flex items-start gap-2 text-[var(--text-2)]">
+                                      <span className="text-[var(--accent)] font-bold">›</span>
+                                      <span>{rec}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {/* Screening Factors */}
+                            {screening.factors && screening.factors.length > 0 && (
+                              <div className="space-y-2">
+                                <span className="text-[10px] text-[var(--text-3)] uppercase block font-bold px-1">
+                                  Evaluated Intelligence Factors ({screening.factors.length})
+                                </span>
+                                {screening.factors.map((factor) => (
+                                  <div key={factor.id} className="p-3 rounded-lg bg-[var(--surface-alt)] border border-[var(--border)] space-y-1 text-[11px]">
+                                    <div className="flex justify-between items-center">
+                                      <div className="flex items-center gap-2">
+                                        <Badge variant={SEVERITY_BADGE[factor.severity] || 'info'} size="sm">{factor.severity}</Badge>
+                                        <span className="font-bold text-[var(--text-1)]">{factor.title}</span>
+                                      </div>
+                                      <span className="text-[10px] text-[var(--text-3)]">{factor.category}</span>
+                                    </div>
+                                    <p className="text-[var(--text-2)]">{factor.description}</p>
+                                    {factor.evidence && (
+                                      <div className="text-[10px] text-[var(--accent)] bg-[var(--surface-raised)] p-1.5 rounded border border-[var(--border)]/60">
+                                        <span className="font-bold mr-1">Evidence:</span> {factor.evidence}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* TAB 8: VERSIONS */}
                     {activeTab === 'versions' && (
                       <div className="space-y-3 font-mono text-xs">
                         <div className="flex justify-between items-center mb-2">
@@ -876,7 +1207,7 @@ export const VaultPage: React.FC = () => {
               </ProtectionPerimeter>
             ) : (
               <Card className="p-12 text-center text-xs text-[var(--text-3)]">
-                Select an artifact from the list to inspect cryptographic checksums, OCR extractions, and AI intelligence analysis.
+                Select an artifact from the list to inspect cryptographic checksums, OCR extractions, tampering forensics, face verification, and risk screening results.
               </Card>
             )}
           </div>

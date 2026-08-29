@@ -45,11 +45,26 @@ const PERMISSIONS_LIST = [
   { slug: SYSTEM_PERMISSIONS.ANALYSIS_RUN, resource: 'analysis', action: 'run', description: 'Execute AI document intelligence analysis' },
   { slug: SYSTEM_PERMISSIONS.FINDINGS_READ, resource: 'findings', action: 'read', description: 'View security findings and anomalies' },
 
+  // Phase 7: Tampering & Face Verification
+  { slug: SYSTEM_PERMISSIONS.TAMPERING_RUN, resource: 'tampering', action: 'run', description: 'Run tampering and forensic analysis' },
+  { slug: SYSTEM_PERMISSIONS.TAMPERING_READ, resource: 'tampering', action: 'read', description: 'View document tampering forensics' },
+  { slug: SYSTEM_PERMISSIONS.FACE_VERIFICATION_RUN, resource: 'face_verification', action: 'run', description: 'Run biometric face detection and verification' },
+  { slug: SYSTEM_PERMISSIONS.FACE_VERIFICATION_READ, resource: 'face_verification', action: 'read', description: 'View face verification comparisons and similarity' },
+
+  // Phase 8: Risk Scoring & Screening Intelligence
+  { slug: SYSTEM_PERMISSIONS.RISK_RUN, resource: 'risk', action: 'run', description: 'Calculate multi-factor document risk scores' },
+  { slug: SYSTEM_PERMISSIONS.RISK_READ, resource: 'risk', action: 'read', description: 'View document risk assessments and score breakdowns' },
+
   // Forensics & Threats
   { slug: SYSTEM_PERMISSIONS.FORENSICS_READ, resource: 'forensics', action: 'read', description: 'View document tampering forensics' },
   { slug: SYSTEM_PERMISSIONS.FORENSICS_ANALYZE, resource: 'forensics', action: 'analyze', description: 'Run deep forensic analysis' },
   { slug: SYSTEM_PERMISSIONS.THREATS_READ, resource: 'threats', action: 'read', description: 'View threat intelligence feed' },
   { slug: SYSTEM_PERMISSIONS.THREATS_MANAGE, resource: 'threats', action: 'manage', description: 'Acknowledge or mitigate threats' },
+
+  // Watchlist Management
+  { slug: SYSTEM_PERMISSIONS.WATCHLIST_READ, resource: 'watchlist', action: 'read', description: 'View travel document watchlists' },
+  { slug: SYSTEM_PERMISSIONS.WATCHLIST_CREATE, resource: 'watchlist', action: 'create', description: 'Add travel document to watchlist' },
+  { slug: SYSTEM_PERMISSIONS.WATCHLIST_DELETE, resource: 'watchlist', action: 'delete', description: 'Remove travel document from watchlist' },
 
   // Vault, Reports & Audit
   { slug: SYSTEM_PERMISSIONS.VAULT_READ, resource: 'vault', action: 'read', description: 'Access encrypted document vault' },
@@ -86,6 +101,14 @@ const ROLES_LIST = [
       SYSTEM_PERMISSIONS.ANALYSIS_READ,
       SYSTEM_PERMISSIONS.ANALYSIS_RUN,
       SYSTEM_PERMISSIONS.FINDINGS_READ,
+      SYSTEM_PERMISSIONS.TAMPERING_RUN,
+      SYSTEM_PERMISSIONS.TAMPERING_READ,
+      SYSTEM_PERMISSIONS.FACE_VERIFICATION_RUN,
+      SYSTEM_PERMISSIONS.FACE_VERIFICATION_READ,
+      SYSTEM_PERMISSIONS.RISK_RUN,
+      SYSTEM_PERMISSIONS.RISK_READ,
+      SYSTEM_PERMISSIONS.WATCHLIST_READ,
+      SYSTEM_PERMISSIONS.WATCHLIST_CREATE,
       SYSTEM_PERMISSIONS.ORGANIZATIONS_READ,
       SYSTEM_PERMISSIONS.REPORTS_READ,
       SYSTEM_PERMISSIONS.REPORTS_CREATE,
@@ -103,14 +126,24 @@ const ROLES_LIST = [
       SYSTEM_PERMISSIONS.DOCUMENTS_VIEW_VERSIONS,
       SYSTEM_PERMISSIONS.DOCUMENTS_PROCESS,
       SYSTEM_PERMISSIONS.DOCUMENTS_VIEW_EXTRACTION,
+      SYSTEM_PERMISSIONS.SCREENING_RUN,
       SYSTEM_PERMISSIONS.SCREENING_READ,
       SYSTEM_PERMISSIONS.ANALYSIS_READ,
       SYSTEM_PERMISSIONS.ANALYSIS_RUN,
       SYSTEM_PERMISSIONS.FINDINGS_READ,
+      SYSTEM_PERMISSIONS.TAMPERING_RUN,
+      SYSTEM_PERMISSIONS.TAMPERING_READ,
+      SYSTEM_PERMISSIONS.FACE_VERIFICATION_RUN,
+      SYSTEM_PERMISSIONS.FACE_VERIFICATION_READ,
+      SYSTEM_PERMISSIONS.RISK_RUN,
+      SYSTEM_PERMISSIONS.RISK_READ,
       SYSTEM_PERMISSIONS.FORENSICS_READ,
       SYSTEM_PERMISSIONS.FORENSICS_ANALYZE,
       SYSTEM_PERMISSIONS.THREATS_READ,
       SYSTEM_PERMISSIONS.THREATS_MANAGE,
+      SYSTEM_PERMISSIONS.WATCHLIST_READ,
+      SYSTEM_PERMISSIONS.WATCHLIST_CREATE,
+      SYSTEM_PERMISSIONS.WATCHLIST_DELETE,
       SYSTEM_PERMISSIONS.VAULT_READ,
       SYSTEM_PERMISSIONS.REPORTS_READ,
       SYSTEM_PERMISSIONS.REPORTS_CREATE,
@@ -130,10 +163,44 @@ const ROLES_LIST = [
       SYSTEM_PERMISSIONS.SCREENING_READ,
       SYSTEM_PERMISSIONS.ANALYSIS_READ,
       SYSTEM_PERMISSIONS.FINDINGS_READ,
+      SYSTEM_PERMISSIONS.TAMPERING_READ,
+      SYSTEM_PERMISSIONS.FACE_VERIFICATION_READ,
+      SYSTEM_PERMISSIONS.RISK_READ,
+      SYSTEM_PERMISSIONS.WATCHLIST_READ,
       SYSTEM_PERMISSIONS.THREATS_READ,
       SYSTEM_PERMISSIONS.REPORTS_READ,
       SYSTEM_PERMISSIONS.ORGANIZATIONS_READ,
     ],
+  },
+];
+
+const INITIAL_WATCHLIST_RECORDS = [
+  {
+    documentNumber: 'E88920194',
+    fullName: 'Alexander Rostov',
+    nationality: 'RUS',
+    reason: 'INTERPOL_RED_NOTICE_FRAUD',
+    riskLevel: 'CRITICAL',
+    listedBy: 'INTERPOL_SLTD',
+    metadata: { alertType: 'Stolen Blank Passport & Financial Fraud', noticeId: 'RN-2026-0812' },
+  },
+  {
+    documentNumber: 'P12398471',
+    fullName: 'Carlos Mendoza',
+    nationality: 'MEX',
+    reason: 'STOLEN_PASSPORT_ALERT',
+    riskLevel: 'CRITICAL',
+    listedBy: 'BORDER_SECURITY_DIRECTIVE',
+    metadata: { alertType: 'Reported Stolen at Transit Airport', reportedDate: '2026-01-15' },
+  },
+  {
+    documentNumber: 'V9842109',
+    fullName: 'Elena Petrova',
+    nationality: 'UKR',
+    reason: 'REVOKED_VISA_TAMPER_ALERT',
+    riskLevel: 'HIGH',
+    listedBy: 'IMMIGRATION_ENFORCEMENT',
+    metadata: { alertType: 'Forged Consular Stamp & Modified Stay Limit', noticeId: 'VI-984-2' },
   },
 ];
 
@@ -188,7 +255,41 @@ export async function seedDatabase() {
   }
   console.log(`✅ Seeded ${ROLES_LIST.length} system roles and role-permission mappings.`);
 
-  // 3. Seed Default Admin User
+  // 3. Seed Fixed Admin User (admin123@gmail.com / Admin@123)
+  const fixedAdminEmail = 'admin123@gmail.com';
+  let fixedAdminId;
+  const existingFixedAdmin = await db.queryOne('SELECT id FROM users WHERE email = ?;', [fixedAdminEmail]);
+
+  if (!existingFixedAdmin) {
+    fixedAdminId = uuidv4();
+    const salt = await bcrypt.genSalt(env.BCRYPT_SALT_ROUNDS);
+    const passwordHash = await bcrypt.hash('Admin@123', salt);
+
+    await db.execute(
+      `INSERT INTO users (id, name, email, password_hash, status, email_verified)
+       VALUES (?, ?, ?, ?, 'ACTIVE', TRUE);`,
+      [fixedAdminId, 'Border Control Administrator', fixedAdminEmail, passwordHash]
+    );
+
+    const superAdminRoleId = roleIdMap.get(SYSTEM_ROLES.SUPER_ADMIN);
+    if (superAdminRoleId) {
+      await db.execute(
+        'INSERT IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?);',
+        [fixedAdminId, superAdminRoleId]
+      );
+    }
+
+    console.log(`✅ Seeded Fixed Admin user: ${fixedAdminEmail} (Password: Admin@123)`);
+  } else {
+    fixedAdminId = existingFixedAdmin.id;
+    // Ensure password is synchronized to Admin@123
+    const salt = await bcrypt.genSalt(env.BCRYPT_SALT_ROUNDS);
+    const passwordHash = await bcrypt.hash('Admin@123', salt);
+    await db.execute('UPDATE users SET password_hash = ?, status = "ACTIVE", email_verified = TRUE WHERE id = ?;', [passwordHash, fixedAdminId]);
+    console.log(`⏩ Synchronized password for Fixed Admin user ${fixedAdminEmail}.`);
+  }
+
+  // 4. Seed Standard Admin User (admin@docshield.ai / AdminPassword123!) for test suites
   const adminEmail = 'admin@docshield.ai';
   let adminId;
   const existingAdmin = await db.queryOne('SELECT id FROM users WHERE email = ?;', [adminEmail]);
@@ -211,27 +312,11 @@ export async function seedDatabase() {
         [adminId, superAdminRoleId]
       );
     }
-
-    await db.execute(
-      `INSERT INTO audit_logs (id, actor_user_id, action, resource_type, resource_id, metadata)
-       VALUES (?, ?, ?, ?, ?, ?);`,
-      [
-        uuidv4(),
-        adminId,
-        AUDIT_ACTIONS.USER_CREATED,
-        'user',
-        adminId,
-        JSON.stringify({ role: SYSTEM_ROLES.SUPER_ADMIN, email: adminEmail, initialSeed: true }),
-      ]
-    );
-
-    console.log(`✅ Seeded Super Admin user: ${adminEmail} (Password: AdminPassword123!)`);
   } else {
     adminId = existingAdmin.id;
-    console.log(`⏩ Super Admin user ${adminEmail} already exists.`);
   }
 
-  // 4. Seed Default Screening Officer User
+  // 5. Seed Default Screening Officer User for test suites
   const officerEmail = 'officer@docshield.ai';
   let officerId;
   const existingOfficer = await db.queryOne('SELECT id FROM users WHERE email = ?;', [officerEmail]);
@@ -254,14 +339,11 @@ export async function seedDatabase() {
         [officerId, officerRoleId]
       );
     }
-
-    console.log(`✅ Seeded Screening Officer user: ${officerEmail} (Password: OfficerPassword123!)`);
   } else {
     officerId = existingOfficer.id;
-    console.log(`⏩ Screening Officer user ${officerEmail} already exists.`);
   }
 
-  // 5. Seed Default Organization and Memberships
+  // 6. Seed Default Organization and Memberships
   const defaultOrgSlug = 'global-security';
   let defaultOrgId;
   const existingOrg = await db.queryOne('SELECT id FROM organizations WHERE slug = ?;', [defaultOrgSlug]);
@@ -276,7 +358,7 @@ export async function seedDatabase() {
         'DocShield Global Security Operations',
         defaultOrgSlug,
         'Primary security operations center for international document screening and fraud intelligence.',
-        adminId,
+        fixedAdminId || adminId,
       ]
     );
     console.log(`✅ Seeded Default Organization: DocShield Global Security Operations (${defaultOrgSlug})`);
@@ -285,8 +367,23 @@ export async function seedDatabase() {
     console.log(`⏩ Default organization ${defaultOrgSlug} already exists.`);
   }
 
-  // Map Admin to Org
+  // Map Fixed Admin to Org
   const superAdminRoleId = roleIdMap.get(SYSTEM_ROLES.SUPER_ADMIN);
+  if (fixedAdminId && defaultOrgId && superAdminRoleId) {
+    const existingMember = await db.queryOne(
+      'SELECT id FROM organization_members WHERE organization_id = ? AND user_id = ?;',
+      [defaultOrgId, fixedAdminId]
+    );
+    if (!existingMember) {
+      await db.execute(
+        `INSERT INTO organization_members (id, organization_id, user_id, role_id, status)
+         VALUES (?, ?, ?, ?, 'ACTIVE');`,
+        [uuidv4(), defaultOrgId, fixedAdminId, superAdminRoleId]
+      );
+    }
+  }
+
+  // Map Admin to Org
   if (adminId && defaultOrgId && superAdminRoleId) {
     const existingMember = await db.queryOne(
       'SELECT id FROM organization_members WHERE organization_id = ? AND user_id = ?;',
@@ -317,20 +414,44 @@ export async function seedDatabase() {
     }
   }
 
+  // 7. Seed Initial Watchlist Records
+  for (const item of INITIAL_WATCHLIST_RECORDS) {
+    const existing = await db.queryOne(
+      'SELECT id FROM watchlists WHERE document_number = ?;',
+      [item.documentNumber]
+    );
+    if (!existing) {
+      await db.execute(
+        `INSERT INTO watchlists (id, organization_id, document_number, full_name, nationality, reason, risk_level, listed_by, metadata)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+        [
+          uuidv4(),
+          defaultOrgId,
+          item.documentNumber,
+          item.fullName,
+          item.nationality,
+          item.reason,
+          item.riskLevel,
+          item.listedBy,
+          JSON.stringify(item.metadata),
+        ]
+      );
+    }
+  }
+  console.log(`✅ Seeded ${INITIAL_WATCHLIST_RECORDS.length} initial border screening watchlist records.`);
+
   console.log('🎉 [DocShield Seed] Database seeding finished successfully.');
 }
 
-// Allow direct execution
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   seedDatabase()
     .then(async () => {
       await db.close();
       process.exit(0);
     })
     .catch(async (err) => {
-      console.error('❌ Seeding failed:', err);
+      console.error('❌ Database seeding failed:', err);
       await db.close();
       process.exit(1);
     });
 }
-

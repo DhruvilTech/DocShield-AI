@@ -9,6 +9,8 @@ import { CryptoUtil } from '../utils/crypto.js';
 import { JwtUtil } from '../utils/jwt.js';
 import { AppError } from '../errors/AppError.js';
 import { env } from '../config/env.js';
+import { organizationRepository } from '../repositories/organization.repository.js';
+import { membershipRepository } from '../repositories/membership.repository.js';
 import { SYSTEM_ROLES, AUDIT_ACTIONS } from '../config/constants.js';
 
 export class AuthService {
@@ -84,13 +86,31 @@ export class AuthService {
 
     const targetRoleSlug = data.role || SYSTEM_ROLES.SCREENING_OFFICER;
     const role = await roleRepository.findBySlug(targetRoleSlug);
+    let assignedRoleId = role ? role.id : null;
     if (role) {
       await roleRepository.assignRoleToUser(user.id, role.id);
     } else {
       const defaultRole = await roleRepository.findBySlug(SYSTEM_ROLES.SCREENING_OFFICER);
       if (defaultRole) {
+        assignedRoleId = defaultRole.id;
         await roleRepository.assignRoleToUser(user.id, defaultRole.id);
       }
+    }
+
+    // Auto-join to default security organization
+    try {
+      const defaultOrg = await organizationRepository.findBySlug('global-security');
+      if (defaultOrg && assignedRoleId) {
+        await membershipRepository.addMember({
+          id: uuidv4(),
+          organizationId: defaultOrg.id,
+          userId: user.id,
+          roleId: assignedRoleId,
+          status: 'ACTIVE',
+        });
+      }
+    } catch {
+      // ignore if already joined or org not found
     }
 
     const rawVerificationToken = CryptoUtil.generateRandomToken(32);

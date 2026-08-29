@@ -235,6 +235,13 @@ export class StorageService {
   }
 
   /**
+   * Alias for getBuffer
+   */
+  async downloadFile(storageKey, checksum = null) {
+    return this.getBuffer(storageKey);
+  }
+
+  /**
    * Delete file from storage
    */
   async delete(storageKey) {

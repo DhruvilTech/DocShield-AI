@@ -16,7 +16,7 @@ export const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const from = (location.state as any)?.from?.pathname || '/';
+  const from = (location.state as any)?.from?.pathname || '/scanner';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,7 +103,7 @@ export const LoginPage: React.FC = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="officer@docshield.ai"
+                placeholder="admin123@gmail.com"
                 className="w-full px-3.5 py-2.5 rounded-lg text-sm bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--accent)] transition-colors"
               />
             </div>
@@ -162,33 +162,28 @@ export const LoginPage: React.FC = () => {
           {/* Quick Demo Credentials helper */}
           <div className="mt-6 pt-5 border-t border-[var(--border)]">
             <p className="text-[11px] font-mono uppercase text-[var(--text-3)] mb-2.5 text-center">
-              Quick Demonstration Credentials
+              Quick Admin Credentials
             </p>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => fillQuickAccount('admin@docshield.ai', 'AdminPassword123!')}
-                className="p-2 rounded-lg bg-[var(--surface-raised)] hover:border-[var(--accent)] border border-[var(--border)] text-[11px] font-mono text-[var(--text-2)] hover:text-[var(--text-1)] text-left transition-all"
-              >
-                <div className="font-bold text-[var(--accent)]">Super Admin</div>
-                <div className="text-[10px] truncate text-[var(--text-3)]">admin@docshield.ai</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => fillQuickAccount('officer@docshield.ai', 'OfficerPassword123!')}
-                className="p-2 rounded-lg bg-[var(--surface-raised)] hover:border-[var(--accent)] border border-[var(--border)] text-[11px] font-mono text-[var(--text-2)] hover:text-[var(--text-1)] text-left transition-all"
-              >
-                <div className="font-bold text-[var(--safe)]">Screening Officer</div>
-                <div className="text-[10px] truncate text-[var(--text-3)]">officer@docshield.ai</div>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => fillQuickAccount('admin123@gmail.com', 'Admin@123')}
+              className="w-full p-2.5 rounded-lg bg-[var(--surface-raised)] hover:border-[var(--accent)] border border-[var(--border)] text-xs font-mono text-[var(--text-2)] hover:text-[var(--text-1)] text-left transition-all flex items-center justify-between"
+            >
+              <div>
+                <div className="font-bold text-[var(--accent)]">Master Administrator</div>
+                <div className="text-[10px] text-[var(--text-3)]">admin123@gmail.com · Key: Admin@123</div>
+              </div>
+              <span className="text-[10px] font-bold text-[var(--accent)] px-2 py-1 rounded bg-[var(--accent-muted)] border border-[var(--border-accent)]">
+                Auto-Fill
+              </span>
+            </button>
           </div>
 
           {/* Footer */}
           <div className="text-center mt-6 text-xs text-[var(--text-2)]">
             Need an officer clearance account?{' '}
             <Link to="/register" className="text-[var(--accent)] font-semibold hover:underline">
-              Create Account
+              Register Border Personnel
             </Link>
           </div>
         </Card>

@@ -15,7 +15,11 @@
     "test:org": "node --test tests/organization.test.js",
     "test:doc": "node --test tests/document.test.js",
     "test:processing": "node --test tests/processing.test.js",
-    "test:analysis": "node --test tests/analysis.test.js"
+    "test:analysis": "node --test tests/analysis.test.js",
+    "test:tampering": "node --test tests/tampering.test.js",
+    "test:face": "node --test tests/faceVerification.test.js",
+    "test:risk": "node --test tests/risk.test.js",
+    "test:screening": "node --test tests/screening.test.js"
   },
   "keywords": [
     "docshield",

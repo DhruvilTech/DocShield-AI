@@ -33,6 +33,7 @@ const ProfilePage = lazy(() => import('./pages/Profile'));
 const AdminUsersPage = lazy(() => import('./pages/Admin/Users'));
 const AuditTrailPage = lazy(() => import('./pages/Admin/AuditTrail'));
 const OrganizationManagementPage = lazy(() => import('./pages/Admin/Organization').then(m => ({ default: m.OrganizationManagementPage })));
+const WatchlistManagementPage = lazy(() => import('./pages/Admin/Watchlist').then(m => ({ default: m.WatchlistManagementPage })));
 
 /* §9 lazy-load R3F so first paint is not blocked by WebGL */
 const SceneManager = lazy(() => import('./components/3d/SceneManager'));
@@ -87,14 +88,6 @@ const AppRoutes: React.FC<{ theme: 'dark' | 'light'; onToggle: () => void }> = (
             <Routes location={location} key={location.pathname}>
               {/* Public Core Routes */}
               <Route path="/" element={<PageWrapper><HomePage /></PageWrapper>} />
-              <Route path="/scanner" element={<PageWrapper><ScannerPage /></PageWrapper>} />
-              <Route path="/intelligence" element={<PageWrapper><IntelligencePage /></PageWrapper>} />
-              <Route path="/analysis" element={<PageWrapper><AnalysisPage /></PageWrapper>} />
-              <Route path="/threats" element={<PageWrapper><ThreatsPage /></PageWrapper>} />
-              <Route path="/security" element={<PageWrapper><SecurityPage /></PageWrapper>} />
-              <Route path="/vault" element={<PageWrapper><VaultPage /></PageWrapper>} />
-              <Route path="/reports" element={<PageWrapper><ReportsPage /></PageWrapper>} />
-              <Route path="/enterprise" element={<PageWrapper><EnterprisePage /></PageWrapper>} />
 
               {/* Authentication & Invitation Routes */}
               <Route path="/login" element={<PageWrapper><LoginPage /></PageWrapper>} />
@@ -103,6 +96,72 @@ const AppRoutes: React.FC<{ theme: 'dark' | 'light'; onToggle: () => void }> = (
               <Route path="/reset-password" element={<PageWrapper><ResetPasswordPage /></PageWrapper>} />
               <Route path="/verify-email" element={<PageWrapper><VerifyEmailPage /></PageWrapper>} />
               <Route path="/invitations/accept" element={<PageWrapper><AcceptInvitationPage /></PageWrapper>} />
+
+              {/* Protected Operational & Inspection Routes */}
+              <Route
+                path="/scanner"
+                element={
+                  <ProtectedRoute>
+                    <PageWrapper><ScannerPage /></PageWrapper>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/intelligence"
+                element={
+                  <ProtectedRoute>
+                    <PageWrapper><IntelligencePage /></PageWrapper>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/analysis"
+                element={
+                  <ProtectedRoute>
+                    <PageWrapper><AnalysisPage /></PageWrapper>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/threats"
+                element={
+                  <ProtectedRoute>
+                    <PageWrapper><ThreatsPage /></PageWrapper>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/security"
+                element={
+                  <ProtectedRoute>
+                    <PageWrapper><SecurityPage /></PageWrapper>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/vault"
+                element={
+                  <ProtectedRoute>
+                    <PageWrapper><VaultPage /></PageWrapper>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/reports"
+                element={
+                  <ProtectedRoute>
+                    <PageWrapper><ReportsPage /></PageWrapper>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/enterprise"
+                element={
+                  <ProtectedRoute>
+                    <PageWrapper><EnterprisePage /></PageWrapper>
+                  </ProtectedRoute>
+                }
+              />
 
               {/* Protected User & Admin Routes */}
               <Route
@@ -118,6 +177,14 @@ const AppRoutes: React.FC<{ theme: 'dark' | 'light'; onToggle: () => void }> = (
                 element={
                   <ProtectedRoute>
                     <PageWrapper><OrganizationManagementPage /></PageWrapper>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/watchlist"
+                element={
+                  <ProtectedRoute>
+                    <PageWrapper><WatchlistManagementPage /></PageWrapper>
                   </ProtectedRoute>
                 }
               />

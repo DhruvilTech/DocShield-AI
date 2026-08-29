@@ -8,6 +8,10 @@ import { documentVersionRepository } from '../repositories/documentVersion.repos
 import { storageService } from './storage.service.js';
 import { DocumentExtractor } from './extractors/documentExtractor.js';
 import { aiAnalysisService } from './ai/aiAnalysis.service.js';
+import { tamperingDetectorService } from './tampering/tamperingDetector.service.js';
+import { faceVerificationService } from './faceVerification/faceVerification.service.js';
+import { riskScoreService } from './risk/riskScore.service.js';
+import { screeningService } from './screening/screening.service.js';
 import { auditService } from './audit.service.js';
 import { AppError } from '../errors/AppError.js';
 import { AUDIT_ACTIONS, PROCESSING_STATUSES } from '../config/constants.js';
@@ -158,14 +162,55 @@ export class ProcessingPipelineService {
         },
       });
 
-      // Step 5: Send to AI Intelligence Layer if full pipeline requested
+      // Step 5: Execute AI Intelligence, Tampering Forensics, Face Verification, Risk & Screening
       if (job.job_type === 'FULL_PIPELINE' || job.job_type === 'ANALYSIS_ONLY') {
+        // 5a. AI Document Intelligence
         await aiAnalysisService.runAnalysis(
           documentId,
           organizationId,
           {
             versionNumber: version.version_number,
             actorUserId: actorUserId || doc.uploaded_by,
+          },
+          reqMeta
+        );
+
+        // 5b. Tampering Forensics Detection
+        await tamperingDetectorService.analyzeDocument(
+          documentId,
+          organizationId,
+          {
+            versionNumber: version.version_number,
+          },
+          reqMeta
+        );
+
+        // 5c. Biometric Face Detection & Verification
+        await faceVerificationService.verifyFace(
+          documentId,
+          organizationId,
+          {
+            versionNumber: version.version_number,
+          },
+          reqMeta
+        );
+
+        // 5d. Multi-Factor Deterministic Risk Score
+        await riskScoreService.calculateRiskScore(
+          documentId,
+          organizationId,
+          {
+            versionNumber: version.version_number,
+          },
+          reqMeta
+        );
+
+        // 5e. Unified Screening Verdict & Intelligence Factors
+        await screeningService.runScreening(
+          documentId,
+          organizationId,
+          {
+            versionNumber: version.version_number,
           },
           reqMeta
         );

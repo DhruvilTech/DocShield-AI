@@ -100,8 +100,8 @@ export interface Role {
   id: string;
   name: string;
   slug: string;
-  description: string | null;
-  is_system: boolean;
+  description: string;
+  isSystem: boolean;
   permissions?: Permission[];
 }
 
@@ -110,24 +110,35 @@ export interface Permission {
   slug: string;
   resource: string;
   action: string;
-  description: string | null;
+  description: string;
 }
 
 export interface AuditLog {
   id: string;
-  actor_user_id: string | null;
+  actorUserId: string | null;
+  actorName?: string;
+  actorEmail?: string;
   action: string;
-  resource_type: string;
-  resource_id: string | null;
-  ip_address: string | null;
-  user_agent: string | null;
+  resourceType: string;
+  resourceId: string | null;
+  description?: string;
   metadata: Record<string, any> | null;
-  created_at: string;
-  actor_name?: string | null;
-  actor_email?: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  createdAt: string;
 }
 
-/* ---- Organization & Tenant Types ---- */
+export interface PaginatedResult<T> {
+  data: T[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+/* ---- Organization & Multi-Tenancy Types ---- */
 export type OrganizationStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
 
 export interface Organization {
@@ -135,30 +146,26 @@ export interface Organization {
   name: string;
   slug: string;
   description: string | null;
-  logo_url: string | null;
   status: OrganizationStatus;
+  settings: Record<string, any> | null;
   created_by: string;
   created_at: string;
   updated_at: string;
-  role_id?: string;
   role_name?: string;
   role_slug?: string;
-  member_status?: string;
-  joined_at?: string;
-  member_count?: number;
-  document_count?: number;
+  permissions?: string[];
 }
 
 export interface OrganizationMember {
-  membership_id: string;
-  membership_status: string;
-  joined_at: string;
+  id: string;
+  organization_id: string;
   user_id: string;
-  name: string;
-  email: string;
-  avatar_url: string | null;
-  user_status: UserStatus;
   role_id: string;
+  status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  joined_at: string;
+  user_name: string;
+  user_email: string;
+  avatar_url: string | null;
   role_name: string;
   role_slug: string;
 }
@@ -167,46 +174,57 @@ export interface OrganizationInvitation {
   id: string;
   organization_id: string;
   organization_name?: string;
-  organization_slug?: string;
   email: string;
   role_id: string;
   role_name?: string;
-  role_slug?: string;
-  invited_by: string;
-  inviter_name?: string;
-  inviter_email?: string;
+  status: 'PENDING' | 'ACCEPTED' | 'REVOKED' | 'EXPIRED';
   expires_at: string;
-  accepted_at: string | null;
-  revoked_at: string | null;
   created_at: string;
 }
 
-/* ---- Document & Versioning Types ---- */
-export type DocType = 'PASSPORT' | 'VISA' | 'NATIONAL_ID' | 'DRIVERS_LICENSE' | 'CONTRACT' | 'INVOICE' | 'FINANCIAL_STATEMENT' | 'SECURITY_CLEARANCE' | 'LEGAL_BRIEF' | 'OTHER';
-export type DocStatus = 'ACTIVE' | 'ARCHIVED' | 'DELETED' | 'FLAGGED';
+/* ---- Document & Secure Storage Types ---- */
+export type DocType =
+  | 'PASSPORT'
+  | 'VISA'
+  | 'NATIONAL_ID'
+  | 'DRIVING_LICENSE'
+  | 'PERMIT'
+  | 'CONTRACT'
+  | 'INVOICE'
+  | 'FINANCIAL_STATEMENT'
+  | 'SECURITY_CLEARANCE'
+  | 'LEGAL_BRIEF'
+  | 'OTHER';
+
+export type DocumentProcessingStatus = 'ACTIVE' | 'ARCHIVED' | 'DELETED' | 'PROCESSING';
 export type ProcessingStatus = 'UPLOADED' | 'QUEUED' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
-export type FindingCategory = 'IDENTITY' | 'DOCUMENT' | 'VALIDATION' | 'FRAUD' | 'SECURITY' | 'DATA_CONSISTENCY';
-export type FindingSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
 
 export interface VaultDocument {
   id: string;
   organization_id: string;
   uploaded_by: string;
   name: string;
-  original_filename: string;
-  mime_type: string;
-  file_size: number;
-  storage_key: string;
   document_type: DocType;
-  status: DocStatus;
-  processing_status?: ProcessingStatus;
-  description: string | null;
+  status: DocumentProcessingStatus;
   current_version: number;
+  processing_status: ProcessingStatus;
+  metadata: Record<string, any> | null;
   created_at: string;
   updated_at: string;
   uploader_name?: string;
-  uploader_email?: string;
-  current_checksum?: string;
+  file_size?: number;
+  mime_type?: string;
+  checksum?: string;
+  extraction_status?: ProcessingStatus;
+  extraction_confidence?: number;
+  extracted_fields?: Record<string, any>;
+  has_tampering?: boolean;
+  tampering_score?: number;
+  face_status?: string;
+  face_similarity?: number;
+  risk_score?: number;
+  risk_level?: RiskLevel;
+  screening_verdict?: ScreeningVerdict;
 }
 
 export interface DocumentVersion {
@@ -219,36 +237,24 @@ export interface DocumentVersion {
   file_size: number;
   checksum: string;
   uploaded_by: string;
+  change_summary: string | null;
   created_at: string;
-  uploader_name?: string;
-  uploader_email?: string;
 }
 
-/* ---- Phase 5: Processing & Extraction Types ---- */
+/* ---- Document Processing & Extractions ---- */
 export interface ProcessingJob {
   id: string;
   document_id: string;
   version_id: string;
   organization_id: string;
-  job_type: 'FULL_PIPELINE' | 'EXTRACTION_ONLY' | 'ANALYSIS_ONLY';
   status: ProcessingStatus;
-  attempts: number;
-  max_attempts: number;
+  progress_percent: number;
+  current_stage: string | null;
   error_message: string | null;
+  processing_metadata: Record<string, any> | null;
   started_at: string | null;
   completed_at: string | null;
-  failed_at: string | null;
   created_at: string;
-  updated_at: string;
-}
-
-export interface ProcessingStatusResponse {
-  documentId: string;
-  currentVersion: number;
-  processingStatus: ProcessingStatus;
-  latestJob: ProcessingJob | null;
-  jobCount: number;
-  history: ProcessingJob[];
 }
 
 export interface DocumentExtraction {
@@ -256,27 +262,65 @@ export interface DocumentExtraction {
   document_id: string;
   version_id: string;
   organization_id: string;
-  status: string;
-  extractor_name: string;
-  document_type: string;
   raw_text: string | null;
   normalized_text: string | null;
-  extracted_fields: Record<string, { value: any; confidence: number }> | null;
+  extracted_fields: {
+    // Passport Fields (P8 Module 1)
+    fullName?: { value: string | null; confidence: number };
+    passportNumber?: { value: string | null; confidence: number };
+    nationality?: { value: string | null; confidence: number };
+    dateOfBirth?: { value: string | null; confidence: number };
+    dateOfExpiry?: { value: string | null; confidence: number };
+    gender?: { value: string | null; confidence: number };
+    issuingCountry?: { value: string | null; confidence: number };
+    mrzLines?: { value: string[]; confidence: number };
+    mrzValidation?: {
+      value: {
+        isValid: boolean;
+        docNumberCheck?: { expected: number; actual: string; valid: boolean };
+        dobCheck?: { expected: number; actual: string; valid: boolean };
+        expiryCheck?: { expected: number; actual: string; valid: boolean };
+        errors: string[];
+      };
+      confidence: number;
+    };
+
+    // Visa Fields (P8 Module 1)
+    visaNumber?: { value: string | null; confidence: number };
+    visaType?: { value: string | null; confidence: number };
+    entryValidation?: { value: string | null; confidence: number };
+    stayDuration?: { value: string | null; confidence: number };
+    validFrom?: { value: string | null; confidence: number };
+    validUntil?: { value: string | null; confidence: number };
+    holderName?: { value: string | null; confidence: number };
+
+    // National ID & Driving License Fields
+    idNumber?: { value: string | null; confidence: number };
+    licenseClass?: { value: string | null; confidence: number };
+    dateOfIssue?: { value: string | null; confidence: number };
+    address?: { value: string | null; confidence: number };
+
+    // Permit & Border Authorization Fields
+    permitNumber?: { value: string | null; confidence: number };
+    permitType?: { value: string | null; confidence: number };
+    authorizedPort?: { value: string | null; confidence: number };
+    issuingAuthority?: { value: string | null; confidence: number };
+    employerOrSponsor?: { value: string | null; confidence: number };
+    [key: string]: any;
+  } | null;
   confidence_score: number;
+  extractor_name: string;
   page_count: number;
-  metadata: any;
   created_at: string;
-  updated_at: string;
 }
 
-/* ---- Phase 6: AI Intelligence, Findings & Risk Indicators ---- */
+/* ---- AI Document Intelligence & Findings ---- */
+export type FindingSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
+
 export interface AnalysisFinding {
   id: string;
   analysis_id: string;
-  document_id: string;
-  version_id: string;
-  organization_id: string;
-  category: FindingCategory;
+  category: 'IDENTITY' | 'TAMPERING' | 'COMPLIANCE' | 'SECURITY' | 'INJECTION' | 'PII' | 'DOCUMENT' | 'VALIDATION';
   severity: FindingSeverity;
   title: string;
   description: string;
@@ -289,9 +333,6 @@ export interface AnalysisFinding {
 export interface RiskIndicator {
   id: string;
   analysis_id: string;
-  document_id: string;
-  version_id: string;
-  organization_id: string;
   indicator: string;
   category: string;
   severity: FindingSeverity;
@@ -305,28 +346,159 @@ export interface DocumentAnalysis {
   document_id: string;
   version_id: string;
   organization_id: string;
-  status: string;
-  provider: string;
-  model: string;
-  prompt_version: string;
-  document_type: string;
-  confidence: number;
-  summary: string | null;
-  structured_result: {
-    documentType?: string;
-    confidence?: number;
-    summary?: string;
-    findings?: any[];
-    recommendations?: string[];
-    riskIndicators?: any[];
-  } | null;
-  processing_duration_ms: number | null;
-  error_message: string | null;
-  created_at: string;
-  updated_at: string;
+  ai_provider: string;
+  model_name: string;
+  overall_risk_score: number;
+  summary: string;
+  recommendations: string[];
+  findings_count: number;
+  analyzed_at: string;
+  duration_ms: number;
   findings?: AnalysisFinding[];
-  risk_indicators?: RiskIndicator[];
+  riskIndicators?: RiskIndicator[];
 }
 
+/* ---- Tampering Forensics & Face Verification ---- */
+export type TamperingCategory =
+  | 'PHOTO_SUBSTITUTION'
+  | 'TEXT_ALTERATION'
+  | 'COMPRESSION_ANOMALY'
+  | 'METADATA_MISMATCH'
+  | 'EDGE_DISCONTINUITY'
+  | 'FONT_INCONSISTENCY'
+  | 'STAMP_IRREGULARITY'
+  | 'STAMP_FORGERY';
 
+export interface TamperingIndicator {
+  id: string;
+  tampering_analysis_id: string;
+  category: TamperingCategory;
+  severity: FindingSeverity;
+  confidence: number;
+  description: string;
+  evidence: string | null;
+  bounding_box: { x: number; y: number; width: number; height: number } | null;
+  created_at: string;
+}
 
+export interface TamperingAnalysis {
+  id: string;
+  document_id: string;
+  version_id: string;
+  organization_id: string;
+  status: string;
+  overall_tampering_score: number;
+  has_tampering_detected: boolean;
+  analysis_metadata: {
+    analyzedAt?: string;
+    durationMs?: number;
+    fileSize?: number;
+    mimeType?: string;
+    totalIndicators?: number;
+    checksumVerified?: boolean;
+    forensicEngine?: string;
+    useCaseCoverage?: {
+      photoReplacement: boolean;
+      textManipulation: boolean;
+      stampForgery: boolean;
+      imageMetadataAnalysis: boolean;
+    };
+  } | null;
+  created_at: string;
+  updated_at: string;
+  indicators?: TamperingIndicator[];
+}
+
+export type FaceVerificationStatus = 'MATCH' | 'NO_MATCH' | 'INCONCLUSIVE' | 'NO_FACE_DETECTED';
+
+export interface FaceVerification {
+  id: string;
+  document_id: string;
+  version_id: string;
+  organization_id: string;
+  status: FaceVerificationStatus;
+  similarity_score: number;
+  confidence: number;
+  match_threshold: number;
+  model_name: string;
+  face_detected_in_doc: boolean;
+  reference_face_provided: boolean;
+  processing_time_ms: number;
+  metadata: {
+    faceBoundingBox?: { x: number; y: number; width: number; height: number };
+    facialLandmarksDetected?: number;
+    illuminationScore?: number;
+    note?: string;
+  } | null;
+  created_at: string;
+}
+
+/* ---- Risk Scoring & Screening Intelligence ---- */
+export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+export interface RiskScore {
+  id: string;
+  document_id: string;
+  version_id: string;
+  organization_id: string;
+  risk_score: number;
+  risk_level: RiskLevel;
+  confidence: number;
+  scoring_model_version: string;
+  score_breakdown: {
+    tamperingScore: number;
+    validationScore: number;
+    biometricScore: number;
+    ocrQualityScore: number;
+  };
+  explanation: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ScreeningVerdict = 'PASSED' | 'REVIEW_REQUIRED' | 'REJECTED';
+
+export interface ScreeningFactor {
+  id: string;
+  screening_id: string;
+  category: 'IDENTITY' | 'TAMPERING' | 'BIOMETRIC' | 'COMPLIANCE' | 'ANOMALY';
+  severity: FindingSeverity;
+  title: string;
+  description: string;
+  impact_score: number;
+  evidence: string | null;
+  created_at: string;
+}
+
+export interface DocumentScreening {
+  id: string;
+  document_id: string;
+  version_id: string;
+  organization_id: string;
+  status: string;
+  overall_risk_score: number;
+  overall_risk_level: RiskLevel;
+  verdict: ScreeningVerdict;
+  summary: string;
+  recommendations: string[];
+  metadata: Record<string, any> | null;
+  created_at: string;
+  updated_at: string;
+  factors?: ScreeningFactor[];
+}
+
+/* ---- Border Watchlist & Stolen Document Database ---- */
+export interface WatchlistEntry {
+  id: string;
+  organization_id: string | null;
+  document_number: string;
+  full_name: string | null;
+  nationality: string | null;
+  reason: string;
+  risk_level: RiskLevel;
+  listed_by: string;
+  is_active: boolean;
+  metadata: Record<string, any> | null;
+  created_at: string;
+  updated_at: string;
+}

@@ -8,6 +8,11 @@ const testFiles = [
   'tests/document.test.js',
   'tests/processing.test.js',
   'tests/analysis.test.js',
+  'tests/tampering.test.js',
+  'tests/faceVerification.test.js',
+  'tests/risk.test.js',
+  'tests/screening.test.js',
+  'tests/watchlist.test.js',
 ];
 
 console.log('🧪 Running DocShield AI Complete Backend Test Suite...\n');

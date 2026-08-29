@@ -8,6 +8,7 @@ import healthRoutes from './health.routes.js';
 import organizationRoutes from './organization.routes.js';
 import invitationRoutes from './invitation.routes.js';
 import documentRoutes from './document.routes.js';
+import watchlistRoutes from './watchlist.routes.js';
 
 const router = Router();
 
@@ -19,6 +20,7 @@ router.use('/health', healthRoutes);
 router.use('/organizations', organizationRoutes);
 router.use('/invitations', invitationRoutes);
 router.use('/documents', documentRoutes);
+router.use('/watchlists', watchlistRoutes);
+router.use('/watchlist', watchlistRoutes);
 
 export default router;
-
