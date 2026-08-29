@@ -958,6 +958,20 @@ export const VaultPage: React.FC = () => {
                                 <span className="text-[var(--text-3)]">Face Detected in Document:</span>
                                 <span className="text-[var(--text-1)] font-bold">{faceVerification.face_detected_in_doc ? 'Yes' : 'No'}</span>
                               </div>
+                              {faceVerification.metadata?.liveness && (
+                                <div className="flex justify-between">
+                                  <span className="text-[var(--text-3)]">Active Liveness:</span>
+                                  <span className={`font-bold ${faceVerification.metadata.liveness.status === 'PASS' ? 'text-[var(--safe)]' : 'text-[var(--threat)]'}`}>
+                                    {faceVerification.metadata.liveness.status} ({Math.round((faceVerification.metadata.liveness.confidence ?? 0.94) * 100)}%)
+                                  </span>
+                                </div>
+                              )}
+                              {faceVerification.metadata?.rejectionReason && (
+                                <div className="flex justify-between text-[var(--threat)]">
+                                  <span>Rejection Note:</span>
+                                  <span className="font-semibold text-right max-w-[240px] truncate">{faceVerification.metadata.rejectionReason}</span>
+                                </div>
+                              )}
                               <div className="flex justify-between">
                                 <span className="text-[var(--text-3)]">Match Threshold:</span>
                                 <span className="text-[var(--text-1)]">{Math.round(faceVerification.match_threshold * 100)}%</span>

@@ -164,7 +164,9 @@ export class ScreeningService {
       });
     }
 
-    const summary = `Screening intelligence evaluated document "${doc.name}" (v${version.version_number}) with verdict: ${verdict}. Risk score: ${riskRecord.riskScore}/100 (${riskRecord.riskLevel}).`;
+    const scoreVal = riskRecord.risk_score ?? riskRecord.riskScore ?? 0;
+    const levelVal = riskRecord.risk_level ?? riskRecord.riskLevel ?? 'LOW';
+    const summary = `Screening intelligence evaluated document "${doc.name}" (v${version.version_number}) with verdict: ${verdict}. Risk score: ${scoreVal}/100 (${levelVal}).`;
 
     // 9. Persist Screening Record
     const screening = await screeningRepository.createScreening({
@@ -173,8 +175,8 @@ export class ScreeningService {
       versionId: version.id,
       organizationId,
       status: 'COMPLETED',
-      overallRiskScore: riskRecord.riskScore,
-      overallRiskLevel: riskRecord.riskLevel,
+      overallRiskScore: scoreVal,
+      overallRiskLevel: levelVal,
       verdict,
       summary,
       recommendations,

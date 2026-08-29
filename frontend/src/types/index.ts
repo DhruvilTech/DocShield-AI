@@ -437,6 +437,37 @@ export interface FaceVerification {
     faceBoundingBox?: { x: number; y: number; width: number; height: number };
     facialLandmarksDetected?: number;
     illuminationScore?: number;
+    similarity?: number;
+    match?: boolean;
+    confidence?: number;
+    threshold?: number;
+    liveness?: {
+      status: 'PASS' | 'FAIL';
+      confidence?: number;
+      reason?: string | null;
+      stages_completed?: string[];
+    };
+    doc_quality?: {
+      brightness?: number;
+      sharpness?: number;
+      face_width?: number;
+      face_height?: number;
+      confidence?: number;
+      is_valid?: boolean;
+      rejection_reason?: string | null;
+    };
+    live_quality?: {
+      brightness?: number;
+      sharpness?: number;
+      face_width?: number;
+      face_height?: number;
+      confidence?: number;
+      is_valid?: boolean;
+      rejection_reason?: string | null;
+    };
+    face_count?: { doc: number; live: number };
+    rejectionReason?: string | null;
+    rejectionError?: { code?: string; message?: string; details?: any } | null;
     note?: string;
   } | null;
   created_at: string;

@@ -127,16 +127,17 @@ export const Badge: React.FC<BadgeProps> = ({ children, variant = 'neutral', siz
 };
 
 /* ---- Card ---- */
-interface CardProps {
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
   className?: string;
   interactive?: boolean;
   accent?: boolean;
   as?: React.ElementType;
   onClick?: () => void;
+  style?: React.CSSProperties;
 }
 
-export const Card: React.FC<CardProps> = ({ children, className, interactive, accent, as: Tag = 'div', onClick }) => {
+export const Card: React.FC<CardProps> = ({ children, className, interactive, accent, as: Tag = 'div', onClick, style, ...rest }) => {
   const Component = Tag as any;
   return (
     <Component
@@ -147,7 +148,9 @@ export const Card: React.FC<CardProps> = ({ children, className, interactive, ac
         accent && 'border-[var(--border-accent)] hover:shadow-[var(--glow-sm)]',
         className
       )}
+      style={style}
       onClick={onClick}
+      {...rest}
     >
       {children}
     </Component>

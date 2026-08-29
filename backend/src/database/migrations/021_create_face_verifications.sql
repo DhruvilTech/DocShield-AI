@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS face_verifications (
   reference_face_provided BOOLEAN NOT NULL DEFAULT FALSE,
   processing_time_ms INT UNSIGNED NOT NULL DEFAULT 0,
   metadata JSON NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP(6),
   FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
   FOREIGN KEY (version_id) REFERENCES document_versions(id) ON DELETE CASCADE,
   FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE,

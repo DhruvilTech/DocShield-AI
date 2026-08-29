@@ -106,7 +106,13 @@ export class RiskScoreService {
 
     // --- C. Biometric Face Verification (0 to 20 points) ---
     if (faceVerification) {
-      if (faceVerification.status === 'NO_MATCH') {
+      const meta = faceVerification.metadata || {};
+      const isLivenessFailed = meta.liveness && meta.liveness.status === 'FAIL';
+
+      if (isLivenessFailed) {
+        breakdown.biometricScore = 20;
+        explanationItems.push(`Active biometric liveness challenge failed (${meta.liveness.reason || 'spoof detected'}).`);
+      } else if (faceVerification.status === 'NO_MATCH') {
         breakdown.biometricScore = 20;
         explanationItems.push('Biometric portrait mismatch against presented reference subject.');
       } else if (faceVerification.status === 'INCONCLUSIVE') {

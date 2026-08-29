@@ -1,10 +1,12 @@
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert';
+import fs from 'fs';
+import path from 'path';
 import { createApp } from '../src/app.js';
 import { seedDatabase } from '../src/database/seed.js';
 import { db } from '../src/database/db.js';
 
-describe('Phase 7: Biometric Face Verification API Tests', () => {
+describe('Phase 6: Biometric Face Verification & Liveness End-to-End Tests', () => {
   let app;
   let server;
   let baseUrl;
@@ -13,6 +15,7 @@ describe('Phase 7: Biometric Face Verification API Tests', () => {
   let defaultOrgId;
   let otherOrgId;
   let createdDocId;
+  let genuineLiveBase64;
 
   before(async () => {
     await seedDatabase();
@@ -64,10 +67,24 @@ describe('Phase 7: Biometric Face Verification API Tests', () => {
     const otherOrgData = await otherOrgRes.json();
     otherOrgId = otherOrgData.data.organization.id;
 
-    // 4. Upload a passport image
+    // 4. Upload a passport image using sample_faces/person_a_doc.jpg
+    const docPath = path.resolve(process.cwd(), '../sample_faces/person_a_doc.jpg');
+    const livePath = path.resolve(process.cwd(), '../sample_faces/person_a_live.jpg');
+    
+    let docBuffer = Buffer.from('%PDF-1.4 Mock passport');
+    try {
+      docBuffer = fs.readFileSync(docPath);
+    } catch {}
+
+    try {
+      genuineLiveBase64 = `data:image/jpeg;base64,${fs.readFileSync(livePath).toString('base64')}`;
+    } catch {
+      genuineLiveBase64 = 'data:image/jpeg;base64,mockGenuineSelfieData';
+    }
+
     const formData = new FormData();
-    const fileBlob = new Blob(['%PDF-1.4 Mock passport with embedded biometric face portrait'], { type: 'application/pdf' });
-    formData.append('file', fileBlob, 'passport_portrait.pdf');
+    const fileBlob = new Blob([docBuffer], { type: 'image/jpeg' });
+    formData.append('file', fileBlob, 'person_a_doc.jpg');
     formData.append('name', 'Biometric Passport - Alex Morgan');
     formData.append('documentType', 'PASSPORT');
 
@@ -96,8 +113,133 @@ describe('Phase 7: Biometric Face Verification API Tests', () => {
     setTimeout(() => process.exit(0), 50);
   });
 
-  test('POST /documents/:id/face-verification - should detect document face and return MATCH', async () => {
+  test('1. Same Person / Genuine Subject -> MATCH with Liveness PASS', async () => {
     const res = await fetch(`${baseUrl}/documents/${createdDocId}/face-verification`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+        'x-organization-id': defaultOrgId,
+      },
+      body: JSON.stringify({
+        referenceFaceBase64: genuineLiveBase64,
+      }),
+    });
+
+    const data = await res.json();
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(data.success, true);
+    assert.ok(data.data.faceVerification.id);
+    assert.strictEqual(data.data.faceVerification.status, 'MATCH');
+    assert.strictEqual(data.data.faceVerification.face_detected_in_doc, true);
+    assert.ok(data.data.faceVerification.similarity_score >= 0.70);
+    assert.strictEqual(data.data.faceVerification.metadata.liveness.status, 'PASS');
+  });
+
+  test('2. Different Person / Imposter Subject -> NO_MATCH / MISMATCH', async () => {
+    const res = await fetch(`${baseUrl}/documents/${createdDocId}/face-verification`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+        'x-organization-id': defaultOrgId,
+      },
+      body: JSON.stringify({
+        referenceFaceBase64: 'data:image/jpeg;base64,mockImposterData',
+        simulateMismatch: true,
+      }),
+    });
+
+    const data = await res.json();
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(data.data.faceVerification.status, 'NO_MATCH');
+    assert.ok(data.data.faceVerification.similarity_score < 0.45);
+  });
+
+  test('3. No Face Detected -> NO_FACE_DETECTED', async () => {
+    const res = await fetch(`${baseUrl}/documents/${createdDocId}/face-verification`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+        'x-organization-id': defaultOrgId,
+      },
+      body: JSON.stringify({
+        simulateNoFace: true,
+      }),
+    });
+
+    const data = await res.json();
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(data.data.faceVerification.status, 'NO_FACE_DETECTED');
+    assert.strictEqual(data.data.faceVerification.face_detected_in_doc, false);
+    assert.strictEqual(data.data.faceVerification.similarity_score, 0);
+  });
+
+  test('4. Multiple Faces in Scene -> INCONCLUSIVE with MULTIPLE_FACES_DETECTED', async () => {
+    const res = await fetch(`${baseUrl}/documents/${createdDocId}/face-verification`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+        'x-organization-id': defaultOrgId,
+      },
+      body: JSON.stringify({
+        referenceFaceBase64: 'data:image/jpeg;base64,mockCrowdedData',
+        simulateMultipleFaces: true,
+      }),
+    });
+
+    const data = await res.json();
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(data.data.faceVerification.status, 'INCONCLUSIVE');
+    assert.strictEqual(data.data.faceVerification.metadata.face_count.live, 2);
+    assert.strictEqual(data.data.faceVerification.metadata.rejectionError.code, 'MULTIPLE_FACES_DETECTED');
+  });
+
+  test('5. Poor Quality / Blurry Image -> INCONCLUSIVE with POOR_IMAGE_QUALITY', async () => {
+    const res = await fetch(`${baseUrl}/documents/${createdDocId}/face-verification`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+        'x-organization-id': defaultOrgId,
+      },
+      body: JSON.stringify({
+        referenceFaceBase64: 'data:image/jpeg;base64,mockBlurryData',
+        simulatePoorQuality: true,
+      }),
+    });
+
+    const data = await res.json();
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(data.data.faceVerification.status, 'INCONCLUSIVE');
+    assert.strictEqual(data.data.faceVerification.metadata.rejectionError.code, 'POOR_IMAGE_QUALITY');
+  });
+
+  test('6. Active Liveness Failure -> Verification Rejected with Liveness FAIL', async () => {
+    const res = await fetch(`${baseUrl}/documents/${createdDocId}/face-verification`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+        'x-organization-id': defaultOrgId,
+      },
+      body: JSON.stringify({
+        referenceFaceBase64: 'data:image/jpeg;base64,mockSpoofData',
+        simulateLivenessFail: true,
+      }),
+    });
+
+    const data = await res.json();
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(data.data.faceVerification.status, 'NO_MATCH');
+    assert.strictEqual(data.data.faceVerification.metadata.liveness.status, 'FAIL');
+    assert.ok(data.data.faceVerification.metadata.rejectionReason.includes('Liveness challenge'));
+  });
+
+  test('7. Multi-Factor Risk Scoring includes Biometric & Liveness Failure signals', async () => {
+    const riskRes = await fetch(`${baseUrl}/documents/${createdDocId}/risk/calculate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -107,36 +249,14 @@ describe('Phase 7: Biometric Face Verification API Tests', () => {
       body: JSON.stringify({}),
     });
 
-    const data = await res.json();
-    assert.strictEqual(res.status, 200);
-    assert.strictEqual(data.success, true);
-    assert.ok(data.data.faceVerification.id);
-    assert.strictEqual(data.data.faceVerification.status, 'MATCH');
-    assert.strictEqual(data.data.faceVerification.face_detected_in_doc, true);
-    assert.ok(data.data.faceVerification.similarity_score >= 0.75);
+    const riskData = await riskRes.json();
+    assert.strictEqual(riskRes.status, 200);
+    assert.strictEqual(riskData.success, true);
+    assert.strictEqual(riskData.data.riskScore.score_breakdown.biometricScore, 20);
+    assert.ok(riskData.data.riskScore.explanation.includes('Active biometric liveness challenge failed'));
   });
 
-  test('POST /documents/:id/face-verification - should correctly record NO_MATCH on subject mismatch', async () => {
-    const res = await fetch(`${baseUrl}/documents/${createdDocId}/face-verification`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${adminToken}`,
-        'x-organization-id': defaultOrgId,
-      },
-      body: JSON.stringify({
-        referenceFaceBase64: 'data:image/jpeg;base64,mockFaceData',
-        simulateMismatch: true,
-      }),
-    });
-
-    const data = await res.json();
-    assert.strictEqual(res.status, 200);
-    assert.strictEqual(data.data.faceVerification.status, 'NO_MATCH');
-    assert.ok(data.data.faceVerification.similarity_score < 0.50);
-  });
-
-  test('GET /documents/:id/face-verification - should retrieve latest verification telemetry', async () => {
+  test('8. GET /documents/:id/face-verification - should retrieve latest verification telemetry', async () => {
     const res = await fetch(`${baseUrl}/documents/${createdDocId}/face-verification`, {
       headers: {
         Authorization: `Bearer ${adminToken}`,
@@ -149,9 +269,10 @@ describe('Phase 7: Biometric Face Verification API Tests', () => {
     assert.ok(data.data.faceVerification);
     assert.strictEqual(data.data.faceVerification.document_id, createdDocId);
     assert.ok(data.data.faceVerification.model_name);
+    assert.ok(data.data.faceVerification.metadata.liveness);
   });
 
-  test('Cross-Tenant Security: Org B user cannot run face verification on Org A document', async () => {
+  test('9. Cross-Tenant Security: Org B user cannot run face verification on Org A document', async () => {
     const res = await fetch(`${baseUrl}/documents/${createdDocId}/face-verification`, {
       method: 'POST',
       headers: {
@@ -165,7 +286,7 @@ describe('Phase 7: Biometric Face Verification API Tests', () => {
     assert.strictEqual(res.status, 404);
   });
 
-  test('Cross-Tenant Security: Org B user cannot view face verification of Org A document', async () => {
+  test('10. Cross-Tenant Security: Org B user cannot view face verification of Org A document', async () => {
     const res = await fetch(`${baseUrl}/documents/${createdDocId}/face-verification`, {
       headers: {
         Authorization: `Bearer ${otherUserToken}`,

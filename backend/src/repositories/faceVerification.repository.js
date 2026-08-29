@@ -61,6 +61,9 @@ export class FaceVerificationRepository {
     if (rows.length === 0) return null;
 
     const record = rows[0];
+    record.similarity_score = parseFloat(record.similarity_score || 0);
+    record.confidence = parseFloat(record.confidence || 0);
+    record.match_threshold = parseFloat(record.match_threshold || 0.45);
     record.face_detected_in_doc = Boolean(record.face_detected_in_doc);
     record.reference_face_provided = Boolean(record.reference_face_provided);
     if (typeof record.metadata === 'string') {
@@ -93,6 +96,9 @@ export class FaceVerificationRepository {
     if (rows.length === 0) return null;
 
     const record = rows[0];
+    record.similarity_score = parseFloat(record.similarity_score || 0);
+    record.confidence = parseFloat(record.confidence || 0);
+    record.match_threshold = parseFloat(record.match_threshold || 0.45);
     record.face_detected_in_doc = Boolean(record.face_detected_in_doc);
     record.reference_face_provided = Boolean(record.reference_face_provided);
     if (typeof record.metadata === 'string') {
