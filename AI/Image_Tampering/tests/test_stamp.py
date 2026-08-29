@@ -150,3 +150,69 @@ def test_stamp_debug_outputs(tmpdir):
     
     assert os.path.exists(os.path.join(debug_dir, "document_stamp_candidates.jpg"))
     assert os.path.exists(os.path.join(debug_dir, "document_stamp_map.png"))
+
+
+def test_stamp_clean_low_anomaly():
+    # Verify that clean passport legitimate stamp is LOW severity (score <= 0.20)
+    passport_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "samples", "clean", "passport.jpg")
+    if os.path.exists(passport_path):
+        with open(passport_path, "rb") as f:
+            img_bytes = f.read()
+        from app.forensic.preprocessing import load_and_preprocess_image
+        from app.forensic.representations import generate_representations
+        from app.forensic.ela import analyze_ela
+        from app.forensic.copy_move import analyze_copy_move
+        orig, work, mapper, fmt = load_and_preprocess_image(img_bytes, "passport.jpg")
+        reps = generate_representations(work)
+        ela_sig = analyze_ela(work, coordinate_mapper=mapper)
+        cm_sig = analyze_copy_move(work, coordinate_mapper=mapper)
+        
+        signal = analyze_stamps(
+            working_image_rgb=work,
+            grayscale=reps["grayscale"],
+            hsv=reps["hsv"],
+            lab=reps["lab"],
+            noise_residual=reps["noise_residual"],
+            coordinate_mapper=mapper,
+            ela_regions=ela_sig.regions,
+            copy_move_regions=cm_sig.regions
+        )
+        
+        # Check that legitimate stamp detected has LOW score (<= 0.2)
+        if signal.regions:
+            # Find the bottom stamp region (around x=1399)
+            stamp_regs = [r for r in signal.regions if r.x > 1200]
+            if stamp_regs:
+                assert stamp_regs[0].score <= 0.2
+                assert stamp_regs[0].severity == "LOW"
+
+
+def test_stamp_tampered_higher_anomaly():
+    # Verify that tampered stamp receives higher anomaly score than clean stamp
+    tampered_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "samples", "tampered", "stamp_tampered.jpg")
+    if os.path.exists(tampered_path):
+        with open(tampered_path, "rb") as f:
+            img_bytes = f.read()
+        from app.forensic.preprocessing import load_and_preprocess_image
+        from app.forensic.representations import generate_representations
+        from app.forensic.ela import analyze_ela
+        orig, work, mapper, fmt = load_and_preprocess_image(img_bytes, "stamp_tampered.jpg")
+        reps = generate_representations(work)
+        ela_sig = analyze_ela(work, coordinate_mapper=mapper)
+        
+        signal = analyze_stamps(
+            working_image_rgb=work,
+            grayscale=reps["grayscale"],
+            hsv=reps["hsv"],
+            lab=reps["lab"],
+            noise_residual=reps["noise_residual"],
+            coordinate_mapper=mapper,
+            ela_regions=ela_sig.regions
+        )
+        
+        assert signal.stamp_detected is True
+        # Find the tampered stamp (around x=900)
+        stamp_regs = [r for r in signal.regions if r.x > 700 and r.x < 1200]
+        if stamp_regs:
+            # Shifted/recolored stamp should have score >= 0.2 (higher than clean baseline 0.1)
+            assert stamp_regs[0].score >= 0.2

@@ -10,9 +10,9 @@ def analyze_copy_move(
     coordinate_mapper: Optional[CoordinateMapper] = None,
     save_debug: bool = False,
     debug_dir: Optional[str] = None,
-    ratio: float = 0.7,
+    ratio: float = 0.60,
     min_dist_ratio: float = 0.05,
-    min_inliers: int = 5
+    min_inliers: int = 8
 ) -> ForensicSignal:
     """
     Performs Copy-Move duplicate tampering detection.
@@ -176,9 +176,13 @@ def analyze_copy_move(
             orig_src_x, orig_src_y, orig_src_w, orig_src_h = src_x, src_y, src_w, src_h
             orig_dst_x, orig_dst_y, orig_dst_w, orig_dst_h = dst_x, dst_y, dst_w, dst_h
 
-        # Score is proportional to cluster match size (1.0 at 25+ matches)
-        cluster_score = float(min(len(cluster) / 25.0, 1.0))
-        severity = "HIGH" if cluster_score > 0.7 else ("MEDIUM" if cluster_score > 0.4 else "LOW")
+        # Regional score is based on cluster match size (confidence is high for large clusters)
+        if len(cluster) >= 8:
+            cluster_score = float(0.4 + 0.6 * (min(len(cluster), 20) - 8) / 12.0)
+            severity = "HIGH" if cluster_score > 0.7 else ("MEDIUM" if cluster_score > 0.4 else "LOW")
+        else:
+            cluster_score = float(0.05 * len(cluster))
+            severity = "LOW"
 
         regions.append(SuspiciousRegion(
             x=orig_src_x,
@@ -199,8 +203,15 @@ def analyze_copy_move(
     regions.sort(key=lambda r: r.score, reverse=True)
 
     # 7. Document-wide Anomaly Score (0.0 to 1.0)
-    # Score is proportional to the number of consistent matches and clusters found
-    score = 0.02 * len(verified_matches) + 0.1 * len(clusters)
+    # Score scales with the size of the largest cluster and is boosted by additional clusters
+    largest_cluster_size = max(len(c) for c in clusters) if clusters else 0
+    if largest_cluster_size >= 8:
+        base_score = 0.4 + 0.6 * (min(largest_cluster_size, 20) - 8) / 12.0
+    else:
+        base_score = 0.05 * largest_cluster_size
+
+    # Boost score slightly if multiple independent duplicate clusters are verified
+    score = base_score + 0.15 * (len(clusters) - 1 if len(clusters) > 0 else 0)
     score = float(min(max(score, 0.0), 1.0))
 
     # 8. Statistics

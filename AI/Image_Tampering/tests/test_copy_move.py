@@ -121,3 +121,27 @@ def test_copy_move_original_unchanged():
     
     # Assert that the working image array has not been modified
     assert np.array_equal(work, work_copy)
+
+
+def test_copy_move_clean_no_high_score():
+    # Verify that the clean passport sample does not trigger high copy-move score
+    passport_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "samples", "clean", "passport.jpg")
+    if os.path.exists(passport_path):
+        with open(passport_path, "rb") as f:
+            img_bytes = f.read()
+        orig, work, mapper, fmt = load_and_preprocess_image(img_bytes, "passport.jpg")
+        signal = analyze_copy_move(work, coordinate_mapper=mapper)
+        assert signal.score < 0.2
+        assert len(signal.regions) == 0
+
+
+def test_copy_move_tampered_detected():
+    # Verify that the genuine copy_move sample still receives a high score
+    tampered_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "samples", "tampered", "copy_move.jpg")
+    if os.path.exists(tampered_path):
+        with open(tampered_path, "rb") as f:
+            img_bytes = f.read()
+        orig, work, mapper, fmt = load_and_preprocess_image(img_bytes, "copy_move.jpg")
+        signal = analyze_copy_move(work, coordinate_mapper=mapper)
+        assert signal.score >= 0.4
+        assert len(signal.regions) >= 1

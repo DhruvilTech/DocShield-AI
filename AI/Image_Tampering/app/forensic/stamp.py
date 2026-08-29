@@ -118,44 +118,69 @@ def analyze_stamps(
         else:
             orig_x, orig_y, orig_w, orig_h = x, y, w, h
 
-        # 5. Cross-Signal Overlap Check (in original space)
-        ela_overlap = False
-        noise_overlap = False
-        copy_move_overlap = False
-
+        # 5. Cross-Signal Overlap Check (in original space, tracking highest overlapping severity)
         orig_box = (orig_x, orig_y, orig_w, orig_h)
-
+        ela_severity = None
         if ela_regions:
             for r in ela_regions:
                 if calculate_overlap_ratio(orig_box, (r.x, r.y, r.width, r.height)) > 0.2:
-                    ela_overlap = True
-                    break
+                    if r.severity == "HIGH" or (r.severity == "MEDIUM" and ela_severity != "HIGH") or ela_severity is None:
+                        ela_severity = r.severity
 
+        noise_severity = None
         if noise_regions:
             for r in noise_regions:
                 if calculate_overlap_ratio(orig_box, (r.x, r.y, r.width, r.height)) > 0.2:
-                    noise_overlap = True
-                    break
+                    if r.severity == "HIGH" or (r.severity == "MEDIUM" and noise_severity != "HIGH") or noise_severity is None:
+                        noise_severity = r.severity
 
+        copy_move_severity = None
         if copy_move_regions:
             for r in copy_move_regions:
                 if calculate_overlap_ratio(orig_box, (r.x, r.y, r.width, r.height)) > 0.2:
-                    copy_move_overlap = True
-                    break
+                    if r.severity == "HIGH" or (r.severity == "MEDIUM" and copy_move_severity != "HIGH") or copy_move_severity is None:
+                        copy_move_severity = r.severity
 
         # 6. Scoring Formula
         region_score = 0.1  # base detected stamp score
         reasons = []
+        signals_count = 0
 
-        if ela_overlap:
-            region_score += 0.4
+        if ela_severity:
+            signals_count += 1
+            if ela_severity == "HIGH":
+                region_score += 0.4
+            elif ela_severity == "MEDIUM":
+                region_score += 0.2
+            else:
+                region_score += 0.1
             reasons.append("ELA compression inconsistency")
-        if noise_overlap:
-            region_score += 0.3
+
+        if noise_severity:
+            signals_count += 1
+            if noise_severity == "HIGH":
+                region_score += 0.3
+            elif noise_severity == "MEDIUM":
+                region_score += 0.2
+            else:
+                region_score += 0.1
             reasons.append("Noise density mismatch")
-        if copy_move_overlap:
-            region_score += 0.5
+
+        if copy_move_severity:
+            signals_count += 1
+            if copy_move_severity == "HIGH":
+                region_score += 0.5
+            elif copy_move_severity == "MEDIUM":
+                region_score += 0.25
+            else:
+                region_score += 0.1
             reasons.append("Copy-move visual duplicate")
+
+        # Compounding bonus for multiple independent anomaly overlaps
+        if signals_count >= 3:
+            region_score += 0.3
+        elif signals_count == 2:
+            region_score += 0.2
 
         region_score = float(min(region_score, 1.0))
         severity = "LOW"
