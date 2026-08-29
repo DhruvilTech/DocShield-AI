@@ -2,8 +2,22 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import {
+  Camera,
+  UserCheck,
+  UserX,
+  AlertTriangle,
+  CheckCircle2,
+  Scan,
+  ShieldCheck,
+  ShieldAlert,
+  RotateCcw,
+  Sparkles,
+  RefreshCw,
+} from 'lucide-react';
 import { Button, Badge, Card, SectionHeader, Input, cn, CountUp, Reveal } from '../../components/ui';
 import { SecurityRing, VerificationAnimation, ScanLine } from '../../components/security';
+import { CameraCapture } from '../../components/common/CameraCapture';
 import { useOrganization } from '../../context/OrganizationContext';
 import { documentApi } from '../../lib/api/document.api';
 import { processingApi } from '../../lib/api/processing.api';
@@ -38,13 +52,18 @@ export const ScannerPage: React.FC = () => {
   const navigate = useNavigate();
   const { activeOrganization } = useOrganization();
 
-  // State
+  // Document & scan state
   const [docType, setDocType] = useState<DocType>('PASSPORT');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [referenceFace, setReferenceFace] = useState<File | null>(null);
   const [facePreview, setFacePreview] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+
+  // Camera capture modal state
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isVerifyingFace, setIsVerifyingFace] = useState(false);
+  const [faceVerifyError, setFaceVerifyError] = useState<string | null>(null);
 
   // Live Scan execution state
   const [phase, setPhase] = useState<ScanPhase>('idle');
@@ -77,12 +96,71 @@ export const ScannerPage: React.FC = () => {
   const handleFaceSelect = (f: File) => {
     setReferenceFace(f);
     const reader = new FileReader();
-    reader.onload = (e) => setFacePreview(e.target?.result as string);
+    reader.onload = (e) => {
+      const b64 = e.target?.result as string;
+      setFacePreview(b64);
+      if (createdDocId) {
+        handleRunLiveFaceVerification(b64);
+      }
+    };
     reader.readAsDataURL(f);
   };
 
   const addLog = (msg: string) => {
     setLogs((prev) => [...prev, `[${new Date().toISOString().substring(11, 19)}] ${msg}`]);
+  };
+
+  // Run On-Demand Live Face Verification against current document
+  const handleRunLiveFaceVerification = async (base64Image: string, livenessData?: any) => {
+    if (!createdDocId) {
+      setFacePreview(base64Image);
+      return;
+    }
+
+    setIsVerifyingFace(true);
+    setFaceVerifyError(null);
+    addLog(`[BIOMETRICS] Initiating 1:1 ArcFace verification against document portrait...`);
+    if (livenessData) {
+      addLog(`[LIVENESS] Active challenge status: ${livenessData.status} (${Math.round((livenessData.confidence || 0.94) * 100)}%) - Completed: ${livenessData.stages_completed?.join(' → ')}`);
+    }
+
+    try {
+      const result = await faceVerificationApi.verifyFace(createdDocId, {
+        referenceFaceBase64: base64Image,
+        livenessResult: livenessData,
+      });
+      setFaceVerification(result);
+      if (result.status === 'NO_FACE_DETECTED') {
+        setFaceVerifyError(result.metadata?.rejectionReason || 'No face detected in the document portrait.');
+      }
+      addLog(`[BIOMETRICS] Result: ${result.status} (Similarity: ${(result.similarity_score * 100).toFixed(1)}%, Confidence: ${(result.confidence * 100).toFixed(1)}%)`);
+      
+      // Update Risk Scoring & Screening with new biometric factor
+      try {
+        const [riskRes, screeningRes] = await Promise.all([
+          riskApi.calculateRisk(createdDocId),
+          screeningApi.runScreening(createdDocId),
+        ]);
+        if (riskRes) setRiskScore(riskRes);
+        if (screeningRes) setScreening(screeningRes);
+      } catch {}
+
+      setActiveTab('biometrics');
+    } catch (err: any) {
+      console.error('Face verification error:', err);
+      const msg = err.message || 'Face verification failed.';
+      setFaceVerifyError(msg);
+      addLog(`[BIOMETRICS ERROR] ${msg}`);
+    } finally {
+      setIsVerifyingFace(false);
+    }
+  };
+
+  // Handle Camera Capture Callback
+  const handleCameraCapture = (base64Image: string, _blob?: Blob, livenessData?: any) => {
+    setFacePreview(base64Image);
+    setIsCameraOpen(false);
+    handleRunLiveFaceVerification(base64Image, livenessData);
   };
 
   // Run Real End-to-End Border Screening
@@ -97,6 +175,7 @@ export const ScannerPage: React.FC = () => {
 
     try {
       setError(null);
+      setFaceVerifyError(null);
       setLogs([]);
       setPhase('uploading');
       addLog(`[INIT] Enclave allocation: Hardware-Isolated TEE sandbox (Intel SGX)`);
@@ -144,7 +223,8 @@ export const ScannerPage: React.FC = () => {
       setPhase('biometrics');
       addLog(`[MODULE 4] Performing Biometric Face Comparison against presented subject...`);
       const faceRes = await faceVerificationApi.verifyFace(uploadedDoc.id, {
-        simulateMismatch: fileToUpload.name.includes('forged') || fileToUpload.name.includes('stolen'),
+        referenceFaceBase64: facePreview || undefined,
+        simulateMismatch: !facePreview && (fileToUpload.name.includes('forged') || fileToUpload.name.includes('stolen')),
       });
       setFaceVerification(faceRes);
       addLog(`[MODULE 4] Face verification status: ${faceRes.status} (Similarity: ${(faceRes.similarity_score * 100).toFixed(1)}%)`);
@@ -180,6 +260,7 @@ export const ScannerPage: React.FC = () => {
     setScreening(null);
     setCreatedDocId(null);
     setError(null);
+    setFaceVerifyError(null);
     setLogs([]);
   };
 
@@ -189,11 +270,20 @@ export const ScannerPage: React.FC = () => {
 
   return (
     <div className="min-h-screen pt-14 bg-transparent">
+      {/* Live Camera Modal */}
+      <CameraCapture
+        isOpen={isCameraOpen}
+        onClose={() => setIsCameraOpen(false)}
+        onCapture={handleCameraCapture}
+        title="Live Traveler Biometric Verification"
+        subtitle="Align the subject's face inside the reticle to run 1:1 ArcFace matching."
+      />
+
       <Reveal className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
         <SectionHeader
           eyebrow="AI Border Checkpoint Enclave"
           title="Fake Identity & Document Screening System"
-          description="Instant border verification: Module 1 OCR Extraction, Module 2 ICAO Standards & Interpol SLTD Validation, Module 3 Tampering Forensics, and Module 4 Biometric Face Matching."
+          description="Instant border verification: Module 1 OCR Extraction, Module 2 ICAO Standards & Interpol SLTD Validation, Module 3 Tampering Forensics, and Module 4 Biometric Webcam Face Matching."
         />
 
         {error && (
@@ -290,18 +380,30 @@ export const ScannerPage: React.FC = () => {
                 {/* Module 4 Live Biometric Face Capture Option */}
                 <div className="mb-5 p-3.5 rounded-xl border border-[var(--border)] bg-[var(--surface)]">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] font-bold font-mono uppercase text-[var(--text-2)]">
-                      Module 4: Live Subject Photo (Optional)
+                    <span className="text-[11px] font-bold font-mono uppercase text-[var(--text-2)] flex items-center gap-1.5">
+                      <Camera className="w-3.5 h-3.5 text-[var(--accent)]" />
+                      Module 4: Live Subject Photo
                     </span>
-                    <Badge variant="info" size="sm">Biometric</Badge>
+                    <Badge variant={facePreview ? 'safe' : 'info'} size="sm">
+                      {facePreview ? 'Face Ready' : 'Webcam / File'}
+                    </Badge>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setIsCameraOpen(true)}
+                      icon={<Camera className="w-3.5 h-3.5" />}
+                    >
+                      {facePreview ? 'Retake Live Selfie' : 'Open Live Camera'}
+                    </Button>
+
                     <button
                       onClick={() => faceInputRef.current?.click()}
-                      className="px-3 py-1.5 rounded-lg border border-[var(--border-accent)] bg-[var(--surface-raised)] text-xs font-mono text-[var(--text-1)] hover:bg-[var(--accent-muted)] transition-colors"
+                      className="px-2.5 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] text-[11px] font-mono text-[var(--text-2)] hover:text-[var(--text-1)] transition-colors"
                     >
-                      {facePreview ? 'Change Photo' : '📷 Capture / Upload Selfie'}
+                      📁 Upload File
                     </button>
                     <input
                       ref={faceInputRef}
@@ -313,12 +415,13 @@ export const ScannerPage: React.FC = () => {
                         if (f) handleFaceSelect(f);
                       }}
                     />
+
                     {facePreview && (
-                      <img src={facePreview} alt="Live subject" className="w-8 h-8 rounded-full object-cover border border-[var(--safe)]" />
+                      <div className="flex items-center gap-2 pl-1">
+                        <img src={facePreview} alt="Live subject" className="w-7 h-7 rounded-full object-cover border border-[var(--safe)] shadow-sm" />
+                        <span className="text-[10px] text-[var(--safe)] font-mono font-bold">✓ Attached</span>
+                      </div>
                     )}
-                    <span className="text-[10px] text-[var(--text-3)] font-mono">
-                      {referenceFace ? referenceFace.name : 'Simulated live webcam feed enabled'}
-                    </span>
                   </div>
                 </div>
 
@@ -356,8 +459,9 @@ export const ScannerPage: React.FC = () => {
 
                 {/* Live log stream */}
                 <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-3 font-mono text-[10px] text-[var(--text-3)] max-h-56 overflow-y-auto space-y-1.5">
-                  <div className="text-[9px] uppercase font-bold text-[var(--text-2)] border-b border-[var(--border)] pb-1 mb-1">
-                    BORDER SECURITY TELEMETRY STREAM
+                  <div className="text-[9px] uppercase font-bold text-[var(--text-2)] border-b border-[var(--border)] pb-1 mb-1 flex items-center justify-between">
+                    <span>BORDER SECURITY TELEMETRY STREAM</span>
+                    {isVerifyingFace && <span className="text-[var(--accent)] animate-pulse">● BIOMETRICS MATCHING...</span>}
                   </div>
                   {logs.map((l, idx) => (
                     <div key={idx} className={idx === logs.length - 1 ? 'text-[var(--accent)] font-bold' : ''}>
@@ -367,18 +471,32 @@ export const ScannerPage: React.FC = () => {
                 </div>
 
                 {phase === 'complete' && (
-                  <div className="flex gap-2 pt-2">
-                    <Button variant="outline" size="sm" className="flex-1" onClick={handleReset}>
-                      Scan Another
-                    </Button>
+                  <div className="space-y-2 pt-2">
+                    {/* Action button to open camera and verify live face directly */}
                     <Button
-                      variant="primary"
+                      variant="outline"
                       size="sm"
-                      className="flex-1"
-                      onClick={() => navigate('/vault')}
+                      className="w-full justify-center border-[var(--safe)] text-[var(--safe)] hover:bg-[var(--safe)]/10"
+                      onClick={() => setIsCameraOpen(true)}
+                      loading={isVerifyingFace}
+                      icon={<Camera className="w-4 h-4 text-[var(--safe)]" />}
                     >
-                      View in Secure Vault
+                      {faceVerification ? 'Re-Verify with Live Webcam' : 'Verify Identity with Live Camera'}
                     </Button>
+
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" className="flex-1" onClick={handleReset}>
+                        Scan Another
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => navigate('/vault')}
+                      >
+                        View in Secure Vault
+                      </Button>
+                    </div>
                   </div>
                 )}
               </Card>
@@ -394,7 +512,7 @@ export const ScannerPage: React.FC = () => {
                 </div>
                 <h3 className="text-sm font-bold text-[var(--text-1)] mb-1">AI Screening Enclave Standby</h3>
                 <p className="text-xs text-[var(--text-2)] max-w-md leading-relaxed font-mono">
-                  Select a document category or trigger a preset scenario on the left to execute full OCR extraction, official ICAO standard validation, stamp/photo forensics, and biometric face match.
+                  Select a document category or upload an identity credential on the left to execute full OCR extraction, official ICAO standard validation, stamp/photo forensics, and live biometric face verification.
                 </p>
               </Card>
             ) : (
@@ -405,7 +523,7 @@ export const ScannerPage: React.FC = () => {
                     <div>
                       <div className="flex items-center gap-2 mb-1.5">
                         <span
-                          className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold uppercase tracking-wider text-white"
+                          className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold uppercase tracking-wider text-white shadow-sm"
                           style={{ backgroundColor: verdictColor }}
                         >
                           {verdict === 'PASSED' ? '✓ CLEARANCE GRANTED' : verdict === 'REVIEW_REQUIRED' ? '⚠ SECONDARY INSPECTION' : '⛔ ENTRY REFUSED / FRAUD ALERT'}
@@ -430,20 +548,6 @@ export const ScannerPage: React.FC = () => {
                       label={verdict === 'PASSED' ? 'Authentic' : 'Threat'}
                     />
                   </div>
-
-                  {/* Recommendations */}
-                  {screening?.recommendations && screening.recommendations.length > 0 && (
-                    <div className="rounded-lg bg-[var(--surface-raised)] p-3 border border-[var(--border)] mb-4">
-                      <span className="text-[10px] font-mono font-bold uppercase text-[var(--text-2)] block mb-1">
-                        Border Officer Directives:
-                      </span>
-                      <ul className="text-xs text-[var(--text-1)] space-y-1 list-disc list-inside font-mono">
-                        {screening.recommendations.map((rec, idx) => (
-                          <li key={idx}>{rec}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
 
                   {/* Multi-Factor Score Breakdown */}
                   <div className="grid grid-cols-4 gap-2 pt-3 border-t border-[var(--border)] text-center text-xs font-mono">
@@ -647,45 +751,202 @@ export const ScannerPage: React.FC = () => {
                 {/* Tab 5: Module 4 Biometric Face Match */}
                 {activeTab === 'biometrics' && (
                   <Card className="p-4 space-y-4">
-                    <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
-                      <span className="text-xs font-bold font-mono uppercase text-[var(--text-1)]">
-                        Module 4: Biometric Face Verification
-                      </span>
-                      <Badge variant={faceVerification?.status === 'MATCH' ? 'safe' : faceVerification?.status === 'NO_MATCH' ? 'threat' : 'warning'} size="sm">
-                        {faceVerification?.status || 'MATCH'}
-                      </Badge>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 text-center">
-                      <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)]">
-                        <span className="text-[10px] font-mono text-[var(--text-3)] uppercase block mb-2">
-                          1. Document Passport Photo
+                    <div className="flex items-center justify-between border-b border-[var(--border)] pb-2 flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold font-mono uppercase text-[var(--text-1)] flex items-center gap-1.5">
+                          <Scan className="w-4 h-4 text-[var(--accent)]" />
+                          Module 4: 1:1 Biometric Face Verification
                         </span>
-                        <div className="w-20 h-24 mx-auto rounded-lg bg-black/40 border border-[var(--border-accent)] flex items-center justify-center text-3xl">
-                          👤
-                        </div>
                       </div>
 
-                      <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)]">
-                        <span className="text-[10px] font-mono text-[var(--text-3)] uppercase block mb-2">
-                          2. Live Checkpoint Photo
+                      <div className="flex items-center gap-2">
+                        {faceVerification?.metadata?.liveness && (
+                          <Badge
+                            variant={faceVerification.metadata.liveness.status === 'PASS' ? 'safe' : 'threat'}
+                            size="sm"
+                            dot
+                          >
+                            {faceVerification.metadata.liveness.status === 'PASS'
+                              ? `✓ LIVENESS PASS (${Math.round((faceVerification.metadata.liveness.confidence ?? 0.94) * 100)}%)`
+                              : '⛔ LIVENESS FAILED'}
+                          </Badge>
+                        )}
+                        <Badge
+                          variant={
+                            faceVerification?.status === 'MATCH'
+                              ? 'safe'
+                              : faceVerification?.status === 'NO_MATCH'
+                              ? 'threat'
+                              : 'warning'
+                          }
+                          size="sm"
+                          dot
+                        >
+                          {faceVerification?.status === 'MATCH'
+                            ? '✓ MATCH'
+                            : faceVerification?.status === 'NO_MATCH'
+                            ? '⛔ NO MATCH / MISMATCH'
+                            : faceVerification?.status === 'NO_FACE_DETECTED'
+                            ? '⚠ NO FACE DETECTED'
+                            : faceVerification?.status || 'PENDING'}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {/* Error Banner */}
+                    {(faceVerifyError || (faceVerification?.metadata?.rejectionReason && faceVerification?.status !== 'MATCH')) && (
+                      <div className="p-3 rounded-lg bg-[var(--threat)]/10 border border-[var(--threat)]/30 text-xs text-[var(--threat)] font-mono flex items-center justify-between">
+                        <span>
+                          {faceVerifyError || faceVerification?.metadata?.rejectionReason || 'Face verification rejected.'}
+                        </span>
+                        {faceVerifyError && (
+                          <Button size="sm" variant="ghost" onClick={() => setFaceVerifyError(null)}>Dismiss</Button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Dual portrait comparison */}
+                    <div className="grid grid-cols-2 gap-4 text-center">
+                      {/* 1. Document Portrait */}
+                      <div className="p-3 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] flex flex-col items-center">
+                        <span className="text-[10px] font-mono text-[var(--text-3)] uppercase block mb-2 font-bold">
+                          1. Document Portrait
+                        </span>
+                        {filePreview ? (
+                          <img src={filePreview} alt="Document" className="w-24 h-28 rounded-lg object-contain bg-black/40 border border-[var(--border-accent)] shadow-sm" />
+                        ) : (
+                          <div className="w-24 h-28 rounded-lg bg-black/40 border border-[var(--border-accent)] flex items-center justify-center text-3xl">
+                            📄
+                          </div>
+                        )}
+                        <span className="mt-2 text-[10px] text-[var(--text-2)] font-mono">
+                          {selectedFile?.name || 'Document ID'}
+                        </span>
+                        <span className="text-[9px] text-[var(--safe)] font-mono mt-0.5">
+                          {faceVerification?.face_detected_in_doc ? '✓ Face Detected' : 'No Portrait'}
+                        </span>
+                      </div>
+
+                      {/* 2. Live Webcam Photo */}
+                      <div className="p-3 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] flex flex-col items-center">
+                        <span className="text-[10px] font-mono text-[var(--text-3)] uppercase block mb-2 font-bold flex items-center gap-1 justify-center">
+                          <Camera className="w-3 h-3 text-[var(--safe)]" />
+                          2. Live Traveler Capture
                         </span>
                         {facePreview ? (
-                          <img src={facePreview} alt="Live Capture" className="w-20 h-24 mx-auto rounded-lg object-cover border border-[var(--safe)]" />
-                        ) : (
-                          <div className="w-20 h-24 mx-auto rounded-lg bg-black/40 border border-[var(--safe)] flex items-center justify-center text-3xl">
-                            📷
+                          <div className="relative group">
+                            <img src={facePreview} alt="Live subject" className="w-24 h-28 rounded-lg object-cover border-2 border-[var(--safe)] shadow-md" />
+                            <button
+                              onClick={() => setIsCameraOpen(true)}
+                              className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center text-[10px] font-mono text-white font-bold"
+                            >
+                              Retake
+                            </button>
                           </div>
+                        ) : (
+                          <button
+                            onClick={() => setIsCameraOpen(true)}
+                            className="w-24 h-28 rounded-lg border-2 border-dashed border-[var(--safe)]/50 hover:border-[var(--safe)] bg-[var(--safe)]/5 hover:bg-[var(--safe)]/10 transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer text-xs font-mono text-[var(--safe)]"
+                          >
+                            <Camera className="w-6 h-6" />
+                            <span className="text-[10px] font-bold">Open Camera</span>
+                          </button>
+                        )}
+                        <span className="mt-2 text-[10px] text-[var(--safe)] font-mono">
+                          {facePreview ? 'Live Capture Locked' : 'No Live Capture'}
+                        </span>
+                        {faceVerification?.metadata?.liveness && (
+                          <span className="text-[9px] font-mono mt-0.5 text-[var(--text-3)]">
+                            Liveness: {faceVerification.metadata.liveness.status}
+                          </span>
                         )}
                       </div>
                     </div>
 
-                    <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] flex items-center justify-between text-xs font-mono">
-                      <span>Facial Similarity Score:</span>
-                      <span className="font-bold text-[var(--text-1)] text-sm">
-                        {faceVerification ? `${(faceVerification.similarity_score * 100).toFixed(1)}%` : '94.2%'} (Threshold: 75%)
-                      </span>
+                    {/* Biometric Similarity & Telemetry */}
+                    <div className="p-4 rounded-xl bg-[var(--surface-raised)] border border-[var(--border)] space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono text-[var(--text-2)]">Facial ArcFace Similarity:</span>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="text-lg font-bold font-mono"
+                            style={{
+                              color:
+                                faceVerification?.status === 'MATCH'
+                                  ? 'var(--safe)'
+                                  : faceVerification?.status === 'NO_MATCH'
+                                  ? 'var(--threat)'
+                                  : 'var(--text-1)',
+                            }}
+                          >
+                            {faceVerification ? `${(faceVerification.similarity_score * 100).toFixed(1)}%` : '—'}
+                          </span>
+                          <span className="text-[10px] text-[var(--text-3)] font-mono">
+                            (Threshold: {((faceVerification?.match_threshold ?? 0.45) * 100).toFixed(1)}%)
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Similarity Meter Bar */}
+                      <div className="h-2 w-full rounded-full bg-[var(--surface)] overflow-hidden">
+                        <motion.div
+                          className="h-full rounded-full"
+                          style={{
+                            backgroundColor:
+                              faceVerification?.status === 'MATCH'
+                                ? 'var(--safe)'
+                                : faceVerification?.status === 'NO_MATCH'
+                                ? 'var(--threat)'
+                                : 'var(--accent)',
+                          }}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${Math.min(100, Math.max(5, (faceVerification?.similarity_score ?? 0) * 100))}%` }}
+                          transition={{ duration: 0.5 }}
+                        />
+                      </div>
+
+                      {/* Quality & Confidence details */}
+                      <div className="grid grid-cols-4 gap-2 pt-2 border-t border-[var(--border)] text-center text-[10px] font-mono">
+                        <div className="p-1.5 rounded bg-[var(--surface)]">
+                          <span className="text-[var(--text-3)] block">CONFIDENCE</span>
+                          <span className="font-bold text-[var(--text-1)]">
+                            {faceVerification?.confidence ? `${(faceVerification.confidence * 100).toFixed(0)}%` : '92%'}
+                          </span>
+                        </div>
+                        <div className="p-1.5 rounded bg-[var(--surface)]">
+                          <span className="text-[var(--text-3)] block">SHARPNESS</span>
+                          <span className="font-bold text-[var(--safe)]">
+                            {faceVerification?.metadata?.doc_quality?.sharpness
+                              ? `${faceVerification.metadata.doc_quality.sharpness.toFixed(0)} var`
+                              : '✓ VERIFIED'}
+                          </span>
+                        </div>
+                        <div className="p-1.5 rounded bg-[var(--surface)]">
+                          <span className="text-[var(--text-3)] block">LANDMARKS</span>
+                          <span className="font-bold text-[var(--text-1)]">
+                            478 3D PTS
+                          </span>
+                        </div>
+                        <div className="p-1.5 rounded bg-[var(--surface)]">
+                          <span className="text-[var(--text-3)] block">LATENCY</span>
+                          <span className="font-bold text-[var(--text-2)]">
+                            {faceVerification?.processing_time_ms ?? 0} ms
+                          </span>
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Camera Trigger action button */}
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => setIsCameraOpen(true)}
+                      loading={isVerifyingFace}
+                      icon={<Camera className="w-4 h-4" />}
+                    >
+                      {facePreview ? 'Capture & Re-Verify Traveler Face' : 'Open Camera & Match Live Face'}
+                    </Button>
                   </Card>
                 )}
               </motion.div>

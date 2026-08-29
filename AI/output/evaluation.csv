@@ -1,0 +1,5 @@
+document,live,similarity,label
+A,A,0.7794,genuine
+A,B,0.0901,imposter
+B,B,0.6308,genuine
+B,A,0.1134,imposter

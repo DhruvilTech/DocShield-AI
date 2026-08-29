@@ -30,7 +30,11 @@ export const LoginPage: React.FC = () => {
 
     try {
       await login({ email, password });
-      navigate(from, { replace: true });
+      if (email.toLowerCase().includes('admin')) {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate(from === '/admin' ? '/scanner' : from, { replace: true });
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to authenticate. Please check your credentials.');
     } finally {

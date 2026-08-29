@@ -7,14 +7,16 @@ interface ProtectedRouteProps {
   children: React.ReactNode;
   requiredRole?: string | string[];
   requiredPermission?: string | string[];
+  requireSuperAdmin?: boolean;
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   requiredRole,
   requiredPermission,
+  requireSuperAdmin = false,
 }) => {
-  const { isAuthenticated, isLoading, hasRole, hasPermission } = useAuth();
+  const { isAuthenticated, isLoading, isSuperAdmin, hasRole, hasPermission } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -30,6 +32,31 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (requireSuperAdmin && !isSuperAdmin) {
+    return (
+      <div className="min-h-screen pt-24 px-4 flex items-center justify-center">
+        <div className="max-w-md w-full p-6 rounded-2xl border border-[var(--threat)]/40 bg-[var(--surface)] text-center shadow-2xl">
+          <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[var(--threat)]/10 text-[var(--threat)] flex items-center justify-center">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v.01M12 9a2 2 0 00-2 2v2a2 2 0 002 2h0a2 2 0 002-2V11a2 2 0 00-2-2z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-[var(--text-1)] mb-2 font-mono">Super Admin Clearance Required</h2>
+          <p className="text-xs text-[var(--text-2)] mb-6 leading-relaxed font-mono">
+            This module requires top-level Super Administrator credentials. Your account is restricted to standard border operational modules.
+          </p>
+          <a
+            href="/scanner"
+            className="inline-flex items-center justify-center px-4 py-2 text-xs font-semibold font-mono rounded-lg bg-[var(--accent)] text-[#05070A] shadow-md hover:brightness-110 transition-all"
+          >
+            Return to Checkpoint Scanner
+          </a>
+        </div>
+      </div>
+    );
   }
 
   if (requiredRole && !hasRole(requiredRole)) {
