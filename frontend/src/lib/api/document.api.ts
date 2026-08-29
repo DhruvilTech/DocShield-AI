@@ -10,6 +10,12 @@ export interface DocumentListParams {
   limit?: number;
 }
 
+export interface UploadDocumentOptions {
+  name?: string;
+  documentType?: string;
+  description?: string;
+}
+
 export const documentApi = {
   async getDocuments(params?: DocumentListParams): Promise<{ data: VaultDocument[]; pagination: any }> {
     const res = await apiClient<{ success: boolean; data: VaultDocument[]; pagination: any }>('/documents', {
@@ -18,23 +24,39 @@ export const documentApi = {
     return { data: res.data || [], pagination: res.pagination };
   },
 
-  async getDocument(id: string): Promise<VaultDocument> {
-    const res = await apiClient<{ success: boolean; data: { document: VaultDocument } }>(`/documents/${id}`);
-    return res.data.document;
+  async listDocuments(params?: DocumentListParams): Promise<{ data: VaultDocument[]; pagination: any }> {
+    return this.getDocuments(params);
   },
 
-  async uploadDocument(file: File, name?: string, documentType?: string, description?: string): Promise<VaultDocument> {
+  async getDocument(id: string): Promise<VaultDocument> {
+    const res = await apiClient<{ success: boolean; data: { document: VaultDocument } }>(`/documents/${id}`);
+    return (res.data as any)?.document || res.data;
+  },
+
+  async uploadDocument(
+    file: File,
+    nameOrOptions?: string | UploadDocumentOptions,
+    documentType?: string,
+    description?: string
+  ): Promise<VaultDocument> {
     const formData = new FormData();
     formData.append('file', file);
-    if (name) formData.append('name', name);
-    if (documentType) formData.append('documentType', documentType);
-    if (description) formData.append('description', description);
+
+    if (typeof nameOrOptions === 'object' && nameOrOptions !== null) {
+      if (nameOrOptions.name) formData.append('name', nameOrOptions.name);
+      if (nameOrOptions.documentType) formData.append('documentType', nameOrOptions.documentType);
+      if (nameOrOptions.description) formData.append('description', nameOrOptions.description);
+    } else {
+      if (nameOrOptions) formData.append('name', nameOrOptions);
+      if (documentType) formData.append('documentType', documentType);
+      if (description) formData.append('description', description);
+    }
 
     const res = await apiClient<{ success: boolean; data: { document: VaultDocument } }>('/documents', {
       method: 'POST',
       body: formData,
     });
-    return res.data.document;
+    return (res.data as any)?.document || res.data;
   },
 
   async updateMetadata(id: string, data: { name?: string; documentType?: string; description?: string; status?: string }): Promise<VaultDocument> {
@@ -42,7 +64,7 @@ export const documentApi = {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
-    return res.data.document;
+    return (res.data as any)?.document || res.data;
   },
 
   async uploadNewVersion(id: string, file: File): Promise<VaultDocument> {
@@ -53,12 +75,12 @@ export const documentApi = {
       method: 'POST',
       body: formData,
     });
-    return res.data.document;
+    return (res.data as any)?.document || res.data;
   },
 
   async getVersions(id: string): Promise<DocumentVersion[]> {
     const res = await apiClient<{ success: boolean; data: { versions: DocumentVersion[] } }>(`/documents/${id}/versions`);
-    return res.data.versions || [];
+    return (res.data as any)?.versions || res.data || [];
   },
 
   async downloadDocument(id: string, filename = 'document'): Promise<void> {

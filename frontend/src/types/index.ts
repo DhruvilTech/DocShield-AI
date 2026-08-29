@@ -257,6 +257,15 @@ export interface ProcessingJob {
   created_at: string;
 }
 
+export interface ProcessingStatusResponse {
+  documentId: string;
+  currentVersion: number;
+  processingStatus: ProcessingStatus;
+  latestJob: ProcessingJob | null;
+  jobCount: number;
+  history: ProcessingJob[];
+}
+
 export interface DocumentExtraction {
   id: string;
   document_id: string;

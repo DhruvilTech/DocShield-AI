@@ -15,11 +15,11 @@ export const analysisApi = {
     documentId: string,
     options: RunAnalysisOptions = {}
   ): Promise<DocumentAnalysis> => {
-    const res = await apiClient.post<{ analysis: DocumentAnalysis }>(
+    const res = await apiClient.post<{ success: boolean; data: { analysis: DocumentAnalysis } }>(
       `/documents/${documentId}/analysis/run`,
       options
     );
-    return res.data.analysis;
+    return res.data?.analysis ?? (res as any)?.analysis ?? (res as any);
   },
 
   /**
@@ -30,11 +30,11 @@ export const analysisApi = {
     versionId?: string
   ): Promise<DocumentAnalysis> => {
     const params = versionId ? { versionId } : undefined;
-    const res = await apiClient.get<{ analysis: DocumentAnalysis }>(
+    const res = await apiClient.get<{ success: boolean; data: { analysis: DocumentAnalysis } }>(
       `/documents/${documentId}/analysis`,
       { params }
     );
-    return res.data.analysis;
+    return res.data?.analysis ?? (res as any)?.analysis ?? (res as any);
   },
 
   /**
@@ -45,11 +45,11 @@ export const analysisApi = {
     versionId?: string
   ): Promise<AnalysisFinding[]> => {
     const params = versionId ? { versionId } : undefined;
-    const res = await apiClient.get<{ findings: AnalysisFinding[] }>(
+    const res = await apiClient.get<{ success: boolean; data: { findings: AnalysisFinding[] } }>(
       `/documents/${documentId}/findings`,
       { params }
     );
-    return res.data.findings;
+    return res.data?.findings ?? (res as any)?.findings ?? [];
   },
 
   /**
@@ -60,10 +60,10 @@ export const analysisApi = {
     versionId?: string
   ): Promise<RiskIndicator[]> => {
     const params = versionId ? { versionId } : undefined;
-    const res = await apiClient.get<{ riskIndicators: RiskIndicator[] }>(
+    const res = await apiClient.get<{ success: boolean; data: { riskIndicators: RiskIndicator[] } }>(
       `/documents/${documentId}/risk-indicators`,
       { params }
     );
-    return res.data.riskIndicators;
+    return res.data?.riskIndicators ?? (res as any)?.riskIndicators ?? [];
   },
 };

@@ -23,7 +23,11 @@ export const watchlistApi = {
    * List watchlists with search & pagination
    */
   listWatchlists: async (params: WatchlistQueryParams = {}): Promise<{ data: WatchlistEntry[]; total: number }> => {
-    const res = await apiClient.get<WatchlistEntry[]>('/watchlists', { params });
+    const res = await apiClient.get<{
+      success: boolean;
+      data: WatchlistEntry[];
+      pagination?: { total: number; page: number; limit: number; totalPages: number };
+    }>('/watchlists', { params });
     return {
       data: res.data || [],
       total: res.pagination?.total || (res.data ? res.data.length : 0),
@@ -34,7 +38,7 @@ export const watchlistApi = {
    * Register a new travel document or person alert
    */
   createWatchlistEntry: async (data: CreateWatchlistParams): Promise<WatchlistEntry> => {
-    const res = await apiClient.post<WatchlistEntry>('/watchlists', data);
+    const res = await apiClient.post<{ success: boolean; data: WatchlistEntry }>('/watchlists', data);
     return res.data;
   },
 
@@ -43,6 +47,6 @@ export const watchlistApi = {
    */
   deleteWatchlistEntry: async (id: string): Promise<{ success: boolean; message: string }> => {
     const res = await apiClient.delete<{ success: boolean; message: string }>(`/watchlists/${id}`);
-    return res.data;
+    return res;
   },
 };

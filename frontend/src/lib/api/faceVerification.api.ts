@@ -17,11 +17,11 @@ export const faceVerificationApi = {
     documentId: string,
     options: FaceVerificationOptions = {}
   ): Promise<FaceVerification> => {
-    const res = await apiClient.post<{ faceVerification: FaceVerification }>(
+    const res = await apiClient.post<{ success: boolean; data: { faceVerification: FaceVerification } }>(
       `/documents/${documentId}/face-verification`,
       options
     );
-    return res.data.faceVerification;
+    return res.data?.faceVerification ?? (res as any)?.faceVerification ?? (res as any);
   },
 
   /**
@@ -32,10 +32,10 @@ export const faceVerificationApi = {
     versionId?: string
   ): Promise<FaceVerification> => {
     const params = versionId ? { versionId } : undefined;
-    const res = await apiClient.get<{ faceVerification: FaceVerification }>(
+    const res = await apiClient.get<{ success: boolean; data: { faceVerification: FaceVerification } }>(
       `/documents/${documentId}/face-verification`,
       { params }
     );
-    return res.data.faceVerification;
+    return res.data?.faceVerification ?? (res as any)?.faceVerification ?? (res as any);
   },
 };

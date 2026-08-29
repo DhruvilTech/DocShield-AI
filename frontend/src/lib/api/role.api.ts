@@ -7,8 +7,18 @@ export const roleApi = {
     return apiClient<{ success: boolean; data: { roles: Role[] } }>('/roles');
   },
 
+  getRoles: async (): Promise<Role[]> => {
+    const res = await apiClient<{ success: boolean; data: { roles: Role[] } }>('/roles');
+    return (res.data as any)?.roles || res.data || [];
+  },
+
   listPermissions: () => {
     return apiClient<{ success: boolean; data: { permissions: Permission[] } }>('/roles/permissions');
+  },
+
+  getPermissions: async (): Promise<Permission[]> => {
+    const res = await apiClient<{ success: boolean; data: { permissions: Permission[] } }>('/roles/permissions');
+    return (res.data as any)?.permissions || res.data || [];
   },
 
   assignUserRoles: (userId: string, roleIds: string[]) => {

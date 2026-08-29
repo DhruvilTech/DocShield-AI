@@ -4,6 +4,7 @@ import { ProcessingJob, ProcessingStatusResponse, DocumentExtraction } from '../
 
 export interface TriggerProcessingOptions {
   versionNumber?: number;
+  priority?: 'LOW' | 'NORMAL' | 'HIGH';
   jobType?: 'FULL_PIPELINE' | 'EXTRACTION_ONLY' | 'ANALYSIS_ONLY';
 }
 
@@ -15,21 +16,21 @@ export const processingApi = {
     documentId: string,
     options: TriggerProcessingOptions = {}
   ): Promise<ProcessingJob> => {
-    const res = await apiClient.post<{ job: ProcessingJob }>(
+    const res = await apiClient.post<{ success: boolean; data: { job: ProcessingJob } }>(
       `/documents/${documentId}/process`,
       options
     );
-    return res.data.job;
+    return res.data?.job ?? (res as any)?.job ?? (res as any);
   },
 
   /**
    * Get current document processing status and job history
    */
   getProcessingStatus: async (documentId: string): Promise<ProcessingStatusResponse> => {
-    const res = await apiClient.get<ProcessingStatusResponse>(
+    const res = await apiClient.get<{ success: boolean; data: ProcessingStatusResponse }>(
       `/documents/${documentId}/processing-status`
     );
-    return res.data;
+    return res.data ?? (res as any);
   },
 
   /**
@@ -40,10 +41,10 @@ export const processingApi = {
     versionNumber?: number
   ): Promise<DocumentExtraction> => {
     const params = versionNumber ? { versionNumber: String(versionNumber) } : undefined;
-    const res = await apiClient.get<{ extraction: DocumentExtraction }>(
+    const res = await apiClient.get<{ success: boolean; data: { extraction: DocumentExtraction } }>(
       `/documents/${documentId}/extraction`,
       { params }
     );
-    return res.data.extraction;
+    return res.data?.extraction ?? (res as any)?.extraction ?? (res as any);
   },
 };

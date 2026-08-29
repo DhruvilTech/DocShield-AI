@@ -10,11 +10,11 @@ export const riskApi = {
     documentId: string,
     options: { versionNumber?: number } = {}
   ): Promise<RiskScore> => {
-    const res = await apiClient.post<{ riskScore: RiskScore }>(
+    const res = await apiClient.post<{ success: boolean; data: { riskScore: RiskScore } }>(
       `/documents/${documentId}/risk/calculate`,
       options
     );
-    return res.data.riskScore;
+    return res.data?.riskScore ?? (res as any)?.riskScore ?? (res as any);
   },
 
   /**
@@ -25,10 +25,10 @@ export const riskApi = {
     versionId?: string
   ): Promise<RiskScore> => {
     const params = versionId ? { versionId } : undefined;
-    const res = await apiClient.get<{ riskScore: RiskScore }>(
+    const res = await apiClient.get<{ success: boolean; data: { riskScore: RiskScore } }>(
       `/documents/${documentId}/risk`,
       { params }
     );
-    return res.data.riskScore;
+    return res.data?.riskScore ?? (res as any)?.riskScore ?? (res as any);
   },
 };

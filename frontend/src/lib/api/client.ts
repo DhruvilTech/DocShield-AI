@@ -189,3 +189,39 @@ export async function apiClient<T = any>(endpoint: string, options: RequestOptio
 
   return responseData;
 }
+
+// Attach helper methods to apiClient
+apiClient.get = <T = any>(endpoint: string, options: RequestOptions = {}): Promise<T> => {
+  return apiClient<T>(endpoint, { ...options, method: 'GET' });
+};
+
+apiClient.post = <T = any>(endpoint: string, body?: any, options: RequestOptions = {}): Promise<T> => {
+  const isFormData = body instanceof FormData;
+  return apiClient<T>(endpoint, {
+    ...options,
+    method: 'POST',
+    body: isFormData ? body : (body !== undefined ? JSON.stringify(body) : undefined),
+  });
+};
+
+apiClient.put = <T = any>(endpoint: string, body?: any, options: RequestOptions = {}): Promise<T> => {
+  const isFormData = body instanceof FormData;
+  return apiClient<T>(endpoint, {
+    ...options,
+    method: 'PUT',
+    body: isFormData ? body : (body !== undefined ? JSON.stringify(body) : undefined),
+  });
+};
+
+apiClient.patch = <T = any>(endpoint: string, body?: any, options: RequestOptions = {}): Promise<T> => {
+  const isFormData = body instanceof FormData;
+  return apiClient<T>(endpoint, {
+    ...options,
+    method: 'PATCH',
+    body: isFormData ? body : (body !== undefined ? JSON.stringify(body) : undefined),
+  });
+};
+
+apiClient.delete = <T = any>(endpoint: string, options: RequestOptions = {}): Promise<T> => {
+  return apiClient<T>(endpoint, { ...options, method: 'DELETE' });
+};

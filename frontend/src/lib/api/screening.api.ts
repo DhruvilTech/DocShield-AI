@@ -17,11 +17,11 @@ export const screeningApi = {
     documentId: string,
     options: RunScreeningOptions = {}
   ): Promise<DocumentScreening> => {
-    const res = await apiClient.post<{ screening: DocumentScreening }>(
+    const res = await apiClient.post<{ success: boolean; data: { screening: DocumentScreening } }>(
       `/documents/${documentId}/screening/run`,
       options
     );
-    return res.data.screening;
+    return res.data?.screening ?? (res as any)?.screening ?? (res as any);
   },
 
   /**
@@ -32,10 +32,10 @@ export const screeningApi = {
     versionId?: string
   ): Promise<DocumentScreening> => {
     const params = versionId ? { versionId } : undefined;
-    const res = await apiClient.get<{ screening: DocumentScreening }>(
+    const res = await apiClient.get<{ success: boolean; data: { screening: DocumentScreening } }>(
       `/documents/${documentId}/screening`,
       { params }
     );
-    return res.data.screening;
+    return res.data?.screening ?? (res as any)?.screening ?? (res as any);
   },
 };

@@ -10,11 +10,21 @@ export const tamperingApi = {
     documentId: string,
     options: { versionNumber?: number } = {}
   ): Promise<TamperingAnalysis> => {
-    const res = await apiClient.post<{ analysis: TamperingAnalysis }>(
+    const res = await apiClient<{ success: boolean; data: { analysis: TamperingAnalysis } }>(
       `/documents/${documentId}/tampering/analyze`,
-      options
+      { method: 'POST', body: JSON.stringify(options) }
     );
-    return res.data.analysis;
+    return res.data?.analysis ?? (res as any)?.analysis ?? (res as any);
+  },
+
+  /**
+   * Alias for runTamperingAnalysis
+   */
+  analyzeDocument: async (
+    documentId: string,
+    options: { versionNumber?: number } = {}
+  ): Promise<TamperingAnalysis> => {
+    return tamperingApi.runTamperingAnalysis(documentId, options);
   },
 
   /**
@@ -25,10 +35,10 @@ export const tamperingApi = {
     versionId?: string
   ): Promise<TamperingAnalysis> => {
     const params = versionId ? { versionId } : undefined;
-    const res = await apiClient.get<{ analysis: TamperingAnalysis }>(
+    const res = await apiClient<{ success: boolean; data: { analysis: TamperingAnalysis } }>(
       `/documents/${documentId}/tampering`,
       { params }
     );
-    return res.data.analysis;
+    return res.data?.analysis ?? (res as any)?.analysis ?? (res as any);
   },
 };
