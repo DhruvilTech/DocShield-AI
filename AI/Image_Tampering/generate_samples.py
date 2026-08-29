@@ -51,8 +51,11 @@ def main():
     draw_edited.rectangle([600, 460, 900, 490], fill=(245, 245, 240))
     # Overwrite with a forged passport number
     draw_edited.text((600, 470), "Passport No: DS99999999")
-    # Draw a solid gray block inside the photo to simulate photo replacement / overlay tampering
-    draw_edited.rectangle([200, 250, 400, 450], fill=(100, 100, 100))
+    # Paste a high-frequency noise block inside the photo area to simulate a grainy photo replacement
+    np.random.seed(42)
+    tamper_noise = np.random.randint(0, 256, (200, 200, 3), dtype=np.uint8)
+    tamper_img = Image.fromarray(tamper_noise)
+    img_edited.paste(tamper_img, (200, 250))
     # Add a bold forged stamp/seal in the middle of the document to test ELA anomaly detection
     draw_edited.ellipse([800, 700, 960, 860], outline=(0, 0, 200), width=10)
     # Save the final tampered image at a higher quality (95)

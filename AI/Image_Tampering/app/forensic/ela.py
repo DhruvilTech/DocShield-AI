@@ -80,15 +80,17 @@ def analyze_ela(
     morphed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, morph_kernel)
     morphed = cv2.morphologyEx(morphed, cv2.MORPH_OPEN, morph_kernel)
     
-    # Connected component detection via contour analysis
-    contours, _ = cv2.findContours(morphed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # Connected component detection via contour analysis (using RETR_LIST to capture nested regions)
+    contours, _ = cv2.findContours(morphed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     
     regions = []
     min_region_dim = 15  # Ignore small isolated compression artifacts
+    working_area = working_image_rgb.shape[0] * working_image_rgb.shape[1]
     
     for contour in contours:
         x, y, w, h = cv2.boundingRect(contour)
-        if w >= min_region_dim and h >= min_region_dim:
+        # Filter out large page-wide boxes (e.g. > 30% of page area) such as document boundaries
+        if w >= min_region_dim and h >= min_region_dim and (w * h < 0.3 * working_area):
             # Regional error analysis
             roi = ela_gray[y:y+h, x:x+w]
             roi_mean = float(np.mean(roi))
