@@ -100,7 +100,7 @@ def run_forensic_pipeline(
         debug_dir=debug_dir
     )
     
-    # Stamp detector needs access to all representations
+    # Stamp detector needs access to all representations and existing signals for cross-checks
     stamp_sig = analyze_stamps(
         working_image_rgb=working_rgb,
         grayscale=grayscale,
@@ -108,8 +108,11 @@ def run_forensic_pipeline(
         lab=lab,
         noise_residual=noise_residual,
         coordinate_mapper=mapper,
-        edge_info=None,
-        document_regions=None
+        ela_regions=ela_sig.regions if ela_sig else [],
+        noise_regions=noise_sig.regions if noise_sig else [],
+        copy_move_regions=copymove_sig.regions if copymove_sig else [],
+        save_debug=save_debug,
+        debug_dir=debug_dir
     )
     splicing_sig = analyze_splicing(working_rgb, original_rgb, mapper)
 
@@ -126,7 +129,7 @@ def run_forensic_pipeline(
     # 5. Fusion & Localization (Placeholders & Aggregations)
     fusion_res = fuse_signals(signals)
     
-    # Combine localized regions from active detectors (ELA, Noise, and Copy-Move in Phase 4)
+    # Combine localized regions from active detectors (ELA, Noise, Copy-Move, and Stamp)
     regions = []
     if ela_sig.available and ela_sig.regions:
         regions.extend(ela_sig.regions)
@@ -134,6 +137,8 @@ def run_forensic_pipeline(
         regions.extend(noise_sig.regions)
     if copymove_sig.available and copymove_sig.regions:
         regions.extend(copymove_sig.regions)
+    if stamp_sig.available and stamp_sig.regions:
+        regions.extend(stamp_sig.regions)
 
     # 6. Save Debug outputs if requested
     if save_debug:

@@ -1,11 +1,11 @@
 # DocShield AI — Document Tampering Forensic Analysis Engine
 
-## Phase 4: Copy-Move Detection
+## Phase 6: Basic Stamp Forensic Analysis
 
 This directory houses the Python-based Document Tampering and Forensic Analysis module for the **DocShield AI** platform.
 
 > [!NOTE]
-> **Phase 4 Status:** ELA, Noise, and Copy-Move forensic engines are fully functional active detectors in the DocShield pipeline. All other signals (Metadata, Stamp, Splicing) remain placeholder skeletons that return `None`/`available = False` in this phase.
+> **Phase 6 Status:** ELA, Noise, Copy-Move, Metadata, and Stamp forensic engines are fully functional active detectors in the DocShield pipeline. All other signals (Splicing) remain placeholder skeletons that return `None`/`available = False` in this phase.
 
 ---
 
@@ -27,9 +27,9 @@ AI/
     │   │   ├── ela.py                  # [Active] ELA Forensic Engine
     │   │   ├── noise.py                # [Active] Noise Forensic Engine
     │   │   ├── copy_move.py            # [Active] Copy-Move Forensic Engine
+    │   │   ├── metadata.py             # [Active] Metadata Forensic Engine
+    │   │   ├── stamp.py                # [Active] Stamp Forensic Engine
     │   │   │
-    │   │   ├── metadata.py             # [Skeleton] Metadata Forensics Placeholder
-    │   │   ├── stamp.py                # [Skeleton] Stamp Tampering Placeholder
     │   │   ├── splicing.py             # [Skeleton] Splicing Detector Placeholder
     │   │   └── fusion.py               # [Skeleton] AI/ML Signal Fusion Placeholder
     │   │
@@ -42,7 +42,9 @@ AI/
     │   ├── test_quality.py
     │   ├── test_ela.py                 # [Phase 2] ELA test suite
     │   ├── test_noise.py               # [Phase 3] Noise test suite
-    │   └── test_copy_move.py           # [Phase 4] Copy-Move test suite
+    │   ├── test_copy_move.py           # [Phase 4] Copy-Move test suite
+    │   ├── test_metadata.py            # [Phase 5] Metadata test suite
+    │   └── test_stamp.py               # [Phase 6] Stamp test suite
     │
     ├── samples/                        # Mock clean and tampered document images
     │   ├── clean/
@@ -84,6 +86,10 @@ NOISE forensic analysis  (Local standard deviation, contextual comparison, anoma
      ↓
 COPY-MOVE analysis       (SIFT extraction, k-NN self-filtering, RANSAC homography, source/target mapping)
      ↓
+METADATA analysis        (EXIF tags extraction, graphic editors verification, timestamp inconsistency check)
+     ↓
+STAMP forensic analysis  (HSV segmentation, morphology, circularity/geometry check, cross-signal overlaps)
+     ↓
 QUALITY METRIC CALC      (Computes mean brightness, contrast, sharpness via Laplacian variance, and blur status)
      ↓
 FORENSIC SIGNAL BUNDLING (Fills and returns the standard ForensicResult Pydantic schema)
@@ -96,7 +102,7 @@ When processing high-resolution scans, downscaling is necessary to remain CPU-fr
 $$scale_x = \frac{width_{working}}{width_{original}}$$
 $$scale_y = \frac{height_{working}}{height_{original}}$$
 
-This ensures that whenever ELA, Noise, or Copy-Move analysis locates suspicious regions in the working image, the bounding boxes can be mapped back to the original document coordinates with pixel accuracy.
+This ensures that whenever ELA, Noise, Copy-Move, or Stamp analysis locates suspicious regions in the working image, the bounding boxes can be mapped back to the original document coordinates with pixel accuracy.
 
 ---
 
@@ -221,6 +227,60 @@ $$\text{score} = \text{clip}(0.02 \times \text{verified\_matches} + 0.1 \times \
 
 ---
 
+## Phase 5: Metadata Forensic Analysis
+
+### What is Metadata Forensics?
+Metadata analysis extracts image format headers and EXIF fields to check for editing signatures (e.g. Photoshop or GIMP tags) and timestamp chronological inconsistencies.
+
+### Anomaly Score Formula
+The **Metadata Anomaly Score** (ranging from $0.0$ to $1.0$) is calculated as:
+$$\text{score} = \text{clip}(\text{score}_{software} + \text{score}_{timestamp}, 0.0, 1.0)$$
+*Where:*
+* **$\text{score}_{software}$**: $+0.5$ if metadata contains graphics editing software tags (e.g., Photoshop, GIMP, Canva).
+* **$\text{score}_{timestamp}$**: $+0.4$ if EXIF timestamps are inconsistent (e.g. original creation is in the future, or occurs after modification date).
+* Safe scans or files with stripped/missing EXIF tags receive a score of $0.0$.
+
+### GPS Privacy
+If GPS Info (tag 34853) is present in the image headers, it is flagged as `gps_present = True` in the statistics and reported as sanitized in the evidence list. Exact coordinate values are never exposed or saved to protect user privacy.
+
+---
+
+## Phase 6: Basic Stamp Forensic Analysis
+
+> [!WARNING]
+> **Forensic Limit:** Stamp analysis is a prototype forensic signal and does not independently establish that a stamp is forged. Document stamps can vary naturally in color density, edge thickness, and page contrast due to ink pressure, scanner resolutions, and lighting shadows.
+
+### Objective
+Stamp Forensic Analysis attempts to detect document seals or stamps (red, blue, or purple ink shapes) and cross-checks their boundaries against active ELA, Noise, and Copy-Move anomaly coordinates.
+
+### Region Segmentation
+1. **HSV Color Ranges**: Segment saturated inks in the HSV color space:
+   * **Red Range**: $H \in [0, 15] \cup [165, 180]$ with $S \ge 40, V \ge 40$.
+   * **Blue/Purple Range**: $H \in [95, 145]$ with $S \ge 40, V \ge 40$.
+2. **Morphology**: Apply morphological `CLOSE` using a large $(35, 35)$ ellipse kernel to merge text characters inside the stamp, followed by an `OPEN` with a $(5, 5)$ ellipse kernel to filter out background speckles.
+3. **Contour Extraction**: Run `findContours` using `RETR_LIST` to ensure nested stamp shapes inside outer document frames are not hidden or skipped.
+
+### Candidate Shape Filtering
+Contours are filtered using geometric constraints to identify stamp-like shapes:
+* Bounding box width and height must satisfy: $40\text{px} \le w, h \le 400\text{px}$ in working space.
+* Total box area must occupy $< 25\%$ of the document page area.
+* Aspect ratio must be compact: $0.4 \le w/h \le 2.5$.
+* Circularity metric is calculated: $Circularity = 4\pi \times \text{area} / \text{perimeter}^2$.
+
+### Bounding Box Deduplication (NMS)
+To prevent hollow rings or nested borders from generating multiple overlapping regions, candidates are sorted by area (descending) and deduplicated. If a smaller box overlaps with a kept larger box by more than $80\%$, the smaller box is discarded.
+
+### Forensic Cross-Signal Checks
+For each candidate stamp, we check for spatial overlaps ($> 20\%$ intersection area) with ELA, Noise, or Copy-Move suspicious regions.
+
+### Stamp Anomaly Score Formula
+The regional stamp anomaly score is calculated using weighted forensic signals:
+$$\text{score} = \text{clip}(0.1_{\text{base}} + 0.4 \times \text{ela\_overlap} + 0.3 \times \text{noise\_overlap} + 0.5 \times \text{copy\_move\_overlap}, 0.0, 1.0)$$
+* A normal, un-tampered stamp receives a safe score of $0.1$ (`LOW` severity).
+* Stamps overlapping with editing traces (e.g. copy-move duplicate matches) get higher scores (`MEDIUM` or `HIGH` severity).
+
+---
+
 ## Installation & Setup
 
 Ensure Python 3.10+ is installed on your system. Run these commands from the `AI/Image_Tampering/` folder:
@@ -247,7 +307,7 @@ Ensure Python 3.10+ is installed on your system. Run these commands from the `AI
 
 ---
 
-## Running & Verifying Phase 4
+## Running & Verifying Phase 6
 
 ### 1. Generate Clean & Tampered Samples
 ```bash
@@ -255,25 +315,21 @@ python generate_samples.py
 ```
 This builds mock documents in `samples/`:
 * `samples/clean/passport.jpg`: Clean passport.
-* `samples/tampered/copy_move.jpg`: Passport with the official red stamp duplicated at the top.
+* `samples/tampered/copy_move.jpg`: Passport with the stamp duplicated.
+* `samples/tampered/stamp_tampered.jpg`: Passport with the stamp recolored (blue/purple) and shifted.
 
 ### 2. Run the CLI Test Runner
 ```bash
-# Analyze Clean Passport
-python test_pipeline.py samples/clean/passport.jpg
-
-# Analyze Copy-Move Passport
-python test_pipeline.py samples/tampered/copy_move.jpg
+# Analyze Stamp-Tampered Passport
+python test_pipeline.py samples/tampered/stamp_tampered.jpg
 ```
 
-Observe that on `copy_move.jpg`, Copy-Move successfully localizes the stamp duplication:
-* **Score**: `0.6800`
-* **Suspicious Regions**: 3 regions with coordinate mappings pointing to source and target stamp locations.
+Observe that on `stamp_tampered.jpg`, the stamp detector localizes three regions (including the recolored stamp at `x=900, y=199` showing ELA overlap).
 
 ### 3. Check Visual Debug Outputs
-Verify matches visualization in `outputs/debug/`:
-* `document_copy_move_matches.jpg`: Draws lines connecting matching keypoints between duplicated stamps.
-* `document_copy_move_map.png`: Shows binary masks of duplicated locations.
+Verify debug maps in `outputs/debug/`:
+* `document_stamp_candidates.jpg`: Draws colored bounding boxes (Red for High risk, Orange for Medium, Green for Low) and scores over the working image.
+* `document_stamp_map.png`: Black-and-white mask showing morphed color segmentation.
 
 ---
 
@@ -283,4 +339,4 @@ Run automated tests using pytest:
 ```bash
 python -m pytest tests/
 ```
-All **30 tests** must pass.
+All **42 tests** must pass.

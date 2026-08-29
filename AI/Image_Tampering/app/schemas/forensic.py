@@ -44,6 +44,7 @@ class ForensicSignal(BaseModel):
     regions: List[SuspiciousRegion] = []
     evidence: List[Dict[str, Any]] = []
     available: bool = False
+    stamp_detected: Optional[bool] = None
     
     # ELA and engine-specific metadata
     statistics: Optional[Dict[str, float]] = None

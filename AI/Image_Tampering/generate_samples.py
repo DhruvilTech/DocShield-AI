@@ -34,7 +34,7 @@ def main():
     draw.text((600, 420), "Nationality: DOCSHIELDIAN")
     draw.text((600, 470), "Passport No: DS12345678")
     # Draw stamp placeholder
-    draw.ellipse([1400, 650, 1700, 950], outline=(220, 50, 50), width=5)
+    draw.ellipse([1400, 650, 1700, 950], outline=(220, 50, 50), width=15)
     img.save(os.path.join(clean_dir, "passport.jpg"), format="JPEG", quality=95)
     
     # 1b. passport_edited.jpg (1920x1080) - A deliberately edited passport to test ELA anomalies
@@ -57,7 +57,7 @@ def main():
     tamper_img = Image.fromarray(tamper_noise)
     img_edited.paste(tamper_img, (200, 250))
     # Add a bold forged stamp/seal in the middle of the document to test ELA anomaly detection
-    draw_edited.ellipse([800, 700, 960, 860], outline=(0, 0, 200), width=10)
+    draw_edited.ellipse([800, 700, 960, 860], outline=(0, 0, 200), width=20)
     # Save the final tampered image at a higher quality (95)
     img_edited.save(os.path.join(tampered_dir, "passport_edited.jpg"), format="JPEG", quality=95)
     
@@ -103,6 +103,18 @@ def main():
     stamp_crop = img_clean_load.crop((1400, 650, 1700, 950))
     img_copymove.paste(stamp_crop, (900, 150))
     img_copymove.save(os.path.join(tampered_dir, "copy_move.jpg"), format="JPEG", quality=95)
+    
+    # 10. stamp_tampered.jpg (1920x1080) - Recolored and shifted stamp sample
+    import cv2
+    img_stamp = img_clean_load.copy()
+    stamp_arr = np.array(stamp_crop)
+    hsv_stamp = cv2.cvtColor(stamp_arr, cv2.COLOR_RGB2HSV)
+    # Shift Hue by 110 to change stamp color from red to blue/purple (within [95, 145] HSV range)
+    hsv_stamp[:, :, 0] = (hsv_stamp[:, :, 0] + 110) % 180
+    recolored_arr = cv2.cvtColor(hsv_stamp, cv2.COLOR_HSV2RGB)
+    recolored_img = Image.fromarray(recolored_arr)
+    img_stamp.paste(recolored_img, (900, 200))
+    img_stamp.save(os.path.join(tampered_dir, "stamp_tampered.jpg"), format="JPEG", quality=95)
         
     print("Sample images generated successfully.")
 
