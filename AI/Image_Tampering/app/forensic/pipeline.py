@@ -94,7 +94,11 @@ def run_forensic_pipeline(
         save_debug=save_debug,
         debug_dir=debug_dir
     )
-    metadata_sig = analyze_metadata(image_bytes)
+    metadata_sig = analyze_metadata(
+        image_bytes=image_bytes,
+        save_debug=save_debug,
+        debug_dir=debug_dir
+    )
     
     # Stamp detector needs access to all representations
     stamp_sig = analyze_stamps(
