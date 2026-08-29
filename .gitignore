@@ -30,3 +30,20 @@ backend/storage/*
 *.njsproj
 *.sln
 *.sw?
+
+# Python local development files
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/venv/
+**/.venv/
+**/env/
+
+# AI Generated debug output and temporary files
+AI/Image_Tampering/outputs/
+AI/Image_Tampering/**/*.tmp
+*.tmp
+*.temp
