@@ -68,24 +68,103 @@ class PassportValidator(BaseDocumentValidator):
         dob = self._parse_date(fields.get("date_of_birth"))
         exp = self._parse_date(fields.get("date_of_expiry"))
 
-        if dob is not None and dob >= today:
+        dob_field = fields.get("date_of_birth")
+        if dob_field and dob_field.value and dob is None:
+            checks.append(FieldCheck(
+                field="date_of_birth",
+                status=CheckStatus.INVALID,
+                message=f"Date of birth '{dob_field.value}' is not a valid date format",
+            ))
+        elif dob is not None and dob >= today:
             checks.append(FieldCheck(
                 field="date_of_birth",
                 status=CheckStatus.INVALID,
                 message="Date of birth must be in the past",
             ))
-        if exp is not None and exp <= today:
+
+        exp_field = fields.get("date_of_expiry")
+        if exp_field and exp_field.value and exp is None:
+            checks.append(FieldCheck(
+                field="date_of_expiry",
+                status=CheckStatus.INVALID,
+                message=f"Date of expiry '{exp_field.value}' is not a valid date format",
+            ))
+        elif exp is not None and exp <= today:
             checks.append(FieldCheck(
                 field="date_of_expiry",
                 status=CheckStatus.INVALID,
                 message="Passport is expired",
             ))
+
         if dob is not None and exp is not None and exp <= dob:
             checks.append(FieldCheck(
                 field="date_of_expiry",
                 status=CheckStatus.INCONSISTENT,
                 message="Expiry date must be after date of birth",
             ))
+
+        # Phase 3.5: Visual vs MRZ cross-check validation
+        for field_name in ["passport_number", "date_of_birth", "date_of_expiry", "gender"]:
+            mrz_field = fields.get(field_name)
+            visual_field = fields.get(f"visual_{field_name}")
+            
+            if mrz_field and mrz_field.value and visual_field and visual_field.value:
+                mrz_val = mrz_field.value.strip()
+                visual_val = visual_field.value.strip()
+                
+                if field_name == "passport_number":
+                    clean_mrz = mrz_val.upper().replace(" ", "")
+                    clean_vis = visual_val.upper().replace(" ", "")
+                    if clean_mrz != clean_vis:
+                        checks.append(FieldCheck(
+                            field="passport_number",
+                            status=CheckStatus.INVALID,
+                            message=f"Mismatched passport number: visual '{visual_val}' does not match MRZ '{mrz_val}'",
+                        ))
+                
+                elif field_name == "date_of_birth":
+                    dob_mrz = self._parse_date(mrz_field)
+                    dob_vis = self._parse_date(visual_field)
+                    if dob_mrz and dob_vis and dob_mrz != dob_vis:
+                        checks.append(FieldCheck(
+                            field="date_of_birth",
+                            status=CheckStatus.INVALID,
+                            message=f"Mismatched date of birth: visual '{visual_val}' does not match MRZ '{mrz_val}'",
+                        ))
+
+                elif field_name == "date_of_expiry":
+                    exp_mrz = self._parse_date(mrz_field)
+                    exp_vis = self._parse_date(visual_field)
+                    if exp_mrz and exp_vis and exp_mrz != exp_vis:
+                        checks.append(FieldCheck(
+                            field="date_of_expiry",
+                            status=CheckStatus.INVALID,
+                            message=f"Mismatched date of expiry: visual '{visual_val}' does not match MRZ '{mrz_val}'",
+                        ))
+
+                elif field_name == "gender":
+                    g_mrz = mrz_val.upper()[0] if mrz_val else ""
+                    g_vis = visual_val.upper()[0] if visual_val else ""
+                    if g_mrz in ("M", "F", "X") and g_vis in ("M", "F", "X") and g_mrz != g_vis:
+                        checks.append(FieldCheck(
+                            field="gender",
+                            status=CheckStatus.INVALID,
+                            message=f"Mismatched gender: visual '{visual_val}' does not match MRZ '{mrz_val}'",
+                        ))
+
+        mrz_name_field = fields.get("name")
+        visual_name_field = fields.get("visual_name")
+        if mrz_name_field and mrz_name_field.value and visual_name_field and visual_name_field.value:
+            def get_tokens(name_str):
+                return set(re.findall(r"\w+", name_str.upper()))
+            mrz_tokens = get_tokens(mrz_name_field.value)
+            vis_tokens = get_tokens(visual_name_field.value)
+            if mrz_tokens and vis_tokens and not (mrz_tokens & vis_tokens):
+                checks.append(FieldCheck(
+                    field="name",
+                    status=CheckStatus.INVALID,
+                    message=f"Mismatched name: visual '{visual_name_field.value}' does not match MRZ '{mrz_name_field.value}'",
+                ))
 
         # Phase 4: confidence warnings
         for fname, f in fields.items():

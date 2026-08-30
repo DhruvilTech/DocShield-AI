@@ -12,8 +12,8 @@ export const REFRESH_COOKIE_CONFIG = {
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
-export const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_-])[A-Za-z\d@$!%*?&#^()_-]{8,}$/;
-export const PASSWORD_REQUIREMENT_MSG = 'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character.';
+export const PASSWORD_REGEX = /^.{8,}$/;
+export const PASSWORD_REQUIREMENT_MSG = 'Password must be at least 8 characters long.';
 
 export const SYSTEM_ROLES = {
   SUPER_ADMIN: 'super_admin',

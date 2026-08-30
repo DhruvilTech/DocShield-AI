@@ -81,3 +81,41 @@ def test_paddle_engine_wraps_exception_in_ocr_failure_error():
             img = Image.fromarray(np.zeros((10, 10, 3), dtype="uint8"))
             engine.extract(img)
 
+
+def test_ocr_service_handles_pdf_input():
+    from document_detection.ocr.service import OCRService
+    from document_detection.ocr.models import OCRResult
+    from document_detection.schemas.document import DocumentType
+    from PIL import Image
+
+    # Mock engine and extractor
+    mock_engine = MagicMock()
+    mock_engine.extract.return_value = OCRResult(raw_text="MRZ DATA", regions=[], confidence=0.99, engine_used="mock")
+    mock_extractor = MagicMock()
+    mock_extractor.extract.return_value = {}
+
+    service = OCRService(
+        engine=mock_engine,
+        extractor_registry={DocumentType.PASSPORT: mock_extractor}
+    )
+
+    pdf_bytes = b"%PDF-1.4 mock pdf data"
+    
+    mock_pdf = MagicMock()
+    mock_pdf.__len__.return_value = 1
+    mock_page = MagicMock()
+    mock_bitmap = MagicMock()
+    
+    mock_pil = Image.new("RGB", (10, 10))
+    mock_bitmap.to_pil.return_value = mock_pil
+    mock_page.render.return_value = mock_bitmap
+    mock_pdf.__getitem__.return_value = mock_page
+
+    with patch("pypdfium2.PdfDocument", return_value=mock_pdf):
+        ocr_res, fields = service.extract(pdf_bytes, DocumentType.PASSPORT)
+        assert ocr_res.raw_text == "MRZ DATA"
+        assert fields == {}
+        
+        # Verify pypdfium2 mock calls
+        mock_page.render.assert_called_once_with(scale=2.0)
+
