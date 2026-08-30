@@ -18,6 +18,8 @@ class PaddleOCREngine(BaseOCREngine):
 
     def __init__(self, language: str = "en", use_gpu: bool = False) -> None:
         try:
+            import paddle
+            paddle.set_flags({'FLAGS_use_mkldnn': False})
             from paddleocr import PaddleOCR  # noqa: PLC0415
             self._ocr = PaddleOCR(use_angle_cls=True, lang=language, use_gpu=use_gpu, show_log=False, enable_mkldnn=False)
         except Exception as exc:
