@@ -25,7 +25,7 @@ export class NationalIdParser {
       // ID / License Number
       if (!fields.idNumber.value) {
         const match = line.match(/(?:id\s*(?:no|number|#)|license\s*(?:no|number|#)|dl\s*no)[:\s]+([A-Z0-9\-]{5,18})/i) ||
-                      line.match(/\b([A-Z]{1,3}[0-9]{6,12})\b/);
+          line.match(/\b([A-Z]{1,3}[0-9]{6,12})\b/);
         if (match) {
           fields.idNumber = { value: match[1].toUpperCase(), confidence: 0.90 };
         }
