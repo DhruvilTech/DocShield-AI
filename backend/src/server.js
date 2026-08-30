@@ -19,9 +19,9 @@ async function bootstrap() {
     // Verify DB connectivity
     const health = await db.healthCheck();
     if (!health.connected) {
-      logger.error('❌ Database connectivity check failed. Check MySQL server status.');
+      logger.error(`❌ Aiven MySQL connectivity check failed: ${health.error || 'Check Aiven connection parameters.'}`);
     } else {
-      logger.info(`✅ MySQL Database connected (${health.latencyMs}ms latency)`);
+      logger.info(`✅ Aiven MySQL Database connected (${health.latencyMs}ms latency, SSL Cipher: ${health.sslCipher})`);
     }
 
     const app = createApp();
