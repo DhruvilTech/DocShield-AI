@@ -43,7 +43,10 @@ backend/storage/*
 **/env/
 
 # AI Generated debug output and temporary files
-AI/Image_Tampering/outputs/
-AI/Image_Tampering/**/*.tmp
+AI/image_tampering/outputs/
+AI/image_tampering/**/*.tmp
+AI/image_tampering/upload/
+AI/image_tampering/output/
+AI/outputs/
 *.tmp
 *.temp
