@@ -1,1 +1,0 @@
-# Image tampering schemas package
