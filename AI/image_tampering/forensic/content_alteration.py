@@ -1,10 +1,10 @@
 """
 Forensic Content Alteration & Digital Defacement Detector
 ==========================================================
-Analyzes documents and images for localized content alterations, including:
-- Digital brush and pen defacements / scribbles
-- Overpainted or recolored regions covering document content
-- Inpainted, erased, or artificially smoothed patches (noise voids)
+Analyzes documents and images for generalized localized content alterations, including:
+- Digital brush and pen defacements / scribbles / marks
+- Overpainted, recolored, or synthetic color strokes covering document content
+- Inpainted, erased, or artificially smoothed patches (noise & texture voids)
 - Localized texture / color / noise discontinuities relative to surrounding context
 
 Principle:
@@ -26,29 +26,25 @@ from image_tampering.schemas.forensic import ForensicSignal, SuspiciousRegion
 from image_tampering.forensic.preprocessing import CoordinateMapper
 
 
-def _is_qr_or_barcode(rgb_roi: np.ndarray, gray_roi: np.ndarray, w: int, h: int) -> bool:
+def _is_qr_or_barcode(gray_roi: np.ndarray, w: int, h: int, fill_ratio: float = 1.0) -> bool:
     """Check if region is a legitimate monochrome 2D QR code or dense barcode."""
-    if w < 40 or h < 40:
+    if w < 40 or h < 40 or fill_ratio < 0.70:
         return False
     aspect = max(w, h) / (min(w, h) + 1e-5)
     if aspect > 1.25:
         return False
-    lab = cv2.cvtColor(rgb_roi, cv2.COLOR_RGB2LAB)
-    a = lab[:, :, 1].astype(np.float32) - 128.0
-    b = lab[:, :, 2].astype(np.float32) - 128.0
-    chroma = np.sqrt(a**2 + b**2)
-    if np.mean(chroma > 25.0) > 0.08:
-        return False
     edges = cv2.Canny(gray_roi, 50, 150)
     edge_density = float(np.sum(edges > 0) / (w * h) * 1000)
     std_val = float(np.std(gray_roi))
-    return edge_density > 120 and std_val > 50
+    mean_val = float(np.mean(gray_roi))
+    binary_fraction = float(np.sum((gray_roi < 75) | (gray_roi > 180)) / gray_roi.size)
+    return edge_density > 120 and std_val > 55 and binary_fraction > 0.65 and 80 < mean_val < 190
 
 
 def _is_thin_rule_or_banner(w: int, h: int, img_w: int, img_h: int) -> bool:
     """Check if region is a standard 1D rule line or full-width document banner."""
     aspect = max(w, h) / (min(w, h) + 1e-5)
-    if aspect > 10.0 and (w < 12 or h < 12):
+    if aspect > 8.0 and (w < 14 or h < 14):
         return True
     if w > 0.80 * img_w and h < 50:
         return True
@@ -67,7 +63,7 @@ def analyze_content_alteration(
 ) -> ForensicSignal:
     """
     Detects generalized digital content alteration, overpainting, defacement,
-    and inpainting/erasure anomalies.
+    and inpainting/erasure anomalies across images and rendered PDF pages.
     """
     try:
         img_h, img_w = working_image_rgb.shape[:2]
@@ -85,15 +81,33 @@ def analyze_content_alteration(
         diff_ela = cv2.absdiff(working_image_rgb, resaved).astype(np.float32)
         diff_gray = np.max(diff_ela, axis=2)
 
-        # ── 3. Chroma & Saturation in LAB / HSV ──────────────────────────────────
-        a_ch = lab[:, :, 1].astype(np.float32) - 128.0
-        b_ch = lab[:, :, 2].astype(np.float32) - 128.0
-        chroma = np.sqrt(a_ch**2 + b_ch**2)
+        # ── 3. Color Space Channels & Substrate Modeling ─────────────────────────
         sat = hsv[:, :, 1].astype(np.float32)
         val = hsv[:, :, 2].astype(np.float32)
+        hue = hsv[:, :, 0].astype(np.float32)
 
-        # ── 4. Extract Candidate Stroke Pixels ────────────────────────────────────
-        stroke_cand = (chroma > 25.0) & (sat > 40) & (val > 25) & (val < 245)
+        r = working_image_rgb[:, :, 0].astype(np.float32)
+        g = working_image_rgb[:, :, 1].astype(np.float32)
+        b = working_image_rgb[:, :, 2].astype(np.float32)
+
+        # ── 4. Candidate Anomaly Extraction ──────────────────────────────────────
+        # A. Pure Synthetic Digital Brush Strokes (Blue, Green, Magenta, Red pens)
+        is_digital_blue = ((b - r > 28) & (b - g > 15) & (val > 35))
+        is_digital_green = ((g - r > 35) & (g - b > 35) & (sat > 100) & (val > 35))
+        is_digital_magenta = ((r > 110) & (b > 110) & (r - g > 35) & (b - g > 35) & (sat > 100) & (val > 35))
+        is_digital_red = ((r > 160) & (r - g > 70) & (r - b > 70) & (sat > 140) & (val > 40))
+
+        # B. Foreign Hue Discontinuity on Tinted / Colored Substrates (e.g. Yellow passport)
+        colored_mask = (sat > 35.0) & (val > 30.0)
+        is_foreign_hue = np.zeros((img_h, img_w), dtype=bool)
+        if np.sum(colored_mask) > 0.15 * total_pixels:
+            dom_hue = float(np.median(hue[colored_mask]))
+            hue_diff = np.abs(hue - dom_hue)
+            hue_diff = np.minimum(hue_diff, 180.0 - hue_diff)
+            is_foreign_hue = (hue_diff > 35.0) & (sat > 45.0) & (val > 35.0)
+
+        # Combine candidates
+        stroke_cand = is_digital_blue | is_digital_green | is_digital_magenta | is_digital_red | is_foreign_hue
 
         # Exclude outer 12px border
         stroke_cand[:12, :] = False; stroke_cand[-12:, :] = False
@@ -116,24 +130,28 @@ def analyze_content_alteration(
             area = int(stats[lbl, cv2.CC_STAT_AREA])
 
             # Filter out tiny noise and full-document bounds
-            if area < 150 or area > 0.40 * total_pixels:
+            if area < 500 or area > 0.40 * total_pixels:
                 continue
 
             # Filter standard 1D rules and full banners
             if _is_thin_rule_or_banner(bw, bh, img_w, img_h):
                 continue
 
-            # Filter legitimate 2D QR codes
-            roi_rgb = working_image_rgb[by:by+bh, bx:bx+bw]
-            roi_gray_crop = grayscale[by:by+bh, bx:bx+bw]
-            if _is_qr_or_barcode(roi_rgb, roi_gray_crop, bw, bh):
+            # Filter single-line header text (low height, wide aspect ratio)
+            aspect = max(bw, bh) / (min(bw, bh) + 1e-5)
+            if (bw < 45 or bh < 40) and aspect > 2.0:
                 continue
 
             roi_mask = (labels[by:by+bh, bx:bx+bw] == lbl)
             fill_ratio = float(np.sum(roi_mask) / (bw * bh))
 
+            # Filter legitimate 2D QR codes
+            roi_gray_crop = grayscale[by:by+bh, bx:bx+bw]
+            if _is_qr_or_barcode(roi_gray_crop, bw, bh, fill_ratio):
+                continue
+
             # Pre-printed solid rectangular blocks (colored headers, buttons, photos)
-            if fill_ratio > 0.70 and bw > 80 and bh > 80:
+            if fill_ratio > 0.75 and bw > 60 and bh > 60:
                 continue
 
             # Perimeter and thinness / curvature
@@ -143,14 +161,14 @@ def analyze_content_alteration(
             peri = cv2.arcLength(contours[0], True)
             thinness = float((peri**2) / (area + 1e-5))
 
-            # Contextual surrounding background analysis
+            # Contextual surrounding background analysis (13x13 context ring)
             k_surround = cv2.getStructuringElement(cv2.MORPH_RECT, (13, 13))
             dilated = cv2.dilate(roi_mask.astype(np.uint8), k_surround)
             surround_ring = (dilated > 0) & (~roi_mask)
 
             roi_gray = grayscale[by:by+bh, bx:bx+bw]
             surround_gray = roi_gray[surround_ring]
-            if surround_gray.size < 30:
+            if surround_gray.size < 25:
                 continue
 
             surround_std = float(np.std(surround_gray))
@@ -160,31 +178,25 @@ def analyze_content_alteration(
 
             # Local ELA on stroke pixels
             roi_ela = diff_gray[by:by+bh, bx:bx+bw][roi_mask]
-            stroke_ela_mean = float(np.mean(roi_ela)) if roi_ela.size > 0 else 0.0
             stroke_ela_max = float(np.max(roi_ela)) if roi_ela.size > 0 else 0.0
 
             # ── Attack Detection Conditions ───────────────────────────────────────
-            # 1. Large freehand defacement scribble / overpaint:
-            # Spans across 2D area (bw >= 70, bh >= 60, area >= 1200), high thinness (>= 60.0),
-            # cuts across heterogeneous document content (surround_std >= 30.0), with high peak ELA error (>= 35.0)
-            is_large_defacement = (
-                bw >= 70 and bh >= 60 and area >= 1200 and
-                thinness >= 60.0 and surround_std >= 30.0 and
-                surround_dynamic_range >= 100.0 and stroke_ela_max >= 35.0
+            # 1. Freehand digital stroke defacement / scribble:
+            is_stroke_defacement = (
+                bw >= 60 and bh >= 45 and area >= 800 and
+                thinness >= 35.0 and surround_std >= 25.0 and
+                surround_dynamic_range >= 70.0 and fill_ratio <= 0.65
             )
 
             # 2. Localized content alteration / text overpainting:
-            # Medium patch (30 <= bw <= 150, 25 <= bh <= 120), high thinness (>= 40.0),
-            # cuts across high-contrast text/photo edges (surround_std >= 45.0),
-            # with high localized mean ELA error (stroke_ela_mean >= 22.0)
-            is_localized_alteration = (
-                bw >= 30 and bh >= 25 and thinness >= 40.0 and
-                surround_std >= 45.0 and surround_dynamic_range >= 150.0 and
-                stroke_ela_mean >= 22.0
+            is_localized_scribble = (
+                bw >= 35 and bh >= 35 and area >= 600 and
+                thinness >= 55.0 and surround_std >= 35.0 and
+                surround_dynamic_range >= 90.0
             )
 
-            if is_large_defacement or is_localized_alteration:
-                reg_score = float(min(0.80 + 0.001 * thinness + 0.10 * (stroke_ela_max > 60.0), 0.95))
+            if is_stroke_defacement or is_localized_scribble:
+                reg_score = float(min(0.85 + 0.001 * thinness + 0.05 * (stroke_ela_max > 40.0), 0.98))
 
                 # Coordinate mapping
                 if coordinate_mapper:
@@ -196,7 +208,7 @@ def analyze_content_alteration(
                     orig_x, orig_y, orig_w, orig_h = bx, by, bw, bh
 
                 sev = "HIGH" if reg_score >= 0.70 else "MEDIUM"
-                reason_type = "digital brush defacement / stroke" if is_large_defacement else "content overpainting / alteration anomaly"
+                reason_type = "digital brush defacement / stroke" if is_stroke_defacement else "content overpainting / alteration anomaly"
                 reason = f"[{reason_type}] Localized anomaly (thinness: {thinness:.1f}, background heterogeneity: {surround_std:.1f}, peak ELA: {stroke_ela_max:.1f})"
 
                 suspicious_regions.append(SuspiciousRegion(
