@@ -40,6 +40,108 @@ def analyze_metadata(
         "inkscape", "illustrator", "acorn"
     ]
 
+    if image_bytes.startswith(b'%PDF') or b'%PDF-' in image_bytes[:1024]:
+        try:
+            import pypdfium2 as pdfium
+            pdf = pdfium.PdfDocument(image_bytes)
+            pdf_meta = pdf.get_metadata_dict()
+        except Exception:
+            pdf_meta = {}
+
+        software_present = False
+        software_name = None
+        timestamp_present = False
+        timestamp_inconsistency = False
+        metadata_fields = len([v for v in pdf_meta.values() if v])
+
+        # Check Creator, Producer, Author for editing software
+        for field_key in ["Creator", "Producer", "Author"]:
+            val = pdf_meta.get(field_key)
+            if val and isinstance(val, str):
+                for editor in EDITORS:
+                    if editor in val.lower():
+                        software_present = True
+                        software_name = f"{field_key}: {val.strip()}"
+                        break
+
+        # Parse CreationDate / ModDate (PDF dates typically formatted like D:YYYYMMDDHHmmSS...)
+        def parse_pdf_date(d_str):
+            if not d_str or not isinstance(d_str, str):
+                return None
+            clean = d_str.lstrip("D:").split("+")[0].split("-")[0].split("Z")[0].replace("'", "")
+            for fmt in ("%Y%m%d%H%M%S", "%Y%m%d%H%M", "%Y%m%d"):
+                try:
+                    return datetime.strptime(clean[:14], fmt)
+                except Exception:
+                    pass
+            return None
+
+        cdate_raw = pdf_meta.get("CreationDate", "")
+        mdate_raw = pdf_meta.get("ModDate", "")
+        dt_orig = parse_pdf_date(cdate_raw)
+        dt_mod = parse_pdf_date(mdate_raw)
+        if dt_orig:
+            timestamp_present = True
+            if (dt_orig - datetime.now()).days > 1:
+                timestamp_inconsistency = True
+        if dt_mod:
+            timestamp_present = True
+        if dt_orig and dt_mod and dt_orig > dt_mod:
+            timestamp_inconsistency = True
+
+        evidence = []
+        evidence.append({
+            "message": f"PDF Document metadata extracted ({metadata_fields} fields populated).",
+            "severity": "LOW"
+        })
+        if software_present:
+            evidence.append({
+                "message": f"Document metadata indicates editing software: {software_name}",
+                "severity": "MEDIUM"
+            })
+        if timestamp_inconsistency:
+            evidence.append({
+                "message": "Timestamp inconsistency: Creation date is inconsistent with modification date or in future.",
+                "severity": "MEDIUM"
+            })
+
+        score = 0.0
+        if software_present:
+            score += 0.5
+        if timestamp_inconsistency:
+            score += 0.4
+        score = float(min(max(score, 0.0), 1.0))
+
+        statistics = {
+            "exif_present": 0.0,
+            "gps_present": 0.0,
+            "software_present": 1.0 if software_present else 0.0,
+            "timestamp_present": 1.0 if timestamp_present else 0.0,
+            "metadata_fields": float(metadata_fields)
+        }
+
+        if save_debug and debug_dir:
+            os.makedirs(debug_dir, exist_ok=True)
+            with open(os.path.join(debug_dir, "document_metadata.json"), "w") as f:
+                json.dump({
+                    "format": "PDF",
+                    "software_present": software_present,
+                    "software_name": software_name,
+                    "timestamp_present": timestamp_present,
+                    "timestamp_inconsistency": timestamp_inconsistency,
+                    "pdf_metadata": pdf_meta
+                }, f, indent=4, default=str)
+
+        return ForensicSignal(
+            name="metadata",
+            score=score,
+            confidence=None,
+            regions=[],
+            evidence=evidence,
+            available=True,
+            statistics=statistics
+        )
+
     try:
         img = Image.open(io.BytesIO(image_bytes))
     except Exception as e:

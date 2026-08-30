@@ -150,10 +150,11 @@ def build_fused_regions(
 
         # Build human-readable reason
         reason = _build_region_reason(supporting_signals, evidence_strength, loc.severity)
+        region_page = page if page != 1 else (getattr(loc, "page", None) or 1)
 
         fused.append(FusedRegion(
             region_id=region_id,
-            page=page,
+            page=region_page,
             bbox=bbox,
             severity=loc.severity,
             evidence_strength=evidence_strength,

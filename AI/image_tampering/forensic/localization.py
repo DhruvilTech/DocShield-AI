@@ -51,7 +51,8 @@ def localize_suspicious_regions(
     working_image_rgb: Optional[np.ndarray] = None,
     coordinate_mapper: Optional[CoordinateMapper] = None,
     save_debug: bool = False,
-    debug_dir: Optional[str] = None
+    debug_dir: Optional[str] = None,
+    page: int = 1
 ) -> List[SuspiciousRegion]:
     """
     Phase 7: Suspicious-Region Localization layer.
@@ -114,6 +115,7 @@ def localize_suspicious_regions(
     for root, comp in components.items():
         # Merge overlapping regions
         r0 = comp[0]
+        region_page = getattr(r0, 'page', None) or page
         merged_box = (r0.x, r0.y, r0.width, r0.height)
         max_score = r0.score
         sources = {r0.source}
@@ -159,7 +161,8 @@ def localize_suspicious_regions(
             target_x=target_x,
             target_y=target_y,
             target_width=target_w,
-            target_height=target_h
+            target_height=target_h,
+            page=region_page
         ))
 
     # Sort merged regions by score descending
@@ -214,6 +217,9 @@ def localize_suspicious_regions(
                 # Connecting line between source and target anchors
                 cv2.line(vis_bgr, (w_x + w_w // 2, w_y + w_h // 2), (t_x + t_w // 2, t_y + t_h // 2), (255, 255, 0), 1)
 
-        cv2.imwrite(os.path.join(debug_dir, "document_localized.jpg"), vis_bgr)
+        if page == 1:
+            cv2.imwrite(os.path.join(debug_dir, "document_localized.jpg"), vis_bgr)
+        else:
+            cv2.imwrite(os.path.join(debug_dir, f"page_{page}_document_localized.jpg"), vis_bgr)
 
     return merged_regions

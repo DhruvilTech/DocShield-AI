@@ -50,10 +50,56 @@ class CoordinateMapper:
         )
 
 
+def detect_file_type(data: bytes, filename: str = "") -> str:
+    """
+    Safely detects the file format by checking magic bytes first (authoritative),
+    falling back to filename extension only if magic bytes are not present or ambiguous.
+    Returns: 'PDF', 'JPEG', 'PNG', 'WEBP', or 'UNKNOWN'
+    """
+    if not data:
+        if filename:
+            _, ext = os.path.splitext(filename)
+            ext_clean = ext.lstrip('.').upper()
+            if ext_clean in ('JPG', 'JPEG'):
+                return 'JPEG'
+            if ext_clean in ('PNG', 'WEBP', 'PDF'):
+                return ext_clean
+        return 'UNKNOWN'
+
+    # Check Magic Bytes first (authoritative content inspection)
+    if data.startswith(b'\x89PNG\r\n\x1a\n'):
+        return 'PNG'
+    if data.startswith(b'\xff\xd8\xff') or data[:2] == b'\xff\xd8':
+        return 'JPEG'
+    if len(data) >= 12 and data[:4] == b'RIFF' and data[8:12] == b'WEBP':
+        return 'WEBP'
+    if data.startswith(b'%PDF') or b'%PDF-' in data[:1024]:
+        return 'PDF'
+
+    # Fallback to filename extension if magic bytes are not standard
+    if filename:
+        _, ext = os.path.splitext(filename)
+        ext_clean = ext.lstrip('.').upper()
+        if ext_clean in ('JPG', 'JPEG'):
+            return 'JPEG'
+        if ext_clean in ('PNG', 'WEBP', 'PDF'):
+            return ext_clean
+
+    return 'UNKNOWN'
+
+
+def is_pdf(image_bytes: bytes, filename: str = "") -> bool:
+    """
+    Determines if the provided data or filename corresponds to a PDF document.
+    Magic bytes take precedence over filename extension.
+    """
+    return detect_file_type(image_bytes, filename) == "PDF"
+
+
 def validate_image_file(filepath: str) -> None:
     """
     Validates file existence, type, and size constraints.
-    Raises FileNotFoundError or ValueError for invalid images.
+    Raises FileNotFoundError or ValueError for invalid images/documents.
     """
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"File does not exist: {filepath}")
@@ -70,8 +116,100 @@ def validate_image_file(filepath: str) -> None:
     # Check suffix
     _, ext = os.path.splitext(filepath)
     ext = ext.lstrip('.').upper()
-    if ext not in SUPPORTED_FORMATS:
-        raise ValueError(f"Unsupported file extension: {ext}. Supported formats: {SUPPORTED_FORMATS}")
+    if ext not in SUPPORTED_FORMATS and ext != 'PDF':
+        raise ValueError(f"Unsupported file extension: {ext}. Supported formats: {SUPPORTED_FORMATS | {'PDF'}}")
+
+
+def load_and_preprocess_pdf(
+    pdf_bytes: bytes,
+    filename: str = "document.pdf",
+    max_working_dim: int = 1920,
+    scale: float = 2.0
+) -> list[tuple[np.ndarray, np.ndarray, CoordinateMapper, int]]:
+    """
+    Loads and renders all pages of a PDF document from bytes into RGB images,
+    extracting dominant embedded raster images when present to avoid resampling artifacts,
+    computes working images and coordinate mappers for each page, and returns:
+    [(original_image_rgb, working_image_rgb, mapper, page_number), ...]
+    """
+    if not pdf_bytes:
+        raise ValueError("PDF document is empty (0 bytes).")
+
+    if len(pdf_bytes) > MAX_FILE_SIZE:
+        raise ValueError(f"File size exceeds the maximum limit of {MAX_FILE_SIZE // (1024*1024)}MB: {len(pdf_bytes)} bytes")
+
+    detected = detect_file_type(pdf_bytes, filename)
+    if detected != "PDF" and not (pdf_bytes.startswith(b'%PDF') or b'%PDF-' in pdf_bytes[:1024]):
+        raise ValueError(f"Provided data is not a valid PDF document (detected format: {detected}).")
+
+    try:
+        import pypdfium2 as pdfium
+    except ImportError:
+        raise ImportError("pypdfium2 is required for PDF forensic analysis. Please install pypdfium2.")
+
+    try:
+        pdf = pdfium.PdfDocument(pdf_bytes)
+    except Exception as e:
+        err_str = str(e).lower()
+        if "password" in err_str or "encrypted" in err_str:
+            raise ValueError("Encrypted or password-protected PDF files are not supported.")
+        raise ValueError(f"Corrupted or invalid PDF data: {e}")
+
+    page_count = len(pdf)
+    if page_count == 0:
+        raise ValueError("PDF document contains no pages.")
+
+    pages_data = []
+    for page_idx in range(page_count):
+        page_num = page_idx + 1
+        try:
+            page = pdf[page_idx]
+            
+            # Check for embedded raster images on the page
+            image_objs = [obj for obj in page.get_objects() if obj.type == pdfium.raw.FPDF_PAGEOBJ_IMAGE]
+            
+            pil_img = None
+            if len(image_objs) == 1:
+                try:
+                    extracted_bm = image_objs[0].get_bitmap()
+                    extracted_pil = extracted_bm.to_pil().convert("RGB")
+                    # If the extracted image is large enough to be the document/photo content
+                    if extracted_pil.size[0] >= 100 and extracted_pil.size[1] >= 100:
+                        pil_img = extracted_pil
+                except Exception:
+                    pil_img = None
+            
+            # Fallback: render full page at high resolution
+            if pil_img is None:
+                bitmap = page.render(scale=scale)
+                pil_img = bitmap.to_pil().convert("RGB")
+
+        except Exception as e:
+            err_str = str(e).lower()
+            if "password" in err_str or "encrypted" in err_str:
+                raise ValueError("Encrypted or password-protected PDF files are not supported.")
+            raise ValueError(f"Failed to render PDF page {page_num}: {e}")
+
+        w, h = pil_img.size
+        if w < MIN_DIM or h < MIN_DIM:
+            raise ValueError(f"PDF page {page_num} resolution too small ({w}x{h}). Minimum required is {MIN_DIM}x{MIN_DIM}.")
+        if w > MAX_DIM or h > MAX_DIM:
+            raise ValueError(f"PDF page {page_num} resolution exceeds limits ({w}x{h}). Maximum allowed is {MAX_DIM}x{MAX_DIM}.")
+
+        original_image = np.array(pil_img)
+        working_image = original_image.copy()
+
+        if w > max_working_dim or h > max_working_dim:
+            sc = max_working_dim / float(max(w, h))
+            new_w = max(int(w * sc), 1)
+            new_h = max(int(h * sc), 1)
+            working_image = cv2.resize(original_image, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+        work_h, work_w = working_image.shape[:2]
+        mapper = CoordinateMapper(w, h, work_w, work_h)
+        pages_data.append((original_image, working_image, mapper, page_num))
+
+    return pages_data
 
 
 def load_and_preprocess_image(image_bytes: bytes, filename: str = "image.jpg", max_working_dim: int = 1920) -> tuple[np.ndarray, np.ndarray, CoordinateMapper, str]:
@@ -83,12 +221,9 @@ def load_and_preprocess_image(image_bytes: bytes, filename: str = "image.jpg", m
     if not image_bytes:
         raise ValueError("Image bytes are empty.")
 
-    # Pre-validate file extension if a filename is provided with an extension
-    if filename:
-        _, ext = os.path.splitext(filename)
-        ext_upper = ext.lstrip('.').upper()
-        if ext_upper and ext_upper not in SUPPORTED_FORMATS:
-            raise ValueError(f"Unsupported image format/extension: {ext_upper}. Supported formats: {SUPPORTED_FORMATS}")
+    detected_type = detect_file_type(image_bytes, filename)
+    if detected_type not in SUPPORTED_FORMATS:
+        raise ValueError(f"Unsupported image format/extension: {detected_type}. Supported formats: {SUPPORTED_FORMATS}")
 
     try:
         # Load using Pillow for safety check

@@ -36,6 +36,7 @@ class SuspiciousRegion(BaseModel):
     target_y: Optional[int] = None
     target_width: Optional[int] = None
     target_height: Optional[int] = None
+    page: Optional[int] = None
 
 class ForensicSignal(BaseModel):
     name: str
