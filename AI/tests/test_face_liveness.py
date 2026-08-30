@@ -15,9 +15,9 @@ import cv2
 import numpy as np
 
 # Ensure project root is in python path
-ROOT_DIR = Path(__file__).resolve().parent.parent
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
+ROOT_DIR = Path(__file__).resolve().parent
+if str(ROOT_DIR.parent) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR.parent))
 
 from face.liveness import (
     HeadPose,
@@ -38,7 +38,7 @@ def run_liveness_tests():
 
     sample_dir = ROOT_DIR / "sample_faces"
     if not sample_dir.exists():
-        sample_dir = ROOT_DIR / "AI" / "sample_faces"
+        sample_dir = ROOT_DIR.parent / "sample_faces"
 
     live_a = sample_dir / "person_a_live.jpg"
     multi = sample_dir / "multi_face.jpg"

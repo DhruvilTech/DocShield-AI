@@ -11,7 +11,8 @@ import numpy as np
 
 # Ensure project root is in python path
 ROOT_DIR = Path(__file__).resolve().parent
-# sys.path managed by pyproject.toml
+if str(ROOT_DIR.parent) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR.parent))
 
 from face.embedding import FaceEmbedder, get_embedder, get_embedding, cosine_similarity
 
