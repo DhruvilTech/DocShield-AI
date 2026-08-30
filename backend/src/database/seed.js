@@ -285,7 +285,7 @@ export async function seedDatabase() {
     // Ensure password is synchronized to Admin@123
     const salt = await bcrypt.genSalt(env.BCRYPT_SALT_ROUNDS);
     const passwordHash = await bcrypt.hash('Admin@123', salt);
-    await db.execute("UPDATE users SET password_hash = ?, status = 'ACTIVE', email_verified = TRUE WHERE id = ?;", [passwordHash, fixedAdminId]);
+    await db.execute('UPDATE users SET password_hash = ?, status = "ACTIVE", email_verified = TRUE WHERE id = ?;', [passwordHash, fixedAdminId]);
     console.log(`⏩ Synchronized password for Fixed Admin user ${fixedAdminEmail}.`);
   }
 
