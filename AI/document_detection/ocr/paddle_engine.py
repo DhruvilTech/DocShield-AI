@@ -1,4 +1,7 @@
 from __future__ import annotations
+import os
+os.environ['FLAGS_use_mkldnn'] = '0'
+
 from document_detection.ocr.base import BaseOCREngine
 from document_detection.ocr.models import OCRResult
 from document_detection.ocr.normalizer import PaddleOCRResponseNormalizer
