@@ -60,10 +60,40 @@ class Signals(BaseModel):
     stamp: Optional[ForensicSignal] = None
     splicing: Optional[ForensicSignal] = None
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Phase 8 — Evidence Fusion schemas
+# ──────────────────────────────────────────────────────────────────────────────
+
+class FusedRegion(BaseModel):
+    """One spatially-corroborated suspicious region produced by Phase 8 fusion."""
+    region_id: str                            # "R001", "R002", …
+    page: int = 1                             # page number (1 for single images)
+    bbox: Dict[str, int]                      # {"x":…, "y":…, "width":…, "height":…}
+    severity: str                             # "LOW" | "MEDIUM" | "HIGH"
+    evidence_strength: str                    # "NONE" | "WEAK" | "MODERATE" | "STRONG"
+    evidence_count: int                       # number of independent supporting signals
+    supporting_signals: List[str]             # e.g. ["ELA", "NOISE", "STAMP"]
+    signal_scores: Dict[str, int]             # normalised 0-100 per signal
+    reason: str                               # human-readable sentence
+    target_bbox: Optional[Dict[str, int]] = None   # copy-move target box, if present
+
+class FusionEvidence(BaseModel):
+    """Full Phase 8 Evidence Fusion result — wraps all fusion outputs."""
+    overall_score: int                        # 0-100 tampering evidence score
+    overall_level: str                        # "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+    signals: Dict[str, Any]                   # normalised per-detector info
+    fused_regions: List[FusedRegion]          # merged region-level evidence
+    explanations: List[str]                   # human-readable forensic narrative
+    detectors_available: List[str]            # ran successfully
+    detectors_unavailable: List[str]          # failed or not implemented
+    conflict_detected: bool                   # mixed-evidence flag
+    conflict_note: Optional[str] = None       # explanation of the conflict
+
 class FusionResult(BaseModel):
     score: Optional[float] = None
     confidence: Optional[float] = None
-    risk_level: Optional[str] = None  # "LOW", "MEDIUM", "HIGH"
+    risk_level: Optional[str] = None          # "LOW", "MEDIUM", "HIGH", "CRITICAL"
+    evidence: Optional[FusionEvidence] = None  # Phase 8 full result (None if not run)
 
 class ForensicResult(BaseModel):
     image: ImageInfo

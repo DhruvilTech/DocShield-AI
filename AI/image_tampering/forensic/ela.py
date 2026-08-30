@@ -98,7 +98,7 @@ def analyze_ela(
             # Severity thresholds based on ELA regional intensity
             if roi_mean > 100.0:
                 severity = "HIGH"
-            elif roi_mean > 50.0:
+            elif roi_mean > 55.0:
                 severity = "MEDIUM"
             else:
                 severity = "LOW"
@@ -128,6 +128,11 @@ def analyze_ela(
 
     # Sort regions by regional score descending
     regions.sort(key=lambda r: r.score, reverse=True)
+
+    # Document-wide ELA score combines global baseline error with peak regional anomaly
+    peak_regional_score = regions[0].score if regions else 0.0
+    global_score = 0.4 * (mean_err / 8.0) + 0.4 * (std_err / 6.0) + 0.2 * (high_err_ratio / 0.10)
+    score = float(min(max(max(global_score, 0.75 * peak_regional_score), 0.0), 1.0))
 
     # 7. Generate False-Color Heatmap
     heatmap = cv2.applyColorMap(ela_gray, cv2.COLORMAP_JET)
