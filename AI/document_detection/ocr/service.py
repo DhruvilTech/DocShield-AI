@@ -27,12 +27,21 @@ class OCRService:
         self, image_bytes: bytes, document_type: DocumentType
     ) -> tuple[OCRResult, dict[str, ExtractedField]]:
         """Run OCR pipeline: preprocess -> engine -> extractor."""
-        # Open image
+        # Open image / PDF
         try:
-            image = Image.open(io.BytesIO(image_bytes))
-            image.load()
+            if image_bytes.startswith(b'%PDF'):
+                import pypdfium2 as pdfium
+                pdf = pdfium.PdfDocument(image_bytes)
+                if len(pdf) == 0:
+                    raise ValueError("PDF document contains no pages.")
+                page = pdf[0]
+                bitmap = page.render(scale=2.0)
+                image = bitmap.to_pil()
+            else:
+                image = Image.open(io.BytesIO(image_bytes))
+                image.load()
         except Exception as exc:
-            raise InvalidImageError(f"Cannot decode image: {exc}") from exc
+            raise InvalidImageError(f"Cannot decode image or render PDF: {exc}") from exc
 
         # Optional preprocessing
         if self.preprocessor is not None:
