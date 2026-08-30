@@ -18,12 +18,13 @@ from typing import Optional
 # ── Descriptor labels ─────────────────────────────────────────────────────────
 
 _SIGNAL_LABELS: dict[str, str] = {
-    "ela":       "compression inconsistency (ELA)",
-    "noise":     "local noise anomaly",
-    "copy_move": "visual content duplication (copy-move)",
-    "splicing":  "image splicing / insertion anomaly",
-    "stamp":     "stamp region anomaly",
-    "metadata":  "image-processing metadata signature",
+    "ela":                "compression inconsistency (ELA)",
+    "noise":              "local noise anomaly",
+    "copy_move":          "visual content duplication (copy-move)",
+    "splicing":           "image splicing / insertion anomaly",
+    "content_alteration": "content alteration / defacement anomaly",
+    "stamp":              "stamp region anomaly",
+    "metadata":           "image-processing metadata signature",
 }
 
 

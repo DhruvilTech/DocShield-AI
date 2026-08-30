@@ -60,6 +60,7 @@ class Signals(BaseModel):
     metadata: Optional[ForensicSignal] = None
     stamp: Optional[ForensicSignal] = None
     splicing: Optional[ForensicSignal] = None
+    content_alteration: Optional[ForensicSignal] = None
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Phase 8 — Evidence Fusion schemas

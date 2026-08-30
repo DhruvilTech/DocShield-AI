@@ -77,6 +77,7 @@ def compute_overall_score(
     """
     cm_score = normalised_scores.get("copy_move") or 0
     splicing_score = normalised_scores.get("splicing") or 0
+    alt_score = normalised_scores.get("content_alteration") or 0
     noise_score = normalised_scores.get("noise") or 0
     ela_score = normalised_scores.get("ela") or 0
     stamp_score = normalised_scores.get("stamp") or 0
@@ -93,17 +94,19 @@ def compute_overall_score(
         score = max(score, 72.0 + 0.26 * cm_score)
     if splicing_score >= 50:
         score = max(score, 68.0 + 0.28 * splicing_score)
+    if alt_score >= 50:
+        score = max(score, 68.0 + 0.28 * alt_score)
     if ela_score >= 45 and noise_score >= 60:
         score = max(score, 0.55 * noise_score + 0.45 * ela_score)
     if len(strong_regions) > 0:
         score = max(score, 75.0 + 10.0 * min(len(strong_regions), 2))
-    if len(mod_regions) > 0 and len(high_regions) > 0 and (stamp_score >= 40 or ela_score >= 35 or noise_score >= 80):
-        top_sig = max(noise_score, ela_score, stamp_score, splicing_score, cm_score)
+    if len(mod_regions) > 0 and len(high_regions) > 0 and (stamp_score >= 40 or ela_score >= 35 or noise_score >= 80 or alt_score >= 40):
+        top_sig = max(noise_score, ela_score, stamp_score, splicing_score, cm_score, alt_score)
         score = max(score, 60.0 + 0.20 * top_sig)
 
     if score == 0.0:
         # Baseline clean document score
-        detector_keys = ["ela", "noise", "stamp", "metadata"]
+        detector_keys = ["ela", "noise", "content_alteration", "stamp", "metadata"]
         total_w = sum(weights.get(k, 0.15) for k in detector_keys if normalised_scores.get(k) is not None)
         w_sum = sum(weights.get(k, 0.15) * (normalised_scores.get(k) or 0) for k in detector_keys if normalised_scores.get(k) is not None)
         w_avg = w_sum / total_w if total_w > 0 else 0.0

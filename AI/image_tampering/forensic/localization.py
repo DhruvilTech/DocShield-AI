@@ -47,6 +47,7 @@ def localize_suspicious_regions(
     copy_move_regions: List[SuspiciousRegion],
     stamp_regions: List[SuspiciousRegion],
     splicing_regions: Optional[List[SuspiciousRegion]] = None,
+    content_alteration_regions: Optional[List[SuspiciousRegion]] = None,
     overlap_threshold: float = 0.3,
     working_image_rgb: Optional[np.ndarray] = None,
     coordinate_mapper: Optional[CoordinateMapper] = None,
@@ -56,7 +57,7 @@ def localize_suspicious_regions(
 ) -> List[SuspiciousRegion]:
     """
     Phase 7: Suspicious-Region Localization layer.
-    Combines spatial evidence from ELA, Noise, Copy-Move, Stamp, and Splicing detectors,
+    Combines spatial evidence from ELA, Noise, Copy-Move, Stamp, Splicing, and Content Alteration detectors,
     and merges overlapping boxes using a Union-Find disjoint-set algorithm.
     """
     # 1. Gather all regions
@@ -71,6 +72,8 @@ def localize_suspicious_regions(
         all_regions.extend(stamp_regions)
     if splicing_regions:
         all_regions.extend(splicing_regions)
+    if content_alteration_regions:
+        all_regions.extend(content_alteration_regions)
 
     if not all_regions:
         return []

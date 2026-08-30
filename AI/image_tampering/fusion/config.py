@@ -9,13 +9,14 @@ validated on a large corpus of tampered documents.
 # ── Detector Weights ─────────────────────────────────────────────────────────
 # Must sum to 1.0 across all detector keys + "region".
 WEIGHTS: dict[str, float] = {
-    "ela":       0.20,  # Error Level Analysis
-    "noise":     0.20,  # Local Noise Analysis
-    "copy_move": 0.20,  # Copy-Move Detection
-    "splicing":  0.20,  # Splicing & Insertion Detection
-    "stamp":     0.10,  # Stamp Detection
-    "metadata":  0.05,  # Metadata Analysis
-    "region":    0.05,  # Spatially-corroborated region bonus
+    "ela":                0.15,  # Error Level Analysis
+    "noise":              0.15,  # Local Noise Analysis
+    "copy_move":          0.20,  # Copy-Move Detection
+    "splicing":           0.20,  # Splicing & Insertion Detection
+    "content_alteration": 0.15,  # Content Alteration & Defacement
+    "stamp":              0.05,  # Stamp Detection
+    "metadata":           0.05,  # Metadata Analysis
+    "region":             0.05,  # Spatially-corroborated region bonus
 }
 
 # ── Region Overlap ───────────────────────────────────────────────────────────
@@ -46,12 +47,13 @@ COPY_MOVE_STRENGTH_MINIMUM: str = "MODERATE"
 # Each detector's score is in [0.0, 1.0] where 1.0 maps to 100 after scaling.
 # Currently all detectors use the same cap; adjust if a detector changes range.
 SCORE_NORMALIZATION_CAPS: dict[str, float] = {
-    "ela":       1.0,
-    "noise":     1.0,
-    "copy_move": 1.0,
-    "splicing":  1.0,
-    "stamp":     1.0,
-    "metadata":  1.0,
+    "ela":                1.0,
+    "noise":              1.0,
+    "copy_move":          1.0,
+    "splicing":           1.0,
+    "content_alteration": 1.0,
+    "stamp":              1.0,
+    "metadata":           1.0,
 }
 
 # ── Conflict Detection ────────────────────────────────────────────────────────

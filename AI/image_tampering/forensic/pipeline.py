@@ -35,6 +35,7 @@ from image_tampering.forensic.copy_move import analyze_copy_move
 from image_tampering.forensic.metadata import analyze_metadata
 from image_tampering.forensic.stamp import analyze_stamps
 from image_tampering.forensic.splicing import analyze_splicing
+from image_tampering.forensic.content_alteration import analyze_content_alteration
 from image_tampering.forensic.fusion import fuse_signals, fuse_signals_full
 from image_tampering.forensic.localization import localize_suspicious_regions
 from image_tampering.forensic.pdf_forensics import (
@@ -137,9 +138,19 @@ def _run_forensic_pipeline_pdf(
             save_debug=save_debug,
             debug_dir=page_dir
         )
+        alteration_sig = analyze_content_alteration(
+            working_image_rgb=work_rgb,
+            grayscale=grayscale,
+            hsv=hsv,
+            lab=lab,
+            noise_residual=noise_residual,
+            coordinate_mapper=mapper,
+            save_debug=save_debug,
+            debug_dir=page_dir
+        )
 
         # Tag page on detector regions
-        for sig in [ela_sig, noise_sig, copymove_sig, stamp_sig, splicing_sig]:
+        for sig in [ela_sig, noise_sig, copymove_sig, stamp_sig, splicing_sig, alteration_sig]:
             if sig and sig.regions:
                 for r in sig.regions:
                     r.page = page_num
@@ -150,7 +161,8 @@ def _run_forensic_pipeline_pdf(
             copy_move=copymove_sig,
             metadata=doc_metadata_sig,
             stamp=stamp_sig,
-            splicing=splicing_sig
+            splicing=splicing_sig,
+            content_alteration=alteration_sig
         )
 
         page_regions = localize_suspicious_regions(
@@ -159,6 +171,7 @@ def _run_forensic_pipeline_pdf(
             copy_move_regions=copymove_sig.regions if (copymove_sig and copymove_sig.available) else [],
             stamp_regions=stamp_sig.regions if (stamp_sig and stamp_sig.available) else [],
             splicing_regions=splicing_sig.regions if (splicing_sig and splicing_sig.available) else [],
+            content_alteration_regions=alteration_sig.regions if (alteration_sig and alteration_sig.available) else [],
             overlap_threshold=0.3,
             working_image_rgb=work_rgb,
             coordinate_mapper=mapper,
@@ -181,7 +194,7 @@ def _run_forensic_pipeline_pdf(
             f"Scale: {mapper.scale_x:.2f} | Format: PDF | "
             f"ELA: {ela_sig.score:.4f} | Noise: {noise_sig.score:.4f} | "
             f"CM: {copymove_sig.score:.4f} (kp={cm_stats.get('keypoints', 0)}, cands={cm_stats.get('candidate_matches', 0)}, verified={cm_stats.get('verified_matches', 0)}, clusters={cm_stats.get('clusters', 0)}, largest={cm_stats.get('largest_cluster', 0)}) | "
-            f"Splicing: {splicing_sig.score:.4f} | Stamp: {stamp_sig.score:.4f} | "
+            f"Splicing: {splicing_sig.score:.4f} | ContentAlt: {alteration_sig.score:.4f} | Stamp: {stamp_sig.score:.4f} | "
             f"Metadata: {doc_metadata_sig.score:.4f} | Page Score: {page_fusion_res.score:.4f} ({page_fusion_res.risk_level})"
         )
 
@@ -289,7 +302,8 @@ def _run_forensic_pipeline_pdf(
         copy_move=pick_strongest_signal("copy_move"),
         metadata=doc_metadata_sig,
         stamp=pick_strongest_signal("stamp"),
-        splicing=pick_strongest_signal("splicing")
+        splicing=pick_strongest_signal("splicing"),
+        content_alteration=pick_strongest_signal("content_alteration")
     )
 
     return ForensicResult(
@@ -408,6 +422,16 @@ def run_forensic_pipeline(
         save_debug=save_debug,
         debug_dir=debug_dir
     )
+    alteration_sig = analyze_content_alteration(
+        working_image_rgb=working_rgb,
+        grayscale=grayscale,
+        hsv=hsv,
+        lab=lab,
+        noise_residual=noise_residual,
+        coordinate_mapper=mapper,
+        save_debug=save_debug,
+        debug_dir=debug_dir
+    )
 
     # Bundle all signals
     signals = Signals(
@@ -416,7 +440,8 @@ def run_forensic_pipeline(
         copy_move=copymove_sig,
         metadata=metadata_sig,
         stamp=stamp_sig,
-        splicing=splicing_sig
+        splicing=splicing_sig,
+        content_alteration=alteration_sig
     )
 
     # 5. Phase-7: Unified suspicious region localization
@@ -426,6 +451,7 @@ def run_forensic_pipeline(
         copy_move_regions=copymove_sig.regions if (copymove_sig and copymove_sig.available) else [],
         stamp_regions=stamp_sig.regions if (stamp_sig and stamp_sig.available) else [],
         splicing_regions=splicing_sig.regions if (splicing_sig and splicing_sig.available) else [],
+        content_alteration_regions=alteration_sig.regions if (alteration_sig and alteration_sig.available) else [],
         overlap_threshold=0.3,
         working_image_rgb=working_rgb,
         coordinate_mapper=mapper,

@@ -79,12 +79,13 @@ def fuse(
     # ── Step 2: Build raw signal-region map for IoU attribution ──────────────
     raw_signal_regions_map: dict[str, list[SuspiciousRegion]] = {}
     _detector_attrs = {
-        "ela":       signals.ela,
-        "noise":     signals.noise,
-        "copy_move": signals.copy_move,
-        "splicing":  signals.splicing,
-        "stamp":     signals.stamp,
-        "metadata":  signals.metadata,
+        "ela":                signals.ela,
+        "noise":              signals.noise,
+        "copy_move":          signals.copy_move,
+        "splicing":           signals.splicing,
+        "content_alteration": getattr(signals, "content_alteration", None),
+        "stamp":              signals.stamp,
+        "metadata":           signals.metadata,
     }
     for key, sig in _detector_attrs.items():
         if sig and sig.available and sig.regions:
