@@ -25,6 +25,11 @@ class PaddleOCREngine(BaseOCREngine):
     def extract(self, image) -> OCRResult:
         """Run OCR inference. Never returns raw PaddleOCR output."""
         try:
+            import numpy as np
+            from PIL import Image
+            if isinstance(image, Image.Image):
+                # Convert PIL Image to BGR numpy array as PaddleOCR/OpenCV expects BGR
+                image = np.array(image.convert("RGB"))[:, :, ::-1]
             raw = self._ocr.ocr(image, cls=True)
         except Exception as exc:
             raise OCRFailureError(f"PaddleOCR inference failed: {exc}") from exc
