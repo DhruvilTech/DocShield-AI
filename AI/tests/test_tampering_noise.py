@@ -6,7 +6,7 @@ import cv2
 from PIL import Image, ImageDraw
 from image_tampering.forensic.preprocessing import load_and_preprocess_image, CoordinateMapper
 from image_tampering.forensic.noise import analyze_noise
-from document_detection.schemas.forensic import ForensicSignal
+from image_tampering.schemas.forensic import ForensicSignal
 
 def create_dummy_image_bytes(w: int, h: int, format: str = "JPEG", add_noise_patch=False) -> bytes:
     # Cream color background

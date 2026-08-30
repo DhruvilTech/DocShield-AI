@@ -7,7 +7,7 @@ from document_detection.ocr.models import OCRResult, TextRegion
 from document_detection.ocr.extractor import (
     PassportFieldExtractor, VisaFieldExtractor,
     NationalIDFieldExtractor, DrivingLicenseFieldExtractor, PermitFieldExtractor,
-    PASSPORT_FIELDS, VISA_FIELDS,
+    PASSPORT_FIELDS, VISA_FIELDS, NATIONAL_ID_FIELDS, DRIVING_LICENSE_FIELDS, PERMIT_FIELDS,
 )
 
 
@@ -81,17 +81,26 @@ def test_visa_extractor_empty_ocr():
         assert fields[key].value is None
 
 
-def test_national_id_stub_returns_empty_dict():
-    ocr = OCRResult(raw_text="anything", regions=[], confidence=None, engine_used="paddleocr")
-    assert NationalIDFieldExtractor().extract(ocr) == {}
+def test_national_id_extractor_empty_ocr():
+    ocr = OCRResult(raw_text="", regions=[], confidence=None, engine_used="paddleocr")
+    fields = NationalIDFieldExtractor().extract(ocr)
+    for key in NATIONAL_ID_FIELDS:
+        assert key in fields
+        assert fields[key].value is None
 
 
-def test_driving_license_stub_returns_empty_dict():
-    ocr = OCRResult(raw_text="anything", regions=[], confidence=None, engine_used="paddleocr")
-    assert DrivingLicenseFieldExtractor().extract(ocr) == {}
+def test_driving_license_extractor_empty_ocr():
+    ocr = OCRResult(raw_text="", regions=[], confidence=None, engine_used="paddleocr")
+    fields = DrivingLicenseFieldExtractor().extract(ocr)
+    for key in DRIVING_LICENSE_FIELDS:
+        assert key in fields
+        assert fields[key].value is None
 
 
-def test_permit_stub_returns_empty_dict():
-    ocr = OCRResult(raw_text="anything", regions=[], confidence=None, engine_used="paddleocr")
-    assert PermitFieldExtractor().extract(ocr) == {}
+def test_permit_extractor_empty_ocr():
+    ocr = OCRResult(raw_text="", regions=[], confidence=None, engine_used="paddleocr")
+    fields = PermitFieldExtractor().extract(ocr)
+    for key in PERMIT_FIELDS:
+        assert key in fields
+        assert fields[key].value is None
 

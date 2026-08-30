@@ -7,7 +7,7 @@ import pytest
 from unittest.mock import MagicMock
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from app.api.routes import router
+from api.document import router
 from core.config import settings
 
 

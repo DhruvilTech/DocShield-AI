@@ -5,7 +5,7 @@ import pytest
 from PIL import Image, ImageDraw
 from image_tampering.forensic.stamp import analyze_stamps
 from image_tampering.forensic.preprocessing import CoordinateMapper
-from document_detection.schemas.forensic import ForensicSignal, SuspiciousRegion
+from image_tampering.schemas.forensic import ForensicSignal, SuspiciousRegion
 
 def create_stamp_dummy_image(
     draw_stamp: bool = True,

@@ -14,7 +14,7 @@ if current_dir not in sys.path:
     sys.path.append(current_dir)
 
 from image_tampering.forensic.pipeline import run_forensic_pipeline_from_file
-from document_detection.schemas.forensic import ForensicResult
+from image_tampering.schemas.forensic import ForensicResult
 
 def main():
     if len(sys.argv) < 2:

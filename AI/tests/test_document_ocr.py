@@ -68,7 +68,7 @@ def test_normalize_never_raises_for_empty_list():
 
 
 def test_paddle_engine_wraps_exception_in_ocr_failure_error():
-    with patch("app.ocr.paddle_engine.PaddleOCREngine.__init__", return_value=None):
+    with patch("document_detection.ocr.paddle_engine.PaddleOCREngine.__init__", return_value=None):
         from document_detection.ocr.paddle_engine import PaddleOCREngine
         engine = PaddleOCREngine.__new__(PaddleOCREngine)
         mock_ocr = MagicMock()

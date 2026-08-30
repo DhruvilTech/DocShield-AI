@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import cv2
-from document_detection.schemas.forensic import SuspiciousRegion
+from image_tampering.schemas.forensic import SuspiciousRegion
 from image_tampering.forensic.preprocessing import CoordinateMapper
 from image_tampering.forensic.localization import (
     calculate_overlap_ratio_smaller,

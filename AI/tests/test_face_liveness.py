@@ -15,9 +15,9 @@ import cv2
 import numpy as np
 
 # Ensure project root is in python path
-ROOT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
-    # sys.path managed by pyproject.toml
+    sys.path.insert(0, str(ROOT_DIR))
 
 from face.liveness import (
     HeadPose,

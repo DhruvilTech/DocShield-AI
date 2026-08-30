@@ -4,7 +4,7 @@ import pytest
 import json
 from PIL import Image
 from image_tampering.forensic.metadata import analyze_metadata
-from document_detection.schemas.forensic import ForensicSignal
+from image_tampering.schemas.forensic import ForensicSignal
 
 def create_metadata_dummy_bytes(
     software: str = None,
@@ -26,11 +26,13 @@ def create_metadata_dummy_bytes(
     if dt_orig:
         sub_ifd = exif.get_ifd(34665)  # Exif sub-IFD (34665)
         sub_ifd[36867] = dt_orig  # DateTimeOriginal tag (36867)
+        exif[34665] = sub_ifd
 
     if add_gps:
         gps_ifd = exif.get_ifd(34853)  # GPS sub-IFD (34853)
         gps_ifd[1] = "N"  # GPSLatitudeRef
         gps_ifd[2] = (45.0, 30.0, 0.0)  # GPSLatitude as floats (Pillow handles packing)
+        exif[34853] = gps_ifd
 
     buf = io.BytesIO()
     if format == "JPEG":

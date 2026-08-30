@@ -6,7 +6,7 @@ import cv2
 from PIL import Image, ImageDraw
 from image_tampering.forensic.preprocessing import load_and_preprocess_image, CoordinateMapper
 from image_tampering.forensic.copy_move import analyze_copy_move
-from document_detection.schemas.forensic import ForensicSignal
+from image_tampering.schemas.forensic import ForensicSignal
 
 def create_copy_move_dummy_bytes(w: int, h: int, format: str = "JPEG", add_copy_move=False) -> bytes:
     # Cream color background
