@@ -39,13 +39,13 @@ import {
 type ScanPhase = 'idle' | 'uploading' | 'extracting' | 'validating' | 'forensics' | 'biometrics' | 'complete';
 
 const PHASES_INFO: Record<ScanPhase, { label: string; detail: string; progress: number }> = {
-  idle:        { label: 'Ready',                 detail: 'Drop document & capture live traveler photo to begin border screening', progress: 0 },
-  uploading:   { label: 'Enclave Ingestion',     detail: 'Hashing payload to Hardware-Isolated TEE memory...',                   progress: 15 },
-  extracting:  { label: 'Module 1: OCR Extraction', detail: 'Decompiling ICAO MRZ, visual zones & credential metadata...',         progress: 35 },
-  validating:  { label: 'Module 2: Doc Validation', detail: 'Calculating ICAO 9303 check digits & Interpol SLTD database...',     progress: 55 },
-  forensics:   { label: 'Module 3: Tampering AI', detail: 'Scanning photo replacement, stamp forgery & font tensors...',          progress: 75 },
-  biometrics:  { label: 'Module 4: Face Match',  detail: 'Comparing document portrait against live camera capture...',           progress: 90 },
-  complete:    { label: 'Screening Complete',    detail: 'Border clearance verdict & multi-factor risk dossier finalized',       progress: 100 },
+  idle: { label: 'Ready', detail: 'Drop document & capture live traveler photo to begin border screening', progress: 0 },
+  uploading: { label: 'Enclave Ingestion', detail: 'Hashing payload to Hardware-Isolated TEE memory...', progress: 15 },
+  extracting: { label: 'Module 1: OCR Extraction', detail: 'Decompiling ICAO MRZ, visual zones & credential metadata...', progress: 35 },
+  validating: { label: 'Module 2: Doc Validation', detail: 'Calculating ICAO 9303 check digits & Interpol SLTD database...', progress: 55 },
+  forensics: { label: 'Module 3: Tampering AI', detail: 'Scanning photo replacement, stamp forgery & font tensors...', progress: 75 },
+  biometrics: { label: 'Module 4: Face Match', detail: 'Comparing document portrait against live camera capture...', progress: 90 },
+  complete: { label: 'Screening Complete', detail: 'Border clearance verdict & multi-factor risk dossier finalized', progress: 100 },
 };
 
 export const ScannerPage: React.FC = () => {
@@ -134,7 +134,7 @@ export const ScannerPage: React.FC = () => {
         setFaceVerifyError(result.metadata?.rejectionReason || 'No face detected in the document portrait.');
       }
       addLog(`[BIOMETRICS] Result: ${result.status} (Similarity: ${(result.similarity_score * 100).toFixed(1)}%, Confidence: ${(result.confidence * 100).toFixed(1)}%)`);
-      
+
       // Update Risk Scoring & Screening with new biometric factor
       try {
         const [riskRes, screeningRes] = await Promise.all([
@@ -143,7 +143,7 @@ export const ScannerPage: React.FC = () => {
         ]);
         if (riskRes) setRiskScore(riskRes);
         if (screeningRes) setScreening(screeningRes);
-      } catch {}
+      } catch { }
 
       setActiveTab('biometrics');
     } catch (err: any) {
@@ -776,8 +776,8 @@ export const ScannerPage: React.FC = () => {
                             faceVerification?.status === 'MATCH'
                               ? 'safe'
                               : faceVerification?.status === 'NO_MATCH'
-                              ? 'threat'
-                              : 'warning'
+                                ? 'threat'
+                                : 'warning'
                           }
                           size="sm"
                           dot
@@ -785,10 +785,10 @@ export const ScannerPage: React.FC = () => {
                           {faceVerification?.status === 'MATCH'
                             ? '✓ MATCH'
                             : faceVerification?.status === 'NO_MATCH'
-                            ? '⛔ NO MATCH / MISMATCH'
-                            : faceVerification?.status === 'NO_FACE_DETECTED'
-                            ? '⚠ NO FACE DETECTED'
-                            : faceVerification?.status || 'PENDING'}
+                              ? '⛔ NO MATCH / MISMATCH'
+                              : faceVerification?.status === 'NO_FACE_DETECTED'
+                                ? '⚠ NO FACE DETECTED'
+                                : faceVerification?.status || 'PENDING'}
                         </Badge>
                       </div>
                     </div>
@@ -875,8 +875,8 @@ export const ScannerPage: React.FC = () => {
                                 faceVerification?.status === 'MATCH'
                                   ? 'var(--safe)'
                                   : faceVerification?.status === 'NO_MATCH'
-                                  ? 'var(--threat)'
-                                  : 'var(--text-1)',
+                                    ? 'var(--threat)'
+                                    : 'var(--text-1)',
                             }}
                           >
                             {faceVerification ? `${(faceVerification.similarity_score * 100).toFixed(1)}%` : '—'}
@@ -896,8 +896,8 @@ export const ScannerPage: React.FC = () => {
                               faceVerification?.status === 'MATCH'
                                 ? 'var(--safe)'
                                 : faceVerification?.status === 'NO_MATCH'
-                                ? 'var(--threat)'
-                                : 'var(--accent)',
+                                  ? 'var(--threat)'
+                                  : 'var(--accent)',
                           }}
                           initial={{ width: 0 }}
                           animate={{ width: `${Math.min(100, Math.max(5, (faceVerification?.similarity_score ?? 0) * 100))}%` }}

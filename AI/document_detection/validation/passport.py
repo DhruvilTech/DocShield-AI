@@ -185,14 +185,19 @@ class PassportValidator(BaseDocumentValidator):
         )
 
     @staticmethod
-    def _parse_date(field: ExtractedField | None) -> date | None:
+    def _parse_date(field: ExtractedField | None, is_expiry: bool = False) -> date | None:
         if field is None or field.value is None:
             return None
         val = field.value.strip()
         # Handle YYMMDD from MRZ
         if len(val) == 6 and val.isdigit():
+            today_yy = date.today().year % 100
             yy, mm, dd = int(val[:2]), int(val[2:4]), int(val[4:6])
-            year = 2000 + yy if yy < 30 else 1900 + yy
+            if is_expiry:
+                year = 2000 + yy if yy <= (today_yy + 30) else 1900 + yy
+            else:
+                # Date of birth is in the past
+                year = 1900 + yy if yy > today_yy else 2000 + yy
             try:
                 return date(year, mm, dd)
             except ValueError:
