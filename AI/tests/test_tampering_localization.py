@@ -115,7 +115,7 @@ def test_localize_regions_original_mapper_unchanged():
 
 def test_pipeline_integration_clean():
     # Run on clean passport to verify zero false localization regions
-    passport_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "samples", "clean", "passport.jpg")
+    passport_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "image_tampering", "samples", "clean", "passport.jpg")
     if os.path.exists(passport_path):
         with open(passport_path, "rb") as f:
             img_bytes = f.read()
