@@ -1,4 +1,5 @@
 import os
+import logging
 import cv2
 import numpy as np
 from typing import Optional
@@ -36,6 +37,11 @@ from image_tampering.forensic.stamp import analyze_stamps
 from image_tampering.forensic.splicing import analyze_splicing
 from image_tampering.forensic.fusion import fuse_signals, fuse_signals_full
 from image_tampering.forensic.localization import localize_suspicious_regions
+from image_tampering.forensic.pdf_forensics import (
+    analyze_pdf_copy_move,
+    analyze_pdf_ela,
+    analyze_pdf_noise,
+)
 
 DEFAULT_DEBUG_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "output")
@@ -90,22 +96,22 @@ def _run_forensic_pipeline_pdf(
         # Quality
         quality_data = calculate_quality_metrics(grayscale)
 
-        # Detectors
-        ela_sig = analyze_ela(
+        # Detectors with PDF artifact normalization
+        ela_sig = analyze_pdf_ela(
             working_image_rgb=work_rgb,
             quality=95,
             coordinate_mapper=mapper,
             save_debug=save_debug,
             debug_dir=page_dir
         )
-        noise_sig = analyze_noise(
+        noise_sig = analyze_pdf_noise(
             working_image_rgb=work_rgb,
             noise_residual=noise_residual,
             coordinate_mapper=mapper,
             save_debug=save_debug,
             debug_dir=page_dir
         )
-        copymove_sig = analyze_copy_move(
+        copymove_sig = analyze_pdf_copy_move(
             working_image_rgb=work_rgb,
             coordinate_mapper=mapper,
             save_debug=save_debug,
@@ -165,6 +171,19 @@ def _run_forensic_pipeline_pdf(
             r.page = page_num
 
         page_fusion_res = fuse_signals_full(page_signals, page_regions, page=page_num)
+
+        # Log detailed diagnostics for this page
+        cm_stats = copymove_sig.statistics if copymove_sig else {}
+        logging.getLogger(__name__).info(
+            f"[PDF PAGE DIAGNOSTICS] Page: {page_num} | "
+            f"Orig Dim: {orig_rgb.shape[1]}x{orig_rgb.shape[0]} | "
+            f"Work Dim: {work_rgb.shape[1]}x{work_rgb.shape[0]} | "
+            f"Scale: {mapper.scale_x:.2f} | Format: PDF | "
+            f"ELA: {ela_sig.score:.4f} | Noise: {noise_sig.score:.4f} | "
+            f"CM: {copymove_sig.score:.4f} (kp={cm_stats.get('keypoints', 0)}, cands={cm_stats.get('candidate_matches', 0)}, verified={cm_stats.get('verified_matches', 0)}, clusters={cm_stats.get('clusters', 0)}, largest={cm_stats.get('largest_cluster', 0)}) | "
+            f"Splicing: {splicing_sig.score:.4f} | Stamp: {stamp_sig.score:.4f} | "
+            f"Metadata: {doc_metadata_sig.score:.4f} | Page Score: {page_fusion_res.score:.4f} ({page_fusion_res.risk_level})"
+        )
 
         if save_debug and page_dir:
             working_bgr = cv2.cvtColor(work_rgb, cv2.COLOR_RGB2BGR)

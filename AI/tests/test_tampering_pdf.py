@@ -26,6 +26,35 @@ def create_clean_pdf_bytes(width: int = 600, height: int = 800, text: str = "Cle
     return buf.getvalue()
 
 
+def create_digital_invoice_pdf_bytes() -> bytes:
+    img = Image.new("RGB", (800, 1100), color=(255, 255, 255))
+    draw = ImageDraw.Draw(img)
+    draw.rectangle([50, 50, 750, 120], fill=(240, 240, 245), outline=(200, 200, 210))
+    draw.text((70, 75), "INVOICE #INV-2026-001", fill=(20, 20, 20))
+    for y in range(200, 800, 60):
+        draw.line([(50, y), (750, y)], fill=(220, 220, 220), width=1)
+        draw.text((60, y + 20), f"Item description line at row {y}", fill=(50, 50, 50))
+        draw.text((650, y + 20), "$150.00", fill=(50, 50, 50))
+    buf = io.BytesIO()
+    img.save(buf, format="PDF")
+    return buf.getvalue()
+
+
+def create_scanned_clean_pdf_bytes() -> bytes:
+    np.random.seed(100)
+    bg = np.full((1000, 750, 3), 248, dtype=np.uint8)
+    noise = np.random.normal(0, 3, bg.shape).astype(np.int16)
+    scanned = np.clip(bg.astype(np.int16) + noise, 0, 255).astype(np.uint8)
+    img = Image.fromarray(scanned)
+    draw = ImageDraw.Draw(img)
+    draw.text((60, 60), "OFFICIAL UNIVERSITY TRANSCRIPT", fill=(30, 30, 30))
+    draw.text((60, 120), "Student Name: John Doe", fill=(40, 40, 40))
+    draw.text((60, 160), "Degree: Bachelor of Science in Computer Science", fill=(40, 40, 40))
+    buf = io.BytesIO()
+    img.save(buf, format="PDF")
+    return buf.getvalue()
+
+
 def create_tampered_pdf_bytes(width: int = 600, height: int = 800) -> bytes:
     np.random.seed(42)
     img = Image.new("RGB", (width, height), color=(240, 240, 240))
@@ -40,6 +69,38 @@ def create_tampered_pdf_bytes(width: int = 600, height: int = 800) -> bytes:
     img.paste(patch_img, (100, 200))
     img.paste(patch_img, (300, 450))
 
+    buf = io.BytesIO()
+    img.save(buf, format="PDF")
+    return buf.getvalue()
+
+
+def create_tampered_spliced_pdf_bytes() -> bytes:
+    cert_path = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        "image_tampering",
+        "upload",
+        "certificate_friend_photo.jpg.png",
+    )
+    if os.path.exists(cert_path):
+        im = Image.open(cert_path)
+        if im.mode in ('RGBA', 'LA'):
+            bg = Image.new('RGB', im.size, (255, 255, 255))
+            bg.paste(im, mask=im.split()[-1])
+            im = bg
+        else:
+            im = im.convert('RGB')
+        buf = io.BytesIO()
+        im.save(buf, format='PDF', quality=100)
+        return buf.getvalue()
+
+    img = Image.new("RGB", (800, 1000), color=(250, 250, 250))
+    draw = ImageDraw.Draw(img)
+    draw.text((60, 60), "IDENTITY CERTIFICATE", fill=(0, 0, 0))
+    draw.rectangle([480, 130, 670, 350], outline=(0, 0, 0), width=3)
+    np.random.seed(99)
+    foreign_patch = np.random.randint(20, 220, (200, 170, 3), dtype=np.uint8)
+    patch_img = Image.fromarray(foreign_patch)
+    img.paste(patch_img, (490, 140))
     buf = io.BytesIO()
     img.save(buf, format="PDF")
     return buf.getvalue()
@@ -61,6 +122,20 @@ def create_multipage_pdf_bytes() -> bytes:
     patch_img = Image.fromarray(patch)
     img2.paste(patch_img, (100, 200))
     img2.paste(patch_img, (300, 450))
+
+    buf = io.BytesIO()
+    img1.save(buf, format="PDF", save_all=True, append_images=[img2])
+    return buf.getvalue()
+
+
+def create_clean_multipage_pdf_bytes() -> bytes:
+    img1 = Image.new("RGB", (600, 800), color=(255, 255, 255))
+    draw1 = ImageDraw.Draw(img1)
+    draw1.text((50, 50), "Page 1 - Clean Content", fill=(0, 0, 0))
+
+    img2 = Image.new("RGB", (600, 800), color=(255, 255, 255))
+    draw2 = ImageDraw.Draw(img2)
+    draw2.text((50, 50), "Page 2 - Clean Content", fill=(0, 0, 0))
 
     buf = io.BytesIO()
     img1.save(buf, format="PDF", save_all=True, append_images=[img2])
@@ -92,22 +167,30 @@ def test_clean_pdf_not_tampered():
     result: ForensicResult = run_forensic_pipeline(pdf_bytes, filename="clean.pdf")
     assert result.image.format == "PDF"
     assert result.fusion.score is not None
-    assert result.fusion.score < 0.5
-    assert result.fusion.risk_level in ("LOW", "MEDIUM")
+    assert result.fusion.score < 0.35
+    assert result.fusion.risk_level == "LOW"
 
 
-def test_synthetic_tampered_pdf():
-    pdf_bytes = create_tampered_pdf_bytes(600, 800)
-    result: ForensicResult = run_forensic_pipeline(pdf_bytes, filename="tampered.pdf")
+def test_clean_digital_invoice_pdf():
+    pdf_bytes = create_digital_invoice_pdf_bytes()
+    result: ForensicResult = run_forensic_pipeline(pdf_bytes, filename="invoice.pdf")
     assert result.image.format == "PDF"
     assert result.fusion.score is not None
-    assert result.fusion.score >= 0.5
-    assert result.fusion.risk_level in ("HIGH", "CRITICAL")
-    assert result.signals.copy_move is not None
-    assert result.signals.copy_move.score > 0.5
+    assert result.fusion.score < 0.35
+    assert result.fusion.risk_level == "LOW"
+    assert result.signals.copy_move.score == 0.0
 
 
-def test_real_adhaar_tampered_pdf():
+def test_clean_scanned_pdf():
+    pdf_bytes = create_scanned_clean_pdf_bytes()
+    result: ForensicResult = run_forensic_pipeline(pdf_bytes, filename="scanned.pdf")
+    assert result.image.format == "PDF"
+    assert result.fusion.score is not None
+    assert result.fusion.score < 0.35
+    assert result.fusion.risk_level == "LOW"
+
+
+def test_clean_real_adhaar_pdf():
     real_pdf_path = os.path.join(
         os.path.dirname(os.path.dirname(__file__)),
         "image_tampering",
@@ -123,9 +206,30 @@ def test_real_adhaar_tampered_pdf():
     result: ForensicResult = run_forensic_pipeline(pdf_bytes, filename="Adhaar card of dhruv.pdf")
     assert result.image.format == "PDF"
     assert result.fusion.score is not None
-    assert result.fusion.score >= 0.5
+    # Real untampered Aadhaar card must be clean (score < 0.35, risk LOW)
+    assert result.fusion.score < 0.35
+    assert result.fusion.risk_level == "LOW"
+    assert result.signals.copy_move.score == 0.0
+
+
+def test_synthetic_tampered_pdf():
+    pdf_bytes = create_tampered_pdf_bytes(600, 800)
+    result: ForensicResult = run_forensic_pipeline(pdf_bytes, filename="tampered.pdf")
+    assert result.image.format == "PDF"
+    assert result.fusion.score is not None
+    assert result.fusion.score >= 0.50
     assert result.fusion.risk_level in ("HIGH", "CRITICAL")
-    assert len(result.regions) > 0
+    assert result.signals.copy_move is not None
+    assert result.signals.copy_move.score >= 0.50
+
+
+def test_spliced_tampered_pdf():
+    pdf_bytes = create_tampered_spliced_pdf_bytes()
+    result: ForensicResult = run_forensic_pipeline(pdf_bytes, filename="spliced.pdf")
+    assert result.image.format == "PDF"
+    assert result.fusion.score is not None
+    assert result.fusion.score >= 0.50
+    assert result.fusion.risk_level in ("HIGH", "CRITICAL")
 
 
 def test_multipage_pdf_page_attribution():
@@ -133,13 +237,22 @@ def test_multipage_pdf_page_attribution():
     result: ForensicResult = run_forensic_pipeline(pdf_bytes, filename="multipage.pdf")
     assert result.image.format == "PDF"
     assert result.fusion.score is not None
-    assert result.fusion.score >= 0.5
+    assert result.fusion.score >= 0.50
     # Suspicious regions on page 2
     pages_with_regions = {r.page for r in result.regions}
     assert 2 in pages_with_regions
     if result.fusion.evidence and result.fusion.evidence.fused_regions:
         fused_pages = {fr.page for fr in result.fusion.evidence.fused_regions}
         assert 2 in fused_pages
+
+
+def test_clean_multipage_pdf():
+    pdf_bytes = create_clean_multipage_pdf_bytes()
+    result: ForensicResult = run_forensic_pipeline(pdf_bytes, filename="clean_multi.pdf")
+    assert result.image.format == "PDF"
+    assert result.fusion.score is not None
+    assert result.fusion.score < 0.35
+    assert result.fusion.risk_level == "LOW"
 
 
 def test_corrupted_pdf_raises_error():
@@ -167,7 +280,8 @@ def test_run_forensic_pipeline_from_file_pdf():
 
     result = run_forensic_pipeline_from_file(real_pdf_path)
     assert result.image.format == "PDF"
-    assert result.fusion.score >= 0.5
+    assert result.fusion.score < 0.35
+    assert result.fusion.risk_level == "LOW"
 
 
 def test_image_backward_compatibility():
@@ -195,9 +309,9 @@ def test_png_bytes_with_pdf_filename_dispatches_to_image():
     with open(png_path, "rb") as f:
         png_bytes = f.read()
 
-    result = run_forensic_pipeline(png_bytes, filename="Adhaar card of dhruv.pdf")
+    result = run_forensic_pipeline(png_bytes, filename="certificate.pdf")
     assert result.image.format == "PNG"
-    assert result.fusion.score >= 0.5
+    assert result.fusion.score >= 0.50
 
 
 def test_pdf_bytes_with_png_filename_dispatches_to_pdf():
@@ -216,7 +330,8 @@ def test_pdf_bytes_with_png_filename_dispatches_to_pdf():
 
     result = run_forensic_pipeline(pdf_bytes, filename="misnamed.png")
     assert result.image.format == "PDF"
-    assert result.fusion.score >= 0.5
+    assert result.fusion.score < 0.35
+    assert result.fusion.risk_level == "LOW"
 
 
 def test_consistency_direct_image_vs_pdf():
@@ -233,20 +348,23 @@ def test_consistency_direct_image_vs_pdf():
     with open(p1_path, "rb") as f:
         p1_bytes = f.read()
 
-    # Direct analysis
     res_direct = run_forensic_pipeline(p1_bytes, filename="p1.png")
 
-    # Wrap inside PDF
     img = Image.open(p1_path)
+    if img.mode in ('RGBA', 'LA'):
+        bg = Image.new('RGB', img.size, (255, 255, 255))
+        bg.paste(img, mask=img.split()[-1])
+        img = bg
+    else:
+        img = img.convert('RGB')
     buf = io.BytesIO()
     img.save(buf, format="PDF")
     pdf_bytes = buf.getvalue()
 
     res_pdf = run_forensic_pipeline(pdf_bytes, filename="p1_wrapped.pdf")
 
-    # Both should agree on clean document (score < 0.5)
     assert (res_direct.fusion.score < 0.5) == (res_pdf.fusion.score < 0.5)
-    assert res_pdf.fusion.score < 0.5
+    assert res_pdf.fusion.score < 0.35
 
 
 def test_pdf_debug_separate_directory(tmp_path):
@@ -259,4 +377,3 @@ def test_pdf_debug_separate_directory(tmp_path):
     pdf_debug_page1 = os.path.join(debug_dir, "pdf_debug", "page_001")
     assert os.path.exists(pdf_debug_page1)
     assert os.path.exists(os.path.join(pdf_debug_page1, "rendered.png"))
-

@@ -94,11 +94,13 @@ def analyze_splicing(
                 if _is_qr_or_barcode(roi_rgb):
                     continue
                     
-                # Check circularity vs rectangularity
+                # Check circularity vs rectangularity (True circle has circularity > 0.85 and extent ~ pi/4)
                 peri = cv2.arcLength(c, True)
                 cnt_area = cv2.contourArea(c)
                 circularity = (4 * np.pi * cnt_area) / (peri**2 + 1e-5)
-                is_round_seal = circularity > 0.65
+                extent = cnt_area / (bw * bh + 1e-5)
+                # A rectangle has extent >= 0.85; a round seal has circularity > 0.85 and extent ~ 0.78
+                is_round_seal = circularity > 0.85 and extent < 0.82
                 
                 # Inspect child contours in hierarchy
                 child_idx = h_tree[i][2]

@@ -89,10 +89,7 @@ def detect_file_type(data: bytes, filename: str = "") -> str:
 
 
 def is_pdf(image_bytes: bytes, filename: str = "") -> bool:
-    """
-    Determines if the provided data or filename corresponds to a PDF document.
-    Magic bytes take precedence over filename extension.
-    """
+    
     return detect_file_type(image_bytes, filename) == "PDF"
 
 
@@ -128,7 +125,7 @@ def load_and_preprocess_pdf(
 ) -> list[tuple[np.ndarray, np.ndarray, CoordinateMapper, int]]:
     """
     Loads and renders all pages of a PDF document from bytes into RGB images,
-    extracting dominant embedded raster images when present to avoid resampling artifacts,
+    ensuring lossless RGB representation on solid white backgrounds,
     computes working images and coordinate mappers for each page, and returns:
     [(original_image_rgb, working_image_rgb, mapper, page_number), ...]
     """
@@ -164,25 +161,20 @@ def load_and_preprocess_pdf(
         page_num = page_idx + 1
         try:
             page = pdf[page_idx]
+            page_w_pt, page_h_pt = page.get_size()
+            max_pt = max(page_w_pt, page_h_pt) if (page_w_pt > 0 and page_h_pt > 0) else 800.0
             
-            # Check for embedded raster images on the page
-            image_objs = [obj for obj in page.get_objects() if obj.type == pdfium.raw.FPDF_PAGEOBJ_IMAGE]
-            
-            pil_img = None
-            if len(image_objs) == 1:
-                try:
-                    extracted_bm = image_objs[0].get_bitmap()
-                    extracted_pil = extracted_bm.to_pil().convert("RGB")
-                    # If the extracted image is large enough to be the document/photo content
-                    if extracted_pil.size[0] >= 100 and extracted_pil.size[1] >= 100:
-                        pil_img = extracted_pil
-                except Exception:
-                    pil_img = None
-            
-            # Fallback: render full page at high resolution
-            if pil_img is None:
-                bitmap = page.render(scale=scale)
-                pil_img = bitmap.to_pil().convert("RGB")
+            # Compute optimal rendering scale without excessive upsampling or downscaling
+            if scale is not None and scale > 0:
+                render_scale = float(scale)
+                if max_pt * render_scale > max_working_dim * 1.5:
+                    render_scale = max(float(max_working_dim) / max_pt, 1.0)
+            else:
+                target_dim = 1600.0
+                render_scale = min(max(target_dim / max_pt, 1.0), 2.5)
+
+            bitmap = page.render(scale=render_scale, fill_color=(255, 255, 255, 255))
+            pil_img = bitmap.to_pil().convert("RGB")
 
         except Exception as e:
             err_str = str(e).lower()
