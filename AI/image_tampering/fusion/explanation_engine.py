@@ -21,6 +21,7 @@ _SIGNAL_LABELS: dict[str, str] = {
     "ela":       "compression inconsistency (ELA)",
     "noise":     "local noise anomaly",
     "copy_move": "visual content duplication (copy-move)",
+    "splicing":  "image splicing / insertion anomaly",
     "stamp":     "stamp region anomaly",
     "metadata":  "image-processing metadata signature",
 }

@@ -9,12 +9,13 @@ validated on a large corpus of tampered documents.
 # ── Detector Weights ─────────────────────────────────────────────────────────
 # Must sum to 1.0 across all detector keys + "region".
 WEIGHTS: dict[str, float] = {
-    "ela":       0.25,  # Error Level Analysis
+    "ela":       0.20,  # Error Level Analysis
     "noise":     0.20,  # Local Noise Analysis
-    "copy_move": 0.25,  # Copy-Move Detection
-    "stamp":     0.15,  # Stamp Detection
+    "copy_move": 0.20,  # Copy-Move Detection
+    "splicing":  0.20,  # Splicing & Insertion Detection
+    "stamp":     0.10,  # Stamp Detection
     "metadata":  0.05,  # Metadata Analysis
-    "region":    0.10,  # Spatially-corroborated region bonus
+    "region":    0.05,  # Spatially-corroborated region bonus
 }
 
 # ── Region Overlap ───────────────────────────────────────────────────────────
@@ -48,6 +49,7 @@ SCORE_NORMALIZATION_CAPS: dict[str, float] = {
     "ela":       1.0,
     "noise":     1.0,
     "copy_move": 1.0,
+    "splicing":  1.0,
     "stamp":     1.0,
     "metadata":  1.0,
 }

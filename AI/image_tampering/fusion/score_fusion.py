@@ -65,39 +65,52 @@ def compute_overall_score(
     normalised_scores: dict[str, Optional[int]],
     region_bonus_score: int,
     weights: dict[str, float] = WEIGHTS,
+    fused_regions: Optional[list] = None,
 ) -> int:
     """
-    Weighted combination of available detector scores and a region bonus.
-
-    Unavailable detectors (score=None) are excluded; the remaining weights
-    are renormalised so missing detectors don't suppress the result.
-
-    Final formula:
-        detector_fraction = 1 - weights["region"]
-        score = detector_fraction × Σ(w_i / Σw_avail × normed_i)
-              + weights["region"] × region_bonus
+    Weighted combination of available detector scores and a region bonus,
+    enhanced with Dominant Modality Evidence Scaling:
+    - Direct attack indicators (Copy-Move, Splicing) trigger high-confidence alerts.
+    - Corroborated multi-detector anomalies elevate the score to HIGH/CRITICAL.
+    - Clean documents with natural paper texture or high-frequency security patterns
+      are bounded securely in LOW.
     """
-    detector_keys = ["ela", "noise", "copy_move", "stamp", "metadata"]
-    region_w = weights.get("region", 0.10)
+    cm_score = normalised_scores.get("copy_move") or 0
+    splicing_score = normalised_scores.get("splicing") or 0
+    noise_score = normalised_scores.get("noise") or 0
+    ela_score = normalised_scores.get("ela") or 0
+    stamp_score = normalised_scores.get("stamp") or 0
+    metadata_score = normalised_scores.get("metadata") or 0
 
-    total_det_weight  = 0.0
-    weighted_det_sum  = 0.0
+    strong_regions = [r for r in fused_regions if getattr(r, "evidence_strength", None) == "STRONG"] if fused_regions else []
+    mod_regions = [r for r in fused_regions if getattr(r, "evidence_strength", None) == "MODERATE"] if fused_regions else []
+    high_regions = [r for r in fused_regions if getattr(r, "severity", None) == "HIGH"] if fused_regions else []
 
-    for key in detector_keys:
-        score = normalised_scores.get(key)
-        if score is not None:               # only available detectors contribute
-            w = weights.get(key, 0.0)
-            total_det_weight += w
-            weighted_det_sum += w * score
+    score = 0.0
 
-    if total_det_weight > 0:
-        detector_score = weighted_det_sum / total_det_weight
-    else:
-        detector_score = 0.0
+    # 1. Direct positive attack indicators
+    if cm_score >= 40:
+        score = max(score, 72.0 + 0.26 * cm_score)
+    if splicing_score >= 50:
+        score = max(score, 68.0 + 0.28 * splicing_score)
+    if ela_score >= 45 and noise_score >= 60:
+        score = max(score, 0.55 * noise_score + 0.45 * ela_score)
+    if len(strong_regions) > 0:
+        score = max(score, 75.0 + 10.0 * min(len(strong_regions), 2))
+    if len(mod_regions) > 0 and len(high_regions) > 0 and (stamp_score >= 40 or ela_score >= 35 or noise_score >= 80):
+        top_sig = max(noise_score, ela_score, stamp_score, splicing_score, cm_score)
+        score = max(score, 60.0 + 0.20 * top_sig)
 
-    # Blend detector score and region bonus
-    combined = (1.0 - region_w) * detector_score + region_w * region_bonus_score
-    return int(min(max(combined, 0.0), 100.0))
+    if score == 0.0:
+        # Baseline clean document score
+        detector_keys = ["ela", "noise", "stamp", "metadata"]
+        total_w = sum(weights.get(k, 0.15) for k in detector_keys if normalised_scores.get(k) is not None)
+        w_sum = sum(weights.get(k, 0.15) * (normalised_scores.get(k) or 0) for k in detector_keys if normalised_scores.get(k) is not None)
+        w_avg = w_sum / total_w if total_w > 0 else 0.0
+        score = min(w_avg * 0.70, 25.0)
+
+    final_score = int(min(max(score, 0.0), 100.0))
+    return final_score
 
 
 # ── Risk level ────────────────────────────────────────────────────────────────
@@ -122,7 +135,7 @@ def detect_conflict(
     Detect when metadata and image-based detectors strongly disagree.
     Returns (conflict_detected: bool, explanation: str | None).
     """
-    image_keys = ["ela", "noise", "copy_move", "stamp"]
+    image_keys = ["ela", "noise", "copy_move", "splicing", "stamp"]
     image_scores = [
         normalised_scores[k]
         for k in image_keys

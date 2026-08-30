@@ -82,6 +82,7 @@ def fuse(
         "ela":       signals.ela,
         "noise":     signals.noise,
         "copy_move": signals.copy_move,
+        "splicing":  signals.splicing,
         "stamp":     signals.stamp,
         "metadata":  signals.metadata,
     }
@@ -114,7 +115,7 @@ def fuse(
     logger.info("[REGION BONUS] Score: %d", region_bonus)
 
     # ── Step 5: Weighted overall score ────────────────────────────────────────
-    overall_score = compute_overall_score(normalised_scores, region_bonus, weights)
+    overall_score = compute_overall_score(normalised_scores, region_bonus, weights, fused_regions=fused_regions)
     overall_level = risk_level_from_score(overall_score)
 
     logger.info("[FUSION] Overall tampering evidence score: %d → %s",

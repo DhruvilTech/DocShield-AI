@@ -114,7 +114,13 @@ def run_forensic_pipeline(
         save_debug=save_debug,
         debug_dir=debug_dir
     )
-    splicing_sig = analyze_splicing(working_rgb, original_rgb, mapper)
+    splicing_sig = analyze_splicing(
+        working_image_rgb=working_rgb,
+        original_image_rgb=original_rgb,
+        coordinate_mapper=mapper,
+        save_debug=save_debug,
+        debug_dir=debug_dir
+    )
 
     # Bundle all signals
     signals = Signals(
@@ -132,6 +138,7 @@ def run_forensic_pipeline(
         noise_regions=noise_sig.regions if (noise_sig and noise_sig.available) else [],
         copy_move_regions=copymove_sig.regions if (copymove_sig and copymove_sig.available) else [],
         stamp_regions=stamp_sig.regions if (stamp_sig and stamp_sig.available) else [],
+        splicing_regions=splicing_sig.regions if (splicing_sig and splicing_sig.available) else [],
         overlap_threshold=0.3,
         working_image_rgb=working_rgb,
         coordinate_mapper=mapper,
