@@ -125,7 +125,7 @@ def test_copy_move_original_unchanged():
 
 def test_copy_move_clean_no_high_score():
     # Verify that the clean passport sample does not trigger high copy-move score
-    passport_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "samples", "clean", "passport.jpg")
+    passport_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "image_tampering", "samples", "clean", "passport.jpg")
     if os.path.exists(passport_path):
         with open(passport_path, "rb") as f:
             img_bytes = f.read()
@@ -137,7 +137,7 @@ def test_copy_move_clean_no_high_score():
 
 def test_copy_move_tampered_detected():
     # Verify that the genuine copy_move sample still receives a high score
-    tampered_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "samples", "tampered", "copy_move.jpg")
+    tampered_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "image_tampering", "samples", "tampered", "copy_move.jpg")
     if os.path.exists(tampered_path):
         with open(tampered_path, "rb") as f:
             img_bytes = f.read()

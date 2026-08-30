@@ -154,7 +154,7 @@ def test_stamp_debug_outputs(tmpdir):
 
 def test_stamp_clean_low_anomaly():
     # Verify that clean passport legitimate stamp is LOW severity (score <= 0.20)
-    passport_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "samples", "clean", "passport.jpg")
+    passport_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "image_tampering", "samples", "clean", "passport.jpg")
     if os.path.exists(passport_path):
         with open(passport_path, "rb") as f:
             img_bytes = f.read()
@@ -189,7 +189,7 @@ def test_stamp_clean_low_anomaly():
 
 def test_stamp_tampered_higher_anomaly():
     # Verify that tampered stamp receives higher anomaly score than clean stamp
-    tampered_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "samples", "tampered", "stamp_tampered.jpg")
+    tampered_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "image_tampering", "samples", "tampered", "stamp_tampered.jpg")
     if os.path.exists(tampered_path):
         with open(tampered_path, "rb") as f:
             img_bytes = f.read()
