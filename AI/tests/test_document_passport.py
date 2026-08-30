@@ -104,3 +104,18 @@ def test_empty_fields_all_missing():
         check = next((c for c in result.checks if c.field == req), None)
         assert check is not None
         assert check.status == CheckStatus.MISSING
+
+
+def test_mismatched_visual_vs_mrz():
+    fields = valid_fields()
+    # Add matching visual fields
+    fields["visual_passport_number"] = f("visual_passport_number", "A1234567")
+    fields["visual_name"] = f("visual_name", "JOHN DOE")
+    
+    # Introduce mismatched visual fields
+    fields["visual_passport_number"] = f("visual_passport_number", "Z9999999") # Different from A1234567
+    
+    result = validator.validate(fields, rules)
+    assert result.valid is False
+    check = next(c for c in result.checks if c.field == "passport_number" and "Mismatched" in c.message)
+    assert check.status == CheckStatus.INVALID

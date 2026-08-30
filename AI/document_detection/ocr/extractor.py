@@ -154,6 +154,42 @@ class PassportFieldExtractor(BaseFieldExtractor):
         )
         fields["date_of_expiry"] = ExtractedField(name="date_of_expiry", value=val, confidence=conf, source_text=src)
 
+        # Dates fallback: search for date patterns DD/MM/YYYY
+        all_dates = re.findall(r"\b\d{2}/\d{2}/\d{4}\b", raw)
+        if all_dates:
+            parsed_dates = []
+            for d_str in all_dates:
+                try:
+                    from dateutil import parser as dateutil_parser
+                    parsed_dates.append((dateutil_parser.parse(d_str, dayfirst=True).date(), d_str))
+                except Exception:
+                    pass
+            parsed_dates = sorted(list(set(parsed_dates)), key=lambda x: x[0])
+            if len(parsed_dates) >= 2:
+                if not fields.get("date_of_birth") or not fields["date_of_birth"].value:
+                    fields["date_of_birth"] = ExtractedField(name="date_of_birth", value=parsed_dates[0][1], confidence=0.99, source_text=parsed_dates[0][1])
+                if not fields.get("date_of_expiry") or not fields["date_of_expiry"].value:
+                    fields["date_of_expiry"] = ExtractedField(name="date_of_expiry", value=parsed_dates[-1][1], confidence=0.99, source_text=parsed_dates[-1][1])
+            elif len(parsed_dates) == 1:
+                from datetime import date
+                d_val, d_str = parsed_dates[0]
+                if d_val < date.today():
+                    if not fields.get("date_of_birth") or not fields["date_of_birth"].value:
+                        fields["date_of_birth"] = ExtractedField(name="date_of_birth", value=d_str, confidence=0.99, source_text=d_str)
+                else:
+                    if not fields.get("date_of_expiry") or not fields["date_of_expiry"].value:
+                        fields["date_of_expiry"] = ExtractedField(name="date_of_expiry", value=d_str, confidence=0.99, source_text=d_str)
+
+        # Store visual values before MRZ override for validation cross-check
+        for field_name in ["passport_number", "gender", "name", "nationality", "date_of_birth", "date_of_expiry"]:
+            if field_name in fields:
+                fields[f"visual_{field_name}"] = ExtractedField(
+                    name=f"visual_{field_name}",
+                    value=fields[field_name].value,
+                    confidence=fields[field_name].confidence,
+                    source_text=fields[field_name].source_text
+                )
+
         # MRZ override (highest priority)
         mrz_lines = [r.text for r in regions if self._MRZ_RE.match(r.text.replace(" ", ""))]
         if len(mrz_lines) >= 2:
