@@ -25,7 +25,7 @@ from image_tampering.forensic.copy_move import analyze_copy_move
 from image_tampering.forensic.metadata import analyze_metadata
 from image_tampering.forensic.stamp import analyze_stamps
 from image_tampering.forensic.splicing import analyze_splicing
-from image_tampering.forensic.fusion import fuse_signals
+from image_tampering.forensic.fusion import fuse_signals, fuse_signals_full
 from image_tampering.forensic.localization import localize_suspicious_regions
 
 DEFAULT_DEBUG_DIR = os.path.abspath(
@@ -126,10 +126,7 @@ def run_forensic_pipeline(
         splicing=splicing_sig
     )
 
-    # 5. Fusion & Localization (Placeholders & Aggregations)
-    fusion_res = fuse_signals(signals)
-    
-    # Run unified suspicious region localization (Phase 7)
+    # 5. Phase-7: Unified suspicious region localization
     regions = localize_suspicious_regions(
         ela_regions=ela_sig.regions if (ela_sig and ela_sig.available) else [],
         noise_regions=noise_sig.regions if (noise_sig and noise_sig.available) else [],
@@ -142,7 +139,10 @@ def run_forensic_pipeline(
         debug_dir=debug_dir
     )
 
-    # 6. Save Debug outputs if requested
+    # 6. Phase-8: Evidence Fusion (full, with region attribution)
+    fusion_res = fuse_signals_full(signals, regions)
+
+    # 7. Save Debug outputs if requested
     if save_debug:
         os.makedirs(debug_dir, exist_ok=True)
         
