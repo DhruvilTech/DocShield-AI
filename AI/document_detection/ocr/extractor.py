@@ -167,8 +167,15 @@ class PassportFieldExtractor(BaseFieldExtractor):
 
     def _apply_mrz(self, lines: list[str], fields: dict) -> None:
         try:
-            line1 = lines[0].replace(" ", "")
-            line2 = lines[1].replace(" ", "")
+            # Swap lines if they were detected out of vertical order
+            clean_l0 = lines[0].replace(" ", "")
+            clean_l1 = lines[1].replace(" ", "")
+            if clean_l1.startswith("P") and not clean_l0.startswith("P"):
+                line1 = clean_l1
+                line2 = clean_l0
+            else:
+                line1 = clean_l0
+                line2 = clean_l1
             name_part = line1[5:44].replace("<", " ").strip()
             if name_part:
                 fields["name"] = ExtractedField(name="name", value=name_part, confidence=0.99)
