@@ -10,11 +10,12 @@ export const faceVerificationSchema = z.object({
     .object({
       status: z.enum(['PASS', 'FAIL']),
       confidence: z.number().optional(),
-      reason: z.string().optional(),
+      reason: z.string().nullable().optional(),
       stages_completed: z.array(z.string()).optional(),
     })
+    .nullable()
     .optional(),
-  livenessVideoBase64: z.string().optional(),
+  livenessVideoBase64: z.string().nullable().optional(),
   simulateMismatch: z.boolean().optional(),
   simulateInconclusive: z.boolean().optional(),
   simulateNoFace: z.boolean().optional(),
