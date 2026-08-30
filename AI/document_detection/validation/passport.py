@@ -68,18 +68,34 @@ class PassportValidator(BaseDocumentValidator):
         dob = self._parse_date(fields.get("date_of_birth"))
         exp = self._parse_date(fields.get("date_of_expiry"))
 
-        if dob is not None and dob >= today:
+        dob_field = fields.get("date_of_birth")
+        if dob_field and dob_field.value and dob is None:
+            checks.append(FieldCheck(
+                field="date_of_birth",
+                status=CheckStatus.INVALID,
+                message=f"Date of birth '{dob_field.value}' is not a valid date format",
+            ))
+        elif dob is not None and dob >= today:
             checks.append(FieldCheck(
                 field="date_of_birth",
                 status=CheckStatus.INVALID,
                 message="Date of birth must be in the past",
             ))
-        if exp is not None and exp <= today:
+
+        exp_field = fields.get("date_of_expiry")
+        if exp_field and exp_field.value and exp is None:
+            checks.append(FieldCheck(
+                field="date_of_expiry",
+                status=CheckStatus.INVALID,
+                message=f"Date of expiry '{exp_field.value}' is not a valid date format",
+            ))
+        elif exp is not None and exp <= today:
             checks.append(FieldCheck(
                 field="date_of_expiry",
                 status=CheckStatus.INVALID,
                 message="Passport is expired",
             ))
+
         if dob is not None and exp is not None and exp <= dob:
             checks.append(FieldCheck(
                 field="date_of_expiry",

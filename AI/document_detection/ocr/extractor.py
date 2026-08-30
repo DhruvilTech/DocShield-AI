@@ -154,6 +154,13 @@ class PassportFieldExtractor(BaseFieldExtractor):
         )
         fields["date_of_expiry"] = ExtractedField(name="date_of_expiry", value=val, confidence=conf, source_text=src)
 
+        # Helper to check if a value looks like a valid date format
+        def is_valid_date_format(date_val: str | None) -> bool:
+            if not date_val:
+                return False
+            # Needs to contain digits and a separator / or -
+            return bool(re.search(r"\d", date_val) and re.search(r"[-/]", date_val))
+
         # Dates fallback: search for date patterns DD/MM/YYYY
         all_dates = re.findall(r"\b\d{2}/\d{2}/\d{4}\b", raw)
         if all_dates:
@@ -166,18 +173,22 @@ class PassportFieldExtractor(BaseFieldExtractor):
                     pass
             parsed_dates = sorted(list(set(parsed_dates)), key=lambda x: x[0])
             if len(parsed_dates) >= 2:
-                if not fields.get("date_of_birth") or not fields["date_of_birth"].value:
+                dob_field = fields.get("date_of_birth")
+                if not dob_field or not dob_field.value or not is_valid_date_format(dob_field.value):
                     fields["date_of_birth"] = ExtractedField(name="date_of_birth", value=parsed_dates[0][1], confidence=0.99, source_text=parsed_dates[0][1])
-                if not fields.get("date_of_expiry") or not fields["date_of_expiry"].value:
+                exp_field = fields.get("date_of_expiry")
+                if not exp_field or not exp_field.value or not is_valid_date_format(exp_field.value):
                     fields["date_of_expiry"] = ExtractedField(name="date_of_expiry", value=parsed_dates[-1][1], confidence=0.99, source_text=parsed_dates[-1][1])
             elif len(parsed_dates) == 1:
                 from datetime import date
                 d_val, d_str = parsed_dates[0]
                 if d_val < date.today():
-                    if not fields.get("date_of_birth") or not fields["date_of_birth"].value:
+                    dob_field = fields.get("date_of_birth")
+                    if not dob_field or not dob_field.value or not is_valid_date_format(dob_field.value):
                         fields["date_of_birth"] = ExtractedField(name="date_of_birth", value=d_str, confidence=0.99, source_text=d_str)
                 else:
-                    if not fields.get("date_of_expiry") or not fields["date_of_expiry"].value:
+                    exp_field = fields.get("date_of_expiry")
+                    if not exp_field or not exp_field.value or not is_valid_date_format(exp_field.value):
                         fields["date_of_expiry"] = ExtractedField(name="date_of_expiry", value=d_str, confidence=0.99, source_text=d_str)
 
         # Store visual values before MRZ override for validation cross-check
