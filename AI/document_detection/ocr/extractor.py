@@ -254,7 +254,7 @@ class NationalIDFieldExtractor(BaseFieldExtractor):
 
     def extract(self, ocr_result: OCRResult) -> dict[str, ExtractedField]:
         raw = ocr_result.raw_text
-        regions = ocr_result.regions
+        regions = list(ocr_result.regions)
         fields: dict[str, ExtractedField] = {}
 
         # Aadhaar number (concatenate groups to get clean 12-digit string)
@@ -271,16 +271,132 @@ class NationalIDFieldExtractor(BaseFieldExtractor):
             fields["id_number"] = _empty("id_number")
 
         # Name
+        name_val, name_conf, name_src = None, None, None
+
+        # Helper to validate a candidate name string
+        def is_valid_name(s: str) -> bool:
+            if not s:
+                return False
+            s_clean = s.strip()
+            if not s_clean:
+                return False
+            # Check for generic keywords
+            s_upper = s_clean.upper()
+            if any(h in s_upper for h in ["INDIA", "GOVERNMENT", "AUTHORITY", "UNIQUE", "IDENTIFICATION", "AADHAAR", "TO", "MOBILE", "PHONE", "TEL"]):
+                return False
+            # Names do not contain numbers
+            if any(c.isdigit() for c in s_clean):
+                return False
+            # Name must not be extremely short or contain too many symbols
+            if len(s_clean) < 3:
+                return False
+            return True
+
+        # 1. Try label-proximity search first
         val, conf, src = _find_label_value(regions, ["NAME", "NAAM"])
-        fields["name"] = ExtractedField(name="name", value=val, confidence=conf, source_text=src)
+        if val and is_valid_name(val):
+            name_val, name_conf, name_src = val, conf, src
+
+        # 2. Heuristic: Aadhaar front side usually has Name right before the DOB region
+        if not name_val:
+            dob_idx = -1
+            for idx, r in enumerate(regions):
+                r_upper = r.text.upper()
+                if "DOB" in r_upper or "DATE OF BIRTH" in r_upper or "JANM TITHI" in r_upper:
+                    # Ignore common disclaimer words in Aadhaar card
+                    if any(w in r_upper for w in ["PROOF", "DOCUMENT", "CITIZEN", "INFORMATION", "SUPPORTED", "REGULATION"]):
+                        continue
+                    dob_idx = idx
+                    break
+            if dob_idx > 0:
+                prev_region = regions[dob_idx - 1]
+                prev_text = prev_region.text.strip()
+                if is_valid_name(prev_text):
+                    name_val = prev_text
+                    name_conf = prev_region.confidence
+                    name_src = prev_region.text
+
+        # 3. Heuristic: Aadhaar back side/address often starts with "To" or has "S/O", "D/O", "W/O", "C/O"
+        if not name_val:
+            for idx, r in enumerate(regions):
+                r_upper = r.text.upper()
+                if r_upper.startswith("TO"):
+                    if idx + 1 < len(regions):
+                        nxt_r = regions[idx + 1]
+                        nxt_text = nxt_r.text.strip()
+                        if is_valid_name(nxt_text) and not any(h in nxt_text.upper() for h in ["S/O", "D/O", "W/O", "C/O", "CARE OF"]):
+                            name_val = nxt_text
+                            name_conf = nxt_r.confidence
+                            name_src = nxt_r.text
+                            break
+                elif any(x in r_upper for x in ["S/O", "D/O", "W/O", "C/O"]):
+                    if idx > 0:
+                        prev_r = regions[idx - 1]
+                        prev_text = prev_r.text.strip()
+                        if is_valid_name(prev_text):
+                            name_val = prev_text
+                            name_conf = prev_r.confidence
+                            name_src = prev_r.text
+                            break
+
+        fields["name"] = ExtractedField(name="name", value=name_val, confidence=name_conf, source_text=name_src)
 
         # Date of birth
-        val, conf, src = _find_label_value(regions, ["DOB", "DATE OF BIRTH", "BIRTH", "JANM TITHI"])
-        if val is None:
+        dob_val, dob_conf, dob_src = None, None, None
+
+        # 1. Find region containing "DOB" or "Birth" and a date/year (ignoring disclaimers)
+        dob_pattern = re.compile(
+            r"(?:DOB|Date of Birth|Birth|YOB|Year of Birth)[\s/:.-]*(\d{2}[/\-]\d{2}[/\-]\d{4}|\d{4})",
+            re.IGNORECASE,
+        )
+        for region in regions:
+            r_upper = region.text.upper()
+            if any(w in r_upper for w in ["PROOF", "DOCUMENT", "CITIZEN", "INFORMATION", "SUPPORTED", "REGULATION"]):
+                continue
+            match = dob_pattern.search(region.text)
+            if match:
+                dob_val = match.group(1)
+                dob_conf = region.confidence
+                dob_src = region.text
+                break
+
+        # 2. Try to find a standalone date near a region containing "DOB" or "Date of Birth"
+        if not dob_val:
+            for i, region in enumerate(regions):
+                upper = region.text.upper()
+                if "DOB" in upper or "DATE OF BIRTH" in upper or "JANM TITHI" in upper:
+                    if any(w in upper for w in ["PROOF", "DOCUMENT", "CITIZEN", "INFORMATION", "SUPPORTED", "REGULATION"]):
+                        continue
+                    dm = self._DOB_RE.search(region.text)
+                    if dm:
+                        dob_val = dm.group(0)
+                        dob_conf = region.confidence
+                        dob_src = region.text
+                        break
+                    if i + 1 < len(regions):
+                        nxt = regions[i + 1]
+                        # check that the next region is not disclaimer
+                        nxt_upper = nxt.text.upper()
+                        if any(w in nxt_upper for w in ["PROOF", "DOCUMENT", "CITIZEN", "INFORMATION", "SUPPORTED", "REGULATION"]):
+                            continue
+                        dm = self._DOB_RE.search(nxt.text)
+                        if dm:
+                            dob_val = dm.group(0)
+                            dob_conf = nxt.confidence
+                            dob_src = nxt.text
+                            break
+
+        # 3. Fallback to searching raw text for a date
+        if not dob_val:
             dm = self._DOB_RE.search(raw)
-            val = dm.group(0) if dm else None
-            conf = _get_confidence_for_match(val, regions) if val else None
-        fields["date_of_birth"] = ExtractedField(name="date_of_birth", value=val, confidence=conf, source_text=src)
+            if dm:
+                dob_val = dm.group(0)
+                dob_conf = _get_confidence_for_match(dob_val, regions)
+                dob_src = dob_val
+
+        fields["date_of_birth"] = ExtractedField(
+            name="date_of_birth", value=dob_val, confidence=dob_conf, source_text=dob_src
+        )
 
         # Gender
         gender_val, gender_conf = None, None
