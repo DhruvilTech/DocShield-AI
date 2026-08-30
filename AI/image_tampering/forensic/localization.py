@@ -109,10 +109,6 @@ def localize_suspicious_regions(
     inv_severity_map = {1: "LOW", 2: "MEDIUM", 3: "HIGH"}
 
     for root, comp in components.items():
-        if len(comp) == 1:
-            merged_regions.append(comp[0])
-            continue
-
         # Merge overlapping regions
         r0 = comp[0]
         merged_box = (r0.x, r0.y, r0.width, r0.height)
@@ -140,13 +136,21 @@ def localize_suspicious_regions(
                 target_w = r.target_width
                 target_h = r.target_height
 
+        # Determine severity based on cross-signal validation
+        final_sev = inv_severity_map[max_sev_val]
+        # Cap severity at MEDIUM if it's only supported by a single "unreliable" signal
+        # (i.e. ELA, Noise, or Stamp alone)
+        if len(sources) == 1 and list(sources)[0] in {"ela", "noise", "stamp"}:
+            if final_sev == "HIGH":
+                final_sev = "MEDIUM"
+
         merged_regions.append(SuspiciousRegion(
             x=merged_box[0],
             y=merged_box[1],
             width=merged_box[2],
             height=merged_box[3],
             score=max_score,
-            severity=inv_severity_map[max_sev_val],
+            severity=final_sev,
             source="+".join(sorted(list(sources))),
             reason=" | ".join(reasons),
             target_x=target_x,

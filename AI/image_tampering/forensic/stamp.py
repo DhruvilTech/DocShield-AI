@@ -151,7 +151,7 @@ def analyze_stamps(
             if ela_severity == "HIGH":
                 region_score += 0.4
             elif ela_severity == "MEDIUM":
-                region_score += 0.2
+                region_score += 0.1
             else:
                 region_score += 0.1
             reasons.append("ELA compression inconsistency")
@@ -161,7 +161,7 @@ def analyze_stamps(
             if noise_severity == "HIGH":
                 region_score += 0.3
             elif noise_severity == "MEDIUM":
-                region_score += 0.2
+                region_score += 0.1
             else:
                 region_score += 0.1
             reasons.append("Noise density mismatch")

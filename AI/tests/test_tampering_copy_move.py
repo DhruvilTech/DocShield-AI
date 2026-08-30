@@ -145,3 +145,15 @@ def test_copy_move_tampered_detected():
         signal = analyze_copy_move(work, coordinate_mapper=mapper)
         assert signal.score >= 0.4
         assert len(signal.regions) >= 1
+
+
+def test_copy_move_p1_no_false_positive():
+    # Verify that the known clean image p1.png does not trigger false positive copy-move score
+    p1_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "image_tampering", "upload", "p1.png")
+    if os.path.exists(p1_path):
+        with open(p1_path, "rb") as f:
+            img_bytes = f.read()
+        orig, work, mapper, fmt = load_and_preprocess_image(img_bytes, "p1.png")
+        signal = analyze_copy_move(work, coordinate_mapper=mapper)
+        assert signal.score < 0.2
+        assert len(signal.regions) == 0

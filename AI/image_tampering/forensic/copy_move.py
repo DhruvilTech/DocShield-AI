@@ -5,6 +5,56 @@ from typing import Optional
 from image_tampering.schemas.forensic import ForensicSignal, SuspiciousRegion
 from image_tampering.forensic.preprocessing import CoordinateMapper
 
+def _calculate_cluster_ncc(cluster, kp, gray_img, padding=15):
+    h_limit, w_limit = gray_img.shape[:2]
+    src_coords = []
+    dst_coords = []
+    anchor = np.array(kp[cluster[0].queryIdx].pt)
+    
+    for m in cluster:
+        pt1 = np.array(kp[m.queryIdx].pt)
+        pt2 = np.array(kp[m.trainIdx].pt)
+        
+        d1 = np.linalg.norm(pt1 - anchor)
+        d2 = np.linalg.norm(pt2 - anchor)
+        
+        if d1 < d2:
+            src_coords.append(pt1)
+            dst_coords.append(pt2)
+        else:
+            src_coords.append(pt2)
+            dst_coords.append(pt1)
+            
+    src_coords = np.array(src_coords)
+    dst_coords = np.array(dst_coords)
+    
+    min_src_x, min_src_y = np.min(src_coords, axis=0)
+    max_src_x, max_src_y = np.max(src_coords, axis=0)
+    min_dst_x, min_dst_y = np.min(dst_coords, axis=0)
+    max_dst_x, max_dst_y = np.max(dst_coords, axis=0)
+    
+    src_x = int(max(min_src_x - padding, 0))
+    src_y = int(max(min_src_y - padding, 0))
+    src_w = int(min(max_src_x + padding, w_limit - 1)) - src_x
+    src_h = int(min(max_src_y + padding, h_limit - 1)) - src_y
+    
+    dst_x = int(max(min_dst_x - padding, 0))
+    dst_y = int(max(min_dst_y - padding, 0))
+    dst_w = int(min(max_dst_x + padding, w_limit - 1)) - dst_x
+    dst_h = int(min(max_dst_y + padding, h_limit - 1)) - dst_y
+    
+    if src_w <= 0 or src_h <= 0 or dst_w <= 0 or dst_h <= 0:
+        return 0.0
+        
+    src_crop = gray_img[src_y:src_y+src_h, src_x:src_x+src_w]
+    dst_crop = gray_img[dst_y:dst_y+dst_h, dst_x:dst_x+dst_w]
+    
+    if src_crop.shape != dst_crop.shape:
+        dst_crop = cv2.resize(dst_crop, (src_crop.shape[1], src_crop.shape[0]))
+        
+    res = cv2.matchTemplate(src_crop, dst_crop, cv2.TM_CCOEFF_NORMED)
+    return float(res[0][0])
+
 def analyze_copy_move(
     working_image_rgb: np.ndarray,
     coordinate_mapper: Optional[CoordinateMapper] = None,
@@ -87,6 +137,18 @@ def analyze_copy_move(
             if spatial_dist >= min_spatial_dist:
                 candidate_matches.append(m1)
 
+    # Deduplicate matches that have the exact same spatial coordinate pairs
+    unique_candidates = []
+    seen_pairs = set()
+    for m in candidate_matches:
+        pt1 = (round(kp[m.queryIdx].pt[0], 1), round(kp[m.queryIdx].pt[1], 1))
+        pt2 = (round(kp[m.trainIdx].pt[0], 1), round(kp[m.trainIdx].pt[1], 1))
+        pair = (min(pt1, pt2), max(pt1, pt2))
+        if pair not in seen_pairs:
+            seen_pairs.add(pair)
+            unique_candidates.append(m)
+    candidate_matches = unique_candidates
+
     # 5. Iterative RANSAC Geometric Verification
     verified_matches = []
     clusters = []
@@ -108,15 +170,29 @@ def analyze_copy_move(
         inliers_mask = mask.ravel() == 1
         inlier_matches = [m for i, m in enumerate(remaining_matches) if inliers_mask[i]]
         
-        clusters.append(inlier_matches)
-        verified_matches.extend(inlier_matches)
+        # Verify cluster using NCC
+        cluster_ncc = _calculate_cluster_ncc(inlier_matches, kp, gray)
+        if cluster_ncc >= 0.45:
+            # Calculate geometric projection error (residual)
+            inlier_src = src_pts[inliers_mask]
+            inlier_dst = dst_pts[inliers_mask]
+            mean_residual = 0.0
+            if H is not None:
+                try:
+                    warped_src = cv2.perspectiveTransform(inlier_src, H)
+                    residuals = np.linalg.norm(inlier_dst - warped_src, axis=-1)
+                    mean_residual = float(np.mean(residuals))
+                except Exception:
+                    pass
+            clusters.append((inlier_matches, cluster_ncc, mean_residual, H))
+            verified_matches.extend(inlier_matches)
         
         # Remove RANSAC inliers to search for other independent copy-move clusters
         remaining_matches = [m for i, m in enumerate(remaining_matches) if not inliers_mask[i]]
 
     # 6. Bounding Box Segmentation & Coordinate Restoration
     regions = []
-    for idx, cluster in enumerate(clusters):
+    for idx, (cluster, cluster_ncc, mean_residual, H) in enumerate(clusters):
         # Enforce consistent mapping direction using anchor distance splitting
         src_coords = []
         dst_coords = []
@@ -179,7 +255,11 @@ def analyze_copy_move(
         # Regional score is based on cluster match size (confidence is high for large clusters)
         if len(cluster) >= 8:
             cluster_score = float(0.4 + 0.6 * (min(len(cluster), 20) - 8) / 12.0)
-            severity = "HIGH" if cluster_score > 0.7 else ("MEDIUM" if cluster_score > 0.4 else "LOW")
+            # Boost severity to HIGH if visual matching is extremely clean (high NCC) and has solid count
+            if len(cluster) >= 10 and cluster_ncc >= 0.85:
+                severity = "HIGH"
+            else:
+                severity = "HIGH" if cluster_score > 0.7 else ("MEDIUM" if cluster_score > 0.4 else "LOW")
         else:
             cluster_score = float(0.05 * len(cluster))
             severity = "LOW"
@@ -192,7 +272,7 @@ def analyze_copy_move(
             score=cluster_score,
             severity=severity,
             source="copy_move",
-            reason=f"Potential duplicated visual region (cluster size: {len(cluster)} matches)",
+            reason=f"Potential duplicated visual region (cluster size: {len(cluster)} matches, NCC: {cluster_ncc:.4f})",
             target_x=orig_dst_x,
             target_y=orig_dst_y,
             target_width=orig_dst_w,
@@ -203,8 +283,7 @@ def analyze_copy_move(
     regions.sort(key=lambda r: r.score, reverse=True)
 
     # 7. Document-wide Anomaly Score (0.0 to 1.0)
-    # Score scales with the size of the largest cluster and is boosted by additional clusters
-    largest_cluster_size = max(len(c) for c in clusters) if clusters else 0
+    largest_cluster_size = max(len(c[0]) for c in clusters) if clusters else 0
     if largest_cluster_size >= 8:
         base_score = 0.4 + 0.6 * (min(largest_cluster_size, 20) - 8) / 12.0
     else:
@@ -220,7 +299,7 @@ def analyze_copy_move(
         "candidate_matches": float(len(candidate_matches)),
         "verified_matches": float(len(verified_matches)),
         "clusters": float(len(clusters)),
-        "largest_cluster": float(max(len(c) for c in clusters) if clusters else 0)
+        "largest_cluster": float(largest_cluster_size)
     }
 
     # 9. Debug Visualization Mapping
@@ -261,26 +340,64 @@ def analyze_copy_move(
             
         cv2.imwrite(os.path.join(debug_dir, "document_copy_move_map.png"), map_img)
         
-        matches_rel_path = "outputs/debug/document_copy_move_matches.jpg"
-        map_rel_path = "outputs/debug/document_copy_move_map.png"
+        ai_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        try:
+            rel_dir = os.path.relpath(debug_dir, ai_dir)
+            if not rel_dir.startswith(".."):
+                matches_rel_path = os.path.join(rel_dir, "document_copy_move_matches.jpg").replace("\\", "/")
+                map_rel_path = os.path.join(rel_dir, "document_copy_move_map.png").replace("\\", "/")
+            else:
+                matches_rel_path = "outputs/debug/document_copy_move_matches.jpg"
+                map_rel_path = "outputs/debug/document_copy_move_map.png"
+        except Exception:
+            matches_rel_path = "outputs/debug/document_copy_move_matches.jpg"
+            map_rel_path = "outputs/debug/document_copy_move_map.png"
 
-    # 10. Human-readable Evidence
+    # 10. Human-readable Evidence and Detailed Diagnostics
     evidence = []
+    global_confidence = 0.0
     if len(regions) > 0:
+        # Determine highest severity among regions
+        highest_sev = "LOW"
+        if any(r.severity == "HIGH" for r in regions):
+            highest_sev = "HIGH"
+        elif any(r.severity == "MEDIUM" for r in regions):
+            highest_sev = "MEDIUM"
+
         evidence.append({
-            "message": f"Potential duplicated region detected in {len(regions)} localized region(s).",
-            "severity": "HIGH" if score > 0.5 else "MEDIUM"
+            "message": f"Potential copy-move duplicate detected in {len(regions)} localized region(s).",
+            "severity": highest_sev
         })
+        
+        # Calculate confidences and add detailed diagnostics
+        confidences = []
+        for idx, r in enumerate(regions):
+            cluster_matches, ncc_val, res_val, H_mat = clusters[idx]
+            res_factor = max(0.5, 1.0 - (res_val / 10.0))
+            cluster_confidence = float(ncc_val * res_factor)
+            confidences.append(cluster_confidence)
+            
+            # Format detailed message
+            evidence.append({
+                "message": (
+                    f"Cluster {idx+1}: verified {len(cluster_matches)} matches, "
+                    f"NCC similarity: {ncc_val:.4f}, Geometric Residual: {res_val:.4f}px. "
+                    f"Source Box: ({r.x},{r.y},{r.width}x{r.height}) -> Target Box: ({r.target_x},{r.target_y},{r.target_width}x{r.target_height})."
+                ),
+                "severity": r.severity
+            })
+        global_confidence = float(max(confidences))
     else:
         evidence.append({
             "message": "No significant duplicated visual content was detected.",
             "severity": "LOW"
         })
+        global_confidence = 0.0
 
     return ForensicSignal(
         name="copy_move",
         score=score,
-        confidence=None,  # Do not invent confidence; return null
+        confidence=global_confidence if len(regions) > 0 else None,
         regions=regions,
         evidence=evidence,
         available=True,

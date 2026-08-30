@@ -74,7 +74,7 @@ def validate_image_file(filepath: str) -> None:
         raise ValueError(f"Unsupported file extension: {ext}. Supported formats: {SUPPORTED_FORMATS}")
 
 
-def load_and_preprocess_image(image_bytes: bytes, filename: str = "image.jpg", max_working_dim: int = 1600) -> tuple[np.ndarray, np.ndarray, CoordinateMapper, str]:
+def load_and_preprocess_image(image_bytes: bytes, filename: str = "image.jpg", max_working_dim: int = 1920) -> tuple[np.ndarray, np.ndarray, CoordinateMapper, str]:
     """
     Loads image from bytes, performs structure validation, fixes orientation via EXIF,
     converts transparent images to white backgrounds, and yields:
@@ -143,7 +143,7 @@ def load_and_preprocess_image(image_bytes: bytes, filename: str = "image.jpg", m
     return original_image, working_image, mapper, img_format
 
 
-def load_image_from_file(filepath: str, max_working_dim: int = 1600) -> tuple[np.ndarray, np.ndarray, CoordinateMapper, str]:
+def load_image_from_file(filepath: str, max_working_dim: int = 1920) -> tuple[np.ndarray, np.ndarray, CoordinateMapper, str]:
     """
     Helper function to load image from a filepath.
     """

@@ -124,3 +124,18 @@ def test_pipeline_integration_clean():
         assert res.regions is not None
         # Copy-move should be clean
         assert res.signals.copy_move.score == 0.0
+
+
+def test_localize_regions_severity_capping():
+    # Verify that a single ELA, Noise, or Stamp detection of HIGH severity is capped at MEDIUM
+    r1 = SuspiciousRegion(x=10, y=10, width=20, height=20, score=0.9, severity="HIGH", source="ela", reason="ELA Anomaly")
+    r2 = SuspiciousRegion(x=100, y=100, width=20, height=20, score=0.95, severity="HIGH", source="copy_move", reason="Copy-Move Anomaly")
+    
+    res = localize_suspicious_regions([r1], [], [r2], [])
+    assert len(res) == 2
+    # Sorted by score descending, so copy_move is first, then ela
+    assert res[0].source == "copy_move"
+    assert res[0].severity == "HIGH"  # Not capped
+    
+    assert res[1].source == "ela"
+    assert res[1].severity == "MEDIUM"  # Capped from HIGH to MEDIUM

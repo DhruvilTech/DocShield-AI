@@ -139,8 +139,18 @@ def analyze_ela(
         os.makedirs(debug_dir, exist_ok=True)
         cv2.imwrite(os.path.join(debug_dir, "document_ela_heatmap.jpg"), heatmap)
         cv2.imwrite(os.path.join(debug_dir, "document_ela_map.png"), ela_gray)
-        heatmap_rel_path = "outputs/debug/document_ela_heatmap.jpg"
-        map_rel_path = "outputs/debug/document_ela_map.png"
+        ai_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        try:
+            rel_dir = os.path.relpath(debug_dir, ai_dir)
+            if not rel_dir.startswith(".."):
+                heatmap_rel_path = os.path.join(rel_dir, "document_ela_heatmap.jpg").replace("\\", "/")
+                map_rel_path = os.path.join(rel_dir, "document_ela_map.png").replace("\\", "/")
+            else:
+                heatmap_rel_path = "outputs/debug/document_ela_heatmap.jpg"
+                map_rel_path = "outputs/debug/document_ela_map.png"
+        except Exception:
+            heatmap_rel_path = "outputs/debug/document_ela_heatmap.jpg"
+            map_rel_path = "outputs/debug/document_ela_map.png"
 
     # 8. Human-readable Evidence
     evidence = []

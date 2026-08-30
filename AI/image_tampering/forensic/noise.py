@@ -163,8 +163,18 @@ def analyze_noise(
         os.makedirs(debug_dir, exist_ok=True)
         cv2.imwrite(os.path.join(debug_dir, "document_noise_anomaly_map.png"), anomaly_uint8)
         cv2.imwrite(os.path.join(debug_dir, "document_noise_heatmap.jpg"), heatmap)
-        heatmap_rel_path = "outputs/debug/document_noise_heatmap.jpg"
-        map_rel_path = "outputs/debug/document_noise_anomaly_map.png"
+        ai_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        try:
+            rel_dir = os.path.relpath(debug_dir, ai_dir)
+            if not rel_dir.startswith(".."):
+                heatmap_rel_path = os.path.join(rel_dir, "document_noise_heatmap.jpg").replace("\\", "/")
+                map_rel_path = os.path.join(rel_dir, "document_noise_anomaly_map.png").replace("\\", "/")
+            else:
+                heatmap_rel_path = "outputs/debug/document_noise_heatmap.jpg"
+                map_rel_path = "outputs/debug/document_noise_anomaly_map.png"
+        except Exception:
+            heatmap_rel_path = "outputs/debug/document_noise_heatmap.jpg"
+            map_rel_path = "outputs/debug/document_noise_anomaly_map.png"
 
     # 11. Human-readable Evidence
     evidence = []

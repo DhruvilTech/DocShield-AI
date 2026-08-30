@@ -29,7 +29,7 @@ from image_tampering.forensic.fusion import fuse_signals
 from image_tampering.forensic.localization import localize_suspicious_regions
 
 DEFAULT_DEBUG_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "outputs", "debug")
+    os.path.join(os.path.dirname(__file__), "..", "output")
 )
 
 def run_forensic_pipeline(
