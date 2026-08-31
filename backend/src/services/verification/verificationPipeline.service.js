@@ -13,6 +13,7 @@ import { aiAnalysisService } from '../ai/aiAnalysis.service.js';
 import { riskScoreService } from '../risk/riskScore.service.js';
 import { auditService } from '../audit.service.js';
 import { AppError } from '../../errors/AppError.js';
+import logger from '../../utils/logger.js';
 import crypto from 'crypto';
 
 export class VerificationPipelineService {
@@ -56,84 +57,84 @@ export class VerificationPipelineService {
 
       if (!docResult.should_continue) {
         pipelineStatus = 'stopped';
-        failedStage = 'document_detection';
+        if (!failedStage) failedStage = 'document_detection';
         success = false;
       }
     } catch (err) {
-      throw err;
+      logger.error(`[VerificationPipeline] Document detection error: ${err.message}`);
+      stages.document_detection = {
+        status: 'failed',
+        confidence: 0.0,
+        reason: err.message,
+        result: null
+      };
+      pipelineStatus = 'stopped';
+      if (!failedStage) failedStage = 'document_detection';
+      success = false;
     }
 
     // ── STAGE 2: Document Standards & Watchlist Validation ──
-    if (success) {
-      completed_stages.push('validation');
-      try {
-        const valResult = await validationStageService.execute(documentId, organizationId, options, reqMeta);
-        stages.validation = {
-          status: valResult.status,
-          confidence: valResult.confidence,
-          reason: valResult.reason,
-          result: valResult.result
-        };
-
-        if (!valResult.should_continue) {
-          pipelineStatus = 'stopped';
-          failedStage = 'validation';
-          success = false;
-        }
-      } catch (err) {
-        throw err;
-      }
-    } else {
+    completed_stages.push('validation');
+    try {
+      const valResult = await validationStageService.execute(documentId, organizationId, options, reqMeta);
       stages.validation = {
-        status: 'skipped',
-        reason: 'Previous stage (document_detection) failed',
+        status: valResult.status,
+        confidence: valResult.confidence,
+        reason: valResult.reason,
+        result: valResult.result
+      };
+
+      if (!valResult.should_continue) {
+        pipelineStatus = 'stopped';
+        if (!failedStage) failedStage = 'validation';
+        success = false;
+      }
+    } catch (err) {
+      logger.error(`[VerificationPipeline] Validation error: ${err.message}`);
+      stages.validation = {
+        status: 'failed',
+        confidence: 0.0,
+        reason: err.message,
         result: null
       };
+      pipelineStatus = 'stopped';
+      if (!failedStage) failedStage = 'validation';
+      success = false;
     }
 
-    // ── STAGE 3: Image Tampering Detection ──
-    if (success) {
-      completed_stages.push('tampering');
-      
-      // Run AI prompt/analysis service first to populate AI findings/risk indicators if Stage 1 & 2 passed
-      try {
-        await aiAnalysisService.runAnalysis(documentId, organizationId, { versionNumber: targetVersionNumber }, reqMeta);
-      } catch (err) {
-        // Fallback or ignore analysis errors
-      }
+    // ── STAGE 3: Image Tampering Detection (Always Executed) ──
+    completed_stages.push('tampering');
+    try {
+      await aiAnalysisService.runAnalysis(documentId, organizationId, { versionNumber: targetVersionNumber }, reqMeta);
+    } catch (err) {
+      // Fallback or ignore analysis errors
+    }
 
-      try {
-        const tampResult = await tamperingStageService.execute(documentId, organizationId, options, reqMeta);
-        stages.tampering = {
-          status: tampResult.status,
-          confidence: tampResult.confidence,
-          reason: tampResult.reason,
-          result: tampResult.result
-        };
-
-        if (!tampResult.should_continue) {
-          pipelineStatus = 'stopped';
-          failedStage = 'tampering';
-          success = false;
-        }
-      } catch (err) {
-        throw err;
-      }
-    } else {
-      // Record SKIPPED tampering analysis
-      const skippedTampering = await tamperingRepository.createAnalysis({
-        documentId,
-        versionId: version.id,
-        organizationId,
-        status: 'SKIPPED',
-        overallTamperingScore: 0.0,
-        hasTamperingDetected: false,
-        analysisMetadata: { skipped: true, reason: `Previous stage (${failedStage || 'prior'}) failed` }
-      });
+    try {
+      const tampResult = await tamperingStageService.execute(documentId, organizationId, options, reqMeta);
       stages.tampering = {
-        status: 'skipped',
-        result: skippedTampering
+        status: tampResult.status,
+        confidence: tampResult.confidence,
+        reason: tampResult.reason,
+        result: tampResult.result
       };
+
+      if (!tampResult.should_continue) {
+        pipelineStatus = 'stopped';
+        if (!failedStage) failedStage = 'tampering';
+        success = false;
+      }
+    } catch (err) {
+      logger.error(`[VerificationPipeline] Tampering stage failed: ${err.message}`);
+      stages.tampering = {
+        status: 'failed',
+        confidence: 0.0,
+        reason: err.message,
+        result: null
+      };
+      pipelineStatus = 'stopped';
+      if (!failedStage) failedStage = 'tampering';
+      success = false;
     }
 
     // ── STAGE 4: Face Detection & Verification ──
@@ -172,11 +173,20 @@ export class VerificationPipelineService {
 
         if (!faceResult.should_continue) {
           pipelineStatus = 'stopped';
-          failedStage = 'face_verification';
+          if (!failedStage) failedStage = 'face_verification';
           success = false;
         }
       } catch (err) {
-        throw err;
+        logger.error(`[VerificationPipeline] Face verification error: ${err.message}`);
+        stages.face_verification = {
+          status: 'failed',
+          confidence: 0.0,
+          reason: err.message,
+          result: null
+        };
+        pipelineStatus = 'stopped';
+        if (!failedStage) failedStage = 'face_verification';
+        success = false;
       }
     } else if (success && (!hasFaceInput || options.skipFaceVerification)) {
       // Stages 1-3 passed successfully. Module 4 is ready and waiting for live face capture.
@@ -216,8 +226,8 @@ export class VerificationPipelineService {
       reqMeta
     );
 
-    let screening;
-    if (success) {
+    let screening = null;
+    try {
       screening = await screeningService.runScreening(
         documentId,
         organizationId,
@@ -228,12 +238,18 @@ export class VerificationPipelineService {
         },
         reqMeta
       );
-    } else {
-      // Handle early failure: manually write failed screening records to avoid ANALYSIS_NOT_FOUND 404
-      const verdict = 'REJECTED';
-      const overallRiskScore = riskScore.riskScore || 100;
-      const overallRiskLevel = riskScore.riskLevel || 'CRITICAL';
-      const summary = `Verification pipeline stopped at stage: ${failedStage}. Document failed validation.`;
+    } catch (screeningErr) {
+      logger.error(`[VerificationPipeline] Screening intelligence service error: ${screeningErr.message}`);
+    }
+
+    if (!screening) {
+      // Fallback manual screening creation
+      const verdict = success ? 'PASSED' : 'REJECTED';
+      const overallRiskScore = riskScore.riskScore || (success ? 10 : 90);
+      const overallRiskLevel = riskScore.riskLevel || (success ? 'LOW' : 'CRITICAL');
+      const summary = success
+        ? 'Document passed all authenticity and verification checks.'
+        : `Verification pipeline stopped at stage: ${failedStage || 'validation'}. Document flagged.`;
 
       const screeningRecord = await screeningRepository.createScreening({
         id: crypto.randomUUID(),
@@ -245,7 +261,7 @@ export class VerificationPipelineService {
         overallRiskLevel,
         verdict,
         summary,
-        recommendations: [`Document rejected at stage: ${failedStage || 'document_detection'}`],
+        recommendations: [success ? 'Document cleared.' : `Document rejected at stage: ${failedStage || 'validation'}`],
         metadata: {
           analyzedVersion: version.version_number,
           pipeline_status: pipelineStatus,
@@ -259,9 +275,9 @@ export class VerificationPipelineService {
       const reasonMsg = stages[failedStage]?.reason || 'Validation check failed';
       await screeningRepository.createFactor({
         screeningId: screeningRecord.id,
-        category: failedStage === 'document_detection' ? 'COMPLIANCE' : 'TAMPERING',
+        category: failedStage === 'tampering' ? 'TAMPERING' : 'COMPLIANCE',
         severity: 'CRITICAL',
-        title: `${failedStage === 'document_detection' ? 'Validation' : 'Forensic'} Rejection`,
+        title: `${failedStage === 'tampering' ? 'Forensic' : 'Validation'} Rejection`,
         description: reasonMsg,
         impactScore: 40,
         evidence: `Pipeline failed at Stage: ${failedStage}`
@@ -285,20 +301,7 @@ export class VerificationPipelineService {
         userAgent: reqMeta.userAgent
       });
 
-      // Retrieve full screening record
       screening = await screeningRepository.findScreeningById(screeningRecord.id, organizationId);
-    }
-
-    // Determine if we should soft delete the document due to failure, fake status, or expiry
-    const isRejected = screening && screening.verdict === 'REJECTED';
-    const isExpired = screening && (
-      screening.metadata?.validationStatus === 'FLAGGED' || 
-      (screening.factors && screening.factors.some(f => f.title.includes('Expired') || f.title.includes('Expiry')))
-    );
-    const shouldDelete = !success || isRejected || isExpired;
-
-    if (shouldDelete) {
-      await documentRepository.softDelete(documentId, organizationId);
     }
 
     return {

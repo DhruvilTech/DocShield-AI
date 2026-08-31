@@ -237,6 +237,20 @@ export const ScannerPage: React.FC = () => {
       });
       setPipelineResult(pipelineResult);
 
+      // Store pipeline result, screening, and risk score
+      setPipelineResult(pipelineResult);
+      if (pipelineResult.screening) setScreening(pipelineResult.screening);
+      if (pipelineResult.riskScore) setRiskScore(pipelineResult.riskScore);
+
+      const docStage = pipelineResult.stages?.document_detection;
+      const valStage = pipelineResult.stages?.validation;
+      const tampStage = pipelineResult.stages?.tampering;
+
+      // Always populate tampering result if available
+      if (tampStage?.result) {
+        setTampering(tampStage.result);
+      }
+
       // Always fetch the DB extraction record if it was created
       try {
         const extData = await processingApi.getExtraction(uploadedDoc.id);
@@ -248,71 +262,62 @@ export const ScannerPage: React.FC = () => {
       }
 
       // Process Stage 1: Document Detection & OCR
-      const docStage = pipelineResult.stages?.document_detection;
       if (docStage && docStage.status === 'passed') {
         addLog(`✓ Module 1 (OCR Extraction) & Document Detection Passed. Confidence: ${((docStage.confidence || 0.95) * 100).toFixed(0)}%`);
       } else {
         const failReason = docStage?.reason || 'Document screening failed format detection.';
         addLog(`✗ Module 1 (OCR Extraction & Detection) Failed: ${failReason}`);
-        addLog(`Module 2, 3 & 4: Aborted`);
-        addLog(`Module 4 Biometrics: BLOCKED (Document Failed Integrity Checks)`);
-        setPhase('complete');
-        setError(failReason);
-        setScreening(pipelineResult.screening);
-        setRiskScore(pipelineResult.riskScore);
-        return;
       }
 
       // Process Stage 2: Document Standards & ICAO Validation
       setPhase('validating');
       addLog(`→ Running Module 2: Document Standards, Format Rules & Interpol SLTD Database...`);
-      await new Promise((r) => setTimeout(r, 600));
+      await new Promise((r) => setTimeout(r, 400));
 
-      const valStage = pipelineResult.stages?.validation;
       if (valStage && valStage.status === 'passed') {
         addLog(`✓ Module 2 (Document Validation & SLTD) Passed.`);
       } else {
         const failReason = valStage?.reason || (isDocTypeMismatch() ? 'Document is not valid as per selected category format' : 'Document failed validation standards');
         addLog(`✗ Module 2 (Document Validation & SLTD) Failed: ${failReason}`);
-        addLog(`Module 3 & 4: Aborted`);
-        addLog(`Module 4 Biometrics: BLOCKED (Document Failed Integrity Checks)`);
-        setPhase('complete');
-        setError(failReason);
-        setScreening(pipelineResult.screening);
-        setRiskScore(pipelineResult.riskScore);
-        return;
       }
 
       // Process Stage 3: Tampering Forensics
       setPhase('forensics');
       addLog(`→ Running Module 3: Tampering Forensics (Photo substitution, text manipulation, stamp seals)...`);
-      await new Promise((r) => setTimeout(r, 700));
+      await new Promise((r) => setTimeout(r, 500));
 
-      const tampStage = pipelineResult.stages?.tampering;
-      if (tampStage && tampStage.status === 'passed') {
-        setTampering(tampStage.result);
+      const isTampered = Boolean(tampStage?.result?.has_tampering_detected || (tampStage?.result?.overall_tampering_score ?? 0) >= 0.4);
+      if (tampStage && tampStage.status === 'passed' && !isTampered) {
         addLog(`✓ Module 3 (Tampering Forensics) Passed. Tampering Score: ${tampStage.result?.overall_tampering_score || 0} pts (0 Alterations)`);
       } else {
-        setTampering(tampStage?.result || null);
-        const failReason = tampStage?.reason || 'Tampering detected in document substrate.';
+        const tampScorePercent = Math.round((tampStage?.result?.overall_tampering_score ?? 0.8) * 100);
+        const anomalyCount = tampStage?.result?.indicators?.length ?? 0;
+        const failReason = isTampered
+          ? `Tampering detected (Score: ${tampScorePercent}%, ${anomalyCount} Anomalies)`
+          : (tampStage?.reason || 'Tampering detected in document substrate.');
         addLog(`✗ Module 3 (Tampering Forensics) Failed: ${failReason}`);
-        addLog(`Module 4 Biometrics: BLOCKED (Document Failed Integrity Checks)`);
-        setPhase('complete');
-        setError(failReason);
-        setScreening(pipelineResult.screening);
-        setRiskScore(pipelineResult.riskScore);
-        return;
       }
 
-      // Modules 1, 2, and 3 have ALL completed and passed!
-      setScreening(pipelineResult.screening);
-      setRiskScore(pipelineResult.riskScore);
-      setPhase('ready_for_biometrics');
-      setActiveTab('biometrics');
-      addLog(`=======================================================`);
-      addLog(`[PIPELINE] ✓ Modules 1, 2 & 3 Completed & Passed Authenticity Checks!`);
-      addLog(`[ACTION REQUIRED] Document authenticated. Module 4 (Live Biometric Face Match) is now UNLOCKED.`);
-      addLog(`[ACTION REQUIRED] Please open live camera to verify identity.`);
+      const allPassed = docStage?.status === 'passed' && valStage?.status === 'passed' && (tampStage?.status === 'passed' && !isTampered);
+
+      if (allPassed) {
+        setPhase('ready_for_biometrics');
+        setActiveTab('biometrics');
+        addLog(`=======================================================`);
+        addLog(`[PIPELINE] ✓ Modules 1, 2 & 3 Completed & Passed Authenticity Checks!`);
+        addLog(`[ACTION REQUIRED] Document authenticated. Module 4 (Live Biometric Face Match) is now UNLOCKED.`);
+        addLog(`[ACTION REQUIRED] Please open live camera to verify identity.`);
+      } else {
+        const failReason = tampStage?.reason || valStage?.reason || docStage?.reason || 'Document failed verification integrity checks.';
+        setError(failReason);
+        setPhase('complete');
+        addLog(`=======================================================`);
+        addLog(`[PIPELINE] ⛔ VERIFICATION REJECTED: Clearance Refused.`);
+        addLog(`Module 4 Biometrics: BLOCKED (Document Failed Integrity / Tampering Checks)`);
+        if (isTampered) {
+          setActiveTab('tampering');
+        }
+      }
     } catch (err: any) {
       console.error('Screening failed', err);
       setError(err.message || 'Screening pipeline encountered an error');
