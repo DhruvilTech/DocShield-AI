@@ -190,10 +190,10 @@ export class FaceVerificationService {
       '0.45'
     );
 
-    // 1. Download document buffer
+    // 1. Download and decrypt document buffer (with SHA-256 validation)
     let fileBuffer = null;
     try {
-      fileBuffer = await storageService.downloadFile(version.storage_key, version.checksum);
+      fileBuffer = await storageService.getDecryptedBuffer(version);
     } catch (err) {
       logger.warn(`Could not retrieve document buffer for face verification: ${err.message}`);
     }

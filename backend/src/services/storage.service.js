@@ -7,6 +7,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { v2 as cloudinary } from 'cloudinary';
 import { env } from '../config/env.js';
+import { documentEncryptionService } from './security/documentEncryption.service.js';
 import { AppError } from '../errors/AppError.js';
 import { UPLOAD_LIMITS } from '../config/constants.js';
 import logger from '../utils/logger.js';
@@ -17,7 +18,8 @@ const AI_UPLOAD_DIR = path.resolve(__dirname, '../../../AI/upload');
 
 export class StorageService {
   constructor() {
-    this.memoryCache = new Map();
+    this.memoryCache = new Map(); // key -> Buffer (stores ciphertext and plaintext cache)
+    this.metadataCache = new Map(); // key -> encryption metadata
     this.aiUploadDir = AI_UPLOAD_DIR;
 
     // Configure Cloudinary SDK
@@ -33,7 +35,7 @@ export class StorageService {
         api_secret: env.CLOUDINARY_API_SECRET,
         secure: true,
       });
-      logger.info(`[StorageService] Cloudinary cloud storage configured (cloud: "${env.CLOUDINARY_CLOUD_NAME}")`);
+      logger.info(`[StorageService] Cloudinary encrypted cloud storage configured (cloud: "${env.CLOUDINARY_CLOUD_NAME}")`);
     } else {
       logger.warn('[StorageService] Cloudinary credentials not configured.');
     }
@@ -73,17 +75,15 @@ export class StorageService {
   }
 
   /**
-   * Upload buffer directly to Cloudinary
+   * Uploads ONLY raw ciphertext to Cloudinary with all transformations disabled.
    */
-  async uploadToCloudinary(fileBuffer, originalFilename, organizationId, fileId) {
+  async uploadCiphertextToCloudinary(ciphertextBuffer, organizationId, fileId) {
     return new Promise((resolve, reject) => {
-      const ext = path.extname(originalFilename).toLowerCase();
-      const isPdf = ext === '.pdf';
-
       const uploadOptions = {
         folder: `docshield/${organizationId}`,
-        public_id: `${fileId}`,
-        resource_type: isPdf ? 'raw' : 'auto',
+        public_id: `${fileId}.enc`,
+        resource_type: 'raw',
+        type: 'upload',
         overwrite: true,
       };
 
@@ -91,50 +91,67 @@ export class StorageService {
         uploadOptions,
         (error, result) => {
           if (error) {
-            logger.error(`[StorageService] Cloudinary upload stream error: ${error.message}`);
+            logger.error(`[StorageService] Cloudinary ciphertext upload error: ${error.message}`);
             return reject(error);
           }
           resolve(result);
         }
       );
 
-      const stream = Readable.from(fileBuffer);
+      const stream = Readable.from(ciphertextBuffer);
       stream.pipe(uploadStream);
     });
   }
 
   /**
-   * Upload file exclusively to Cloudinary (no backend storage/ folder)
+   * Encrypts plaintext document with AES-256-GCM and stores ciphertext in Cloudinary.
+   * 
+   * @param {Buffer} fileBuffer - Plaintext file content.
+   * @param {string} originalFilename - Original filename with extension.
+   * @param {string} mimeType - File MIME type.
+   * @param {string} organizationId - Organization tenant UUID.
+   * @returns {Promise<Object>} Storage and encryption metadata.
    */
   async upload(fileBuffer, originalFilename, mimeType, organizationId) {
     this.validateFile(fileBuffer, originalFilename, mimeType);
 
-    // Compute cryptographic SHA-256 integrity checksum
-    const checksum = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+    // 1. Encrypt with AES-256-GCM (computes SHA-256 of plaintext, random 12-byte IV, and 16-byte Auth Tag)
+    const encrypted = documentEncryptionService.encryptDocument(fileBuffer);
     const fileId = uuidv4();
-    const ext = path.extname(originalFilename).toLowerCase() || '.bin';
 
+    // 2. Upload ONLY ciphertextBuffer to Cloudinary as raw binary
     let cloudResult = null;
     if (this.isCloudinaryConfigured) {
       try {
-        cloudResult = await this.uploadToCloudinary(fileBuffer, originalFilename, organizationId, fileId);
-        logger.info(`[StorageService] Uploaded "${originalFilename}" to Cloudinary: ${cloudResult.secure_url}`);
+        cloudResult = await this.uploadCiphertextToCloudinary(encrypted.ciphertextBuffer, organizationId, fileId);
+        logger.info(`[StorageService] Uploaded AES-256-GCM ciphertext for "${originalFilename}" to Cloudinary: ${cloudResult.secure_url}`);
       } catch (err) {
-        logger.warn(`[StorageService] Cloudinary upload error: ${err.message}`);
+        logger.warn(`[StorageService] Cloudinary remote upload failed: ${err.message}`);
       }
     }
 
-    const secureUrl = cloudResult?.secure_url || `https://res.cloudinary.com/${env.CLOUDINARY_CLOUD_NAME || 'docshield'}/raw/upload/v1/docshield/${organizationId}/${fileId}${ext}`;
-    const publicId = cloudResult?.public_id || `docshield/${organizationId}/${fileId}`;
+    const secureUrl = cloudResult?.secure_url || `https://res.cloudinary.com/${env.CLOUDINARY_CLOUD_NAME || 'docshield'}/raw/upload/v1/docshield/${organizationId}/${fileId}.enc`;
+    const publicId = cloudResult?.public_id || `docshield/${organizationId}/${fileId}.enc`;
     const storageKey = secureUrl;
 
-    // Cache in-memory for instant, lossless retrieval across pipelines without backend storage directory
-    this.memoryCache.set(storageKey, fileBuffer);
-    this.memoryCache.set(publicId, fileBuffer);
-    this.memoryCache.set(fileId, fileBuffer);
-    this.memoryCache.set(originalFilename, fileBuffer);
+    // Cache in-memory for instant pipeline retrieval
+    this.memoryCache.set(storageKey, encrypted.ciphertextBuffer);
+    this.memoryCache.set(publicId, encrypted.ciphertextBuffer);
+    this.memoryCache.set(fileId, encrypted.ciphertextBuffer);
+    this.memoryCache.set(`plain_${storageKey}`, fileBuffer);
+    this.memoryCache.set(`plain_${fileId}`, fileBuffer);
+    this.memoryCache.set(`plain_${originalFilename}`, fileBuffer);
 
-    // Sync copy to AI/upload folder so Python AI models can access it locally
+    this.metadataCache.set(storageKey, {
+      iv: encrypted.iv,
+      authTag: encrypted.authTag,
+      checksum: encrypted.checksum,
+      encryptionAlgorithm: encrypted.algorithm,
+      keyVersion: encrypted.keyVersion,
+      isEncrypted: true,
+    });
+
+    // Also sync unencrypted buffer copy to AI upload folder for local Python sub-processes
     try {
       if (!fs.existsSync(this.aiUploadDir)) {
         fs.mkdirSync(this.aiUploadDir, { recursive: true });
@@ -146,22 +163,29 @@ export class StorageService {
       storageKey,
       secureUrl,
       publicId,
-      checksum,
+      checksum: encrypted.checksum, // SHA-256 of original plaintext
+      iv: encrypted.iv,
+      authTag: encrypted.authTag,
+      encryptionAlgorithm: encrypted.algorithm,
+      keyVersion: encrypted.keyVersion,
+      isEncrypted: true,
       fileSize: fileBuffer.length,
       mimeType,
-      provider: 'cloudinary',
+      provider: 'cloudinary_aes256gcm',
     };
   }
 
   /**
-   * Get file buffer for processing (from memory cache, AI upload, or Cloudinary remote)
+   * Fetches raw ciphertext buffer from memory cache, AI upload, or Cloudinary remote.
+   * @param {string} storageKey - Cloudinary URL or public ID.
+   * @returns {Promise<Buffer>}
    */
-  async getBuffer(storageKey) {
+  async getRawCiphertext(storageKey) {
     if (!storageKey) {
       throw AppError.notFound('Storage key is required', 'FILE_NOT_FOUND');
     }
 
-    // 1. Check in-memory buffer cache first
+    // 1. Check in-memory cache
     if (this.memoryCache.has(storageKey)) {
       return this.memoryCache.get(storageKey);
     }
@@ -171,17 +195,7 @@ export class StorageService {
       return this.memoryCache.get(baseName);
     }
 
-    // 2. Check AI upload folder
-    try {
-      const aiPath = path.join(this.aiUploadDir, baseName);
-      if (fs.existsSync(aiPath)) {
-        const buf = fs.readFileSync(aiPath);
-        this.memoryCache.set(storageKey, buf);
-        return buf;
-      }
-    } catch (e) {}
-
-    // 3. If storageKey is a remote Cloudinary URL, fetch via HTTP
+    // 2. Fetch remote ciphertext from Cloudinary URL
     if (storageKey.startsWith('http://') || storageKey.startsWith('https://')) {
       try {
         const response = await fetch(storageKey);
@@ -192,14 +206,14 @@ export class StorageService {
           return buffer;
         }
       } catch (err) {
-        logger.error(`[StorageService] Failed to fetch buffer from Cloudinary URL: ${err.message}`);
+        logger.error(`[StorageService] Failed to fetch ciphertext from Cloudinary URL: ${err.message}`);
       }
     }
 
-    // 4. Try Cloudinary public_id URL
+    // 3. Try Cloudinary public_id URL
     if (this.isCloudinaryConfigured) {
       try {
-        const url = cloudinary.url(storageKey, { secure: true });
+        const url = cloudinary.url(storageKey, { resource_type: 'raw', secure: true });
         const response = await fetch(url);
         if (response.ok) {
           const arrayBuffer = await response.arrayBuffer();
@@ -210,21 +224,109 @@ export class StorageService {
       } catch (e) {}
     }
 
-    throw AppError.notFound('Storage artifact not found in Cloudinary or memory cache', 'FILE_NOT_FOUND');
+    // 4. Check AI upload folder
+    try {
+      const aiPath = path.join(this.aiUploadDir, baseName);
+      if (fs.existsSync(aiPath)) {
+        const buf = fs.readFileSync(aiPath);
+        return buf;
+      }
+    } catch (e) {}
+
+    throw AppError.notFound('Encrypted storage artifact not found in Cloudinary or cache', 'FILE_NOT_FOUND');
   }
 
   /**
-   * Alias for getBuffer
+   * Fetches, decrypts (AES-256-GCM), and authenticates SHA-256 integrity for a document version.
+   * 
+   * @param {Object|string} versionOrKey - DocumentVersion DB record or storage key string.
+   * @param {string} [iv] - Hex IV (if passing key string).
+   * @param {string} [authTag] - Hex Auth Tag (if passing key string).
+   * @param {string} [expectedChecksum] - Expected SHA-256 hash (if passing key string).
+   * @returns {Promise<Buffer>} Authenticated plaintext buffer.
    */
-  async downloadFile(storageKey, checksum = null) {
-    return this.getBuffer(storageKey);
+  async getDecryptedBuffer(versionOrKey, iv = null, authTag = null, expectedChecksum = null) {
+    let storageKey;
+    let isEncrypted = true;
+    let targetIv = iv;
+    let targetAuthTag = authTag;
+    let targetChecksum = expectedChecksum;
+
+    if (typeof versionOrKey === 'object' && versionOrKey !== null) {
+      storageKey = versionOrKey.storage_key || versionOrKey.storageKey;
+      targetIv = versionOrKey.iv ?? targetIv;
+      targetAuthTag = versionOrKey.auth_tag || versionOrKey.authTag || targetAuthTag;
+      targetChecksum = versionOrKey.checksum || targetChecksum;
+      isEncrypted = versionOrKey.is_encrypted !== undefined
+        ? Boolean(versionOrKey.is_encrypted)
+        : Boolean(targetIv && targetAuthTag);
+    } else {
+      storageKey = versionOrKey;
+      // Look up cached metadata if not explicitly passed
+      if (this.metadataCache.has(storageKey)) {
+        const cached = this.metadataCache.get(storageKey);
+        targetIv = targetIv || cached.iv;
+        targetAuthTag = targetAuthTag || cached.authTag;
+        targetChecksum = targetChecksum || cached.checksum;
+        isEncrypted = cached.isEncrypted;
+      }
+    }
+
+    // Fast-path: check in-memory plaintext cache
+    if (this.memoryCache.has(`plain_${storageKey}`)) {
+      const plainBuf = this.memoryCache.get(`plain_${storageKey}`);
+      if (targetChecksum) {
+        const actualHash = documentEncryptionService.computeChecksum(plainBuf);
+        if (actualHash.toLowerCase() === targetChecksum.toLowerCase()) {
+          return plainBuf;
+        }
+      } else {
+        return plainBuf;
+      }
+    }
+
+    // Fetch ciphertext
+    const ciphertext = await this.getRawCiphertext(storageKey);
+
+    // Legacy unencrypted document handling
+    if (!isEncrypted || !targetIv || !targetAuthTag) {
+      if (targetChecksum) {
+        const actualChecksum = documentEncryptionService.computeChecksum(ciphertext);
+        if (actualChecksum.toLowerCase() !== targetChecksum.toLowerCase()) {
+          logger.warn(`[StorageService] Checksum mismatch on unencrypted document: expected ${targetChecksum}, got ${actualChecksum}`);
+        }
+      }
+      return ciphertext;
+    }
+
+    // AES-256-GCM Decryption and SHA-256 integrity verification
+    return documentEncryptionService.decryptDocument(
+      ciphertext,
+      targetIv,
+      targetAuthTag,
+      targetChecksum
+    );
   }
 
   /**
-   * Get readable stream for downloading or previewing
+   * Alias for getDecryptedBuffer (backward compatibility for existing services)
    */
-  async downloadStream(storageKey) {
-    const buffer = await this.getBuffer(storageKey);
+  async getBuffer(versionOrKey) {
+    return this.getDecryptedBuffer(versionOrKey);
+  }
+
+  /**
+   * Alias for getDecryptedBuffer
+   */
+  async downloadFile(versionOrKey, checksum = null) {
+    return this.getDecryptedBuffer(versionOrKey, null, null, checksum);
+  }
+
+  /**
+   * Returns a readable stream of the decrypted plaintext document for authorized downloads.
+   */
+  async downloadStream(versionOrKey) {
+    const buffer = await this.getDecryptedBuffer(versionOrKey);
     return {
       stream: Readable.from(buffer),
       size: buffer.length,
@@ -238,6 +340,8 @@ export class StorageService {
     if (!storageKey) return;
 
     this.memoryCache.delete(storageKey);
+    this.memoryCache.delete(`plain_${storageKey}`);
+    this.metadataCache.delete(storageKey);
     const baseName = path.basename(storageKey);
     this.memoryCache.delete(baseName);
 

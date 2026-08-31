@@ -67,6 +67,12 @@ export class DocumentService {
           mimeType: storageResult.mimeType,
           fileSize: storageResult.fileSize,
           checksum: storageResult.checksum,
+          iv: storageResult.iv,
+          authTag: storageResult.authTag,
+          encryptionAlgorithm: storageResult.encryptionAlgorithm,
+          keyVersion: storageResult.keyVersion,
+          isEncrypted: storageResult.isEncrypted,
+          cloudinaryPublicId: storageResult.publicId,
           uploadedBy,
         },
         conn
@@ -162,6 +168,12 @@ export class DocumentService {
           mimeType: storageResult.mimeType,
           fileSize: storageResult.fileSize,
           checksum: storageResult.checksum,
+          iv: storageResult.iv,
+          authTag: storageResult.authTag,
+          encryptionAlgorithm: storageResult.encryptionAlgorithm,
+          keyVersion: storageResult.keyVersion,
+          isEncrypted: storageResult.isEncrypted,
+          cloudinaryPublicId: storageResult.publicId,
           uploadedBy,
         },
         conn
@@ -232,11 +244,12 @@ export class DocumentService {
           mime_type: doc.mime_type,
           file_size: doc.file_size,
           version_number: doc.current_version,
+          checksum: doc.current_checksum,
         };
       }
     }
 
-    const { stream, size } = await storageService.downloadStream(version.storage_key);
+    const { stream, size } = await storageService.downloadStream(version);
 
     await auditService.log({
       actorUserId,

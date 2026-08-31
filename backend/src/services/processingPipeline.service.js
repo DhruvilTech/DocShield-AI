@@ -117,8 +117,8 @@ export class ProcessingPipelineService {
         throw new Error('Document or Version record missing during pipeline execution');
       }
 
-      // Step 2: Retrieve file buffer from storage layer
-      const fileBuffer = await storageService.getBuffer(version.storage_key);
+      // Step 2: Retrieve and decrypt file buffer from storage layer (verifies SHA-256 integrity)
+      const fileBuffer = await storageService.getDecryptedBuffer(version);
 
       // Step 3: Extract text, normalize, and parse structured fields
       const extraction = await DocumentExtractor.extract(

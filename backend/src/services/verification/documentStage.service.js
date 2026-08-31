@@ -23,8 +23,8 @@ export class DocumentStageService {
       throw AppError.notFound(`Version ${targetVersionNumber} not found`, 'VERSION_NOT_FOUND');
     }
 
-    // 1. Retrieve binary document buffer
-    const fileBuffer = await storageService.getBuffer(version.storage_key);
+    // 1. Retrieve decrypted binary document buffer and verify SHA-256 integrity
+    const fileBuffer = await storageService.getDecryptedBuffer(version);
 
     try {
       // 2. Call FastAPI document screening

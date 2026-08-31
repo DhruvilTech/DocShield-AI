@@ -2,6 +2,7 @@
 import { spawnSync } from 'child_process';
 
 const testFiles = [
+  'tests/encryption.test.js',
   'tests/auth.test.js',
   'tests/organization.test.js',
   'tests/document.test.js',

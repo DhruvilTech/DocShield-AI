@@ -6,8 +6,10 @@ export class DocumentVersionRepository {
     const sql = `
       INSERT INTO document_versions (
         id, document_id, version_number, storage_key, original_filename,
-        mime_type, file_size, checksum, uploaded_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+        mime_type, file_size, checksum, iv, auth_tag,
+        encryption_algorithm, key_version, is_encrypted, cloudinary_public_id,
+        uploaded_by
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
     const params = [
       version.id,
@@ -18,6 +20,12 @@ export class DocumentVersionRepository {
       version.mimeType,
       version.fileSize,
       version.checksum,
+      version.iv ?? null,
+      version.authTag ?? null,
+      version.encryptionAlgorithm ?? 'AES-256-GCM',
+      version.keyVersion ?? 'v1',
+      version.isEncrypted !== undefined ? version.isEncrypted : true,
+      version.cloudinaryPublicId ?? null,
       version.uploadedBy,
     ];
 

@@ -1,7 +1,10 @@
 from __future__ import annotations
 import re
 from datetime import date
-from dateutil import parser as dateutil_parser
+try:
+    from dateutil import parser as dateutil_parser
+except ImportError:
+    dateutil_parser = None
 from document_detection.ocr.extractor import ExtractedField
 from document_detection.validation.base import BaseDocumentValidator
 from document_detection.validation.models import CheckStatus, FieldCheck, ValidationResult

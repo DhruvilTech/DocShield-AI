@@ -48,10 +48,10 @@ export class TamperingDetectorService {
     // 1. Fetch text extraction (if available) for cross-verifying text consistency
     const extraction = await extractionRepository.findByDocument(documentId, organizationId, version.id);
 
-    // 2. Fetch binary document buffer
+    // 2. Fetch decrypted and verified binary document buffer
     let fileBuffer = null;
     try {
-      fileBuffer = await storageService.downloadFile(version.storage_key, version.checksum);
+      fileBuffer = await storageService.getDecryptedBuffer(version);
     } catch (err) {
       logger.warn(`Could not download file buffer for tampering analysis: ${err.message}`);
     }

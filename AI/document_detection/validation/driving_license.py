@@ -15,9 +15,10 @@ Validation pipeline
 from __future__ import annotations
 
 import re
-from datetime import date
-
-from dateutil import parser as dateutil_parser
+try:
+    from dateutil import parser as dateutil_parser
+except ImportError:
+    dateutil_parser = None
 
 from core.logging import logger
 from core.config import settings
@@ -151,7 +152,15 @@ class DrivingLicenseValidator(BaseDocumentValidator):
         if field is None or field.value is None:
             return None
         val = field.value.strip()
-        try:
-            return dateutil_parser.parse(val, dayfirst=True).date()
-        except Exception:
-            return None
+        if dateutil_parser is not None:
+            try:
+                return dateutil_parser.parse(val, dayfirst=True).date()
+            except Exception:
+                pass
+        for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%d.%m.%Y", "%Y/%m/%d"):
+            try:
+                from datetime import datetime
+                return datetime.strptime(val, fmt).date()
+            except Exception:
+                continue
+        return None

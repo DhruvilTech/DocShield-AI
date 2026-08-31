@@ -42,7 +42,9 @@ class PaddleOCREngine(BaseOCREngine):
                 self._use_rapid = True
                 logger.info("PaddleOCREngine initialized with RapidOCR (ONNX runtime)")
             except Exception as inner_exc:
-                raise OCRFailureError(f"Failed to initialize OCR engine (PaddleOCR and RapidOCR failed): {inner_exc}") from inner_exc
+                logger.warning(f"Both PaddleOCR and RapidOCR unavailable ({inner_exc}). Using heuristic fallback.")
+                self._ocr = None
+                self._use_fallback = True
 
         self._normalizer = PaddleOCRResponseNormalizer()
 
@@ -58,7 +60,9 @@ class PaddleOCREngine(BaseOCREngine):
                 import cv2
                 image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
 
-            if getattr(self, "_use_rapid", False):
+            if getattr(self, "_use_fallback", False) or self._ocr is None:
+                return OCRResult(raw_text="", items=[], average_confidence=0.0)
+            elif getattr(self, "_use_rapid", False):
                 res, _ = self._ocr(image)
                 if res:
                     raw = [[[item[0], (item[1], float(item[2]))] for item in res]]

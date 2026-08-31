@@ -46,6 +46,9 @@ const envSchema = z.object({
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
   CLOUDINARY_URL: z.string().optional(),
+
+  // Application-Level Document Encryption (AES-256-GCM 256-bit key)
+  DOC_ENCRYPTION_KEY: z.string().default('c3ab8e6f10274a589dc2e4b8593a1df048291be059c3817f649204859a1bcdef'),
 });
 
 const parseEnv = () => {
