@@ -105,18 +105,6 @@ async def screen_document(
             ).model_dump(),
         )
 
-    # Save to single AI/upload folder for local data security
-    try:
-        import os
-        ai_upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "upload"))
-        os.makedirs(ai_upload_dir, exist_ok=True)
-        if file.filename:
-            save_path = os.path.join(ai_upload_dir, file.filename)
-            with open(save_path, "wb") as f_out:
-                f_out.write(image_bytes)
-    except Exception as e:
-        logger.warning(f"Could not save document to AI/upload: {e}")
-
     ocr_service = request.app.state.ocr_service
     validation_service = request.app.state.validation_service
 

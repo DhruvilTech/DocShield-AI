@@ -12,15 +12,10 @@ import { AppError } from '../errors/AppError.js';
 import { UPLOAD_LIMITS } from '../config/constants.js';
 import logger from '../utils/logger.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const AI_UPLOAD_DIR = path.resolve(__dirname, '../../../AI/upload');
-
 export class StorageService {
   constructor() {
     this.memoryCache = new Map(); // key -> Buffer (stores ciphertext and plaintext cache)
     this.metadataCache = new Map(); // key -> encryption metadata
-    this.aiUploadDir = AI_UPLOAD_DIR;
 
     // Configure Cloudinary SDK
     this.isCloudinaryConfigured = Boolean(
@@ -151,14 +146,6 @@ export class StorageService {
       isEncrypted: true,
     });
 
-    // Also sync unencrypted buffer copy to AI upload folder for local Python sub-processes
-    try {
-      if (!fs.existsSync(this.aiUploadDir)) {
-        fs.mkdirSync(this.aiUploadDir, { recursive: true });
-      }
-      fs.writeFileSync(path.join(this.aiUploadDir, originalFilename), fileBuffer);
-    } catch (e) {}
-
     return {
       storageKey,
       secureUrl,
@@ -176,7 +163,7 @@ export class StorageService {
   }
 
   /**
-   * Fetches raw ciphertext buffer from memory cache, AI upload, or Cloudinary remote.
+   * Fetches raw ciphertext buffer from memory cache or Cloudinary remote.
    * @param {string} storageKey - Cloudinary URL or public ID.
    * @returns {Promise<Buffer>}
    */
@@ -223,15 +210,6 @@ export class StorageService {
         }
       } catch (e) {}
     }
-
-    // 4. Check AI upload folder
-    try {
-      const aiPath = path.join(this.aiUploadDir, baseName);
-      if (fs.existsSync(aiPath)) {
-        const buf = fs.readFileSync(aiPath);
-        return buf;
-      }
-    } catch (e) {}
 
     throw AppError.notFound('Encrypted storage artifact not found in Cloudinary or cache', 'FILE_NOT_FOUND');
   }

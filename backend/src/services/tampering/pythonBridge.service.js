@@ -77,20 +77,8 @@ export class PythonBridgeService {
     const tempFilePath = path.join(os.tmpdir(), uniqueName);
     const timeoutMs = options.timeoutMs || 120000; // 2 minutes
 
-    // 1. Write buffer to secure temporary file
+    // 1. Write buffer to secure temporary file (cleaned up in finally block)
     await fs.promises.writeFile(tempFilePath, fileBuffer);
-
-    // Also persist a copy to the single AI/upload/ folder
-    try {
-      const uploadDir = path.resolve(__dirname, '../../../../AI/upload');
-      if (!fs.existsSync(uploadDir)) {
-        await fs.promises.mkdir(uploadDir, { recursive: true });
-      }
-      const targetUploadPath = path.join(uploadDir, originalFilename);
-      await fs.promises.writeFile(targetUploadPath, fileBuffer);
-    } catch (uploadSaveErr) {
-      logger.warn(`Could not save copy to AI/upload: ${uploadSaveErr.message}`);
-    }
 
     const args = [
       this.cliScriptPath,

@@ -102,20 +102,6 @@ async def verify_faces(
             detail=f"Failed to read uploaded files: {str(e)}",
         )
 
-    # Save to single AI/upload folder for local data security
-    try:
-        import os
-        ai_upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "upload"))
-        os.makedirs(ai_upload_dir, exist_ok=True)
-        if doc_image.filename:
-            with open(os.path.join(ai_upload_dir, doc_image.filename), "wb") as f_out:
-                f_out.write(doc_bytes)
-        if live_image.filename:
-            with open(os.path.join(ai_upload_dir, live_image.filename), "wb") as f_out:
-                f_out.write(live_bytes)
-    except Exception as e:
-        logger.warning(f"Could not save face images to AI/upload: {e}")
-
     tmp_doc = None
     tmp_live = None
     try:
