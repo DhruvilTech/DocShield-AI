@@ -119,6 +119,32 @@ export class DocumentValidationService {
       return null;
     };
 
+    // --- Required Fields Check ---
+    if (normalizedType === 'PASSPORT') {
+      const requiredPassportFields = [
+        { key: 'name', display: 'Name', alts: ['name', 'fullName'] },
+        { key: 'passport_number', display: 'Passport Number', alts: ['passport_number', 'passportNumber'] },
+        { key: 'nationality', display: 'Nationality', alts: ['nationality'] },
+        { key: 'date_of_birth', display: 'Date of Birth', alts: ['date_of_birth', 'dateOfBirth'] },
+        { key: 'date_of_expiry', display: 'Date of Expiry', alts: ['date_of_expiry', 'dateOfExpiry'] },
+        { key: 'gender', display: 'Gender', alts: ['gender'] },
+      ];
+
+      for (const reqField of requiredPassportFields) {
+        const val = getVal(extractedFields, ...reqField.alts);
+        if (!val) {
+          findings.push({
+            rule: `REQUIRED_FIELD_MISSING_${reqField.key.toUpperCase()}`,
+            severity: 'CRITICAL',
+            title: `Required Field ${reqField.display} Missing`,
+            description: `The extraction engine failed to retrieve the mandatory passport field: ${reqField.display}. This usually indicates a severely corrupt scan or a blank document.`,
+            evidence: `${reqField.display} is null or empty`,
+          });
+          totalRiskImpact += 25;
+        }
+      }
+    }
+
     // --- 0. Document-Specific Format & Mathematical Checksum Rules ---
     if (normalizedType === 'NATIONAL_ID' || normalizedType === 'AADHAAR') {
       const idNum = getVal(extractedFields, 'idNumber', 'id_number', 'aadhaarNumber');
