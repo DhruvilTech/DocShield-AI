@@ -38,16 +38,6 @@ import {
 
 type ScanPhase = 'idle' | 'uploading' | 'extracting' | 'validating' | 'forensics' | 'biometrics' | 'complete';
 
-const PHASES_INFO: Record<ScanPhase, { label: string; detail: string; progress: number }> = {
-  idle: { label: 'Ready', detail: 'Drop document & capture live traveler photo to begin border screening', progress: 0 },
-  uploading: { label: 'Enclave Ingestion', detail: 'Hashing payload to Hardware-Isolated TEE memory...', progress: 15 },
-  extracting: { label: 'Module 1: OCR Extraction', detail: 'Decompiling ICAO MRZ, visual zones & credential metadata...', progress: 35 },
-  validating: { label: 'Module 2: Doc Validation', detail: 'Calculating ICAO 9303 check digits & Interpol SLTD database...', progress: 55 },
-  forensics: { label: 'Module 3: Tampering AI', detail: 'Scanning photo replacement, stamp forgery & font tensors...', progress: 75 },
-  biometrics: { label: 'Module 4: Face Match', detail: 'Comparing document portrait against live camera capture...', progress: 90 },
-  complete: { label: 'Screening Complete', detail: 'Border clearance verdict & multi-factor risk dossier finalized', progress: 100 },
-};
-
 export const ScannerPage: React.FC = () => {
   const navigate = useNavigate();
   const { activeOrganization } = useOrganization();
@@ -79,6 +69,55 @@ export const ScannerPage: React.FC = () => {
   const [createdDocId, setCreatedDocId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pipelineResult, setPipelineResult] = useState<any | null>(null);
+
+  const getPhaseInfo = (currentPhase: ScanPhase, currentDocType: DocType) => {
+    const base = {
+      idle: { label: 'Ready', detail: 'Drop document & capture live traveler photo to begin border screening', progress: 0 },
+      uploading: { label: 'Enclave Ingestion', detail: 'Hashing payload to Hardware-Isolated TEE memory...', progress: 15 },
+      extracting: {
+        label: 'Module 1: OCR Extraction',
+        detail:
+          currentDocType === 'PASSPORT' ? 'Decompiling ICAO MRZ, visual zones & credential metadata...' :
+          currentDocType === 'VISA' ? 'Decompiling visa stamp layout, validity regions & text descriptors...' :
+          currentDocType === 'NATIONAL_ID' ? 'Parsing National ID card layout, biometric labels & text regions...' :
+          currentDocType === 'DRIVING_LICENSE' ? 'Extracting driver info, vehicle classifications & permission codes...' :
+          'Extracting permit parameters, registry ids & license plates...',
+        progress: 35
+      },
+      validating: {
+        label: 'Module 2: Doc Validation',
+        detail:
+          currentDocType === 'PASSPORT' ? 'Calculating ICAO 9303 check digits & Interpol SLTD database...' :
+          currentDocType === 'VISA' ? 'Verifying entry permissions, visa type constraints & stay duration...' :
+          currentDocType === 'NATIONAL_ID' ? 'Verifying Verhoeff dihedral D5 mathematical check digits...' :
+          currentDocType === 'DRIVING_LICENSE' ? 'Verifying licensing authority database & validity terms...' :
+          'Verifying transport registry databases & validity compliance...',
+        progress: 55
+      },
+      forensics: {
+        label: 'Module 3: Tampering AI',
+        detail:
+          currentDocType === 'PASSPORT' ? 'Scanning photo replacement, stamp forgery & font tensors...' :
+          currentDocType === 'VISA' ? 'Scanning stamp overlays, printing patterns & visa watermark textures...' :
+          currentDocType === 'NATIONAL_ID' ? 'Scanning card laminate, portrait boundary & text alterations...' :
+          currentDocType === 'DRIVING_LICENSE' ? 'Scanning permit background patterns, overlays & card printing...' :
+          'Scanning permit form template alignments & registry stamp integrity...',
+        progress: 75
+      },
+      biometrics: {
+        label: 'Module 4: Face Match',
+        detail:
+          currentDocType === 'PASSPORT' ? 'Comparing document portrait against live camera capture...' :
+          currentDocType === 'VISA' ? 'Verifying traveler biometrics against visa document photo...' :
+          currentDocType === 'NATIONAL_ID' ? 'Matching card holder photo with live camera biometrics...' :
+          currentDocType === 'DRIVING_LICENSE' ? 'Matching driver license photo with live camera biometrics...' :
+          'Matching permit holder photo with live camera biometrics...',
+        progress: 90
+      },
+      complete: { label: 'Screening Complete', detail: 'Border clearance verdict & multi-factor risk dossier finalized', progress: 100 },
+    };
+    return base[currentPhase];
+  };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const faceInputRef = useRef<HTMLInputElement>(null);
@@ -529,22 +568,22 @@ export const ScannerPage: React.FC = () => {
                   <div className="flex items-center gap-2.5">
                     <span className="w-2.5 h-2.5 rounded-full bg-[var(--accent)] animate-pulse" />
                     <span className="text-xs font-bold font-mono uppercase text-[var(--text-1)]">
-                      {PHASES_INFO[phase].label}
+                      {getPhaseInfo(phase, docType).label}
                     </span>
                   </div>
-                  <Badge variant="accent" size="sm">{PHASES_INFO[phase].progress}%</Badge>
+                  <Badge variant="accent" size="sm">{getPhaseInfo(phase, docType).progress}%</Badge>
                 </div>
 
                 {/* Progress bar */}
                 <div className="h-2 rounded-full bg-[var(--surface-raised)] overflow-hidden">
                   <motion.div
                     className="h-full rounded-full bg-[var(--accent)]"
-                    animate={{ width: `${PHASES_INFO[phase].progress}%` }}
+                    animate={{ width: `${getPhaseInfo(phase, docType).progress}%` }}
                     transition={{ duration: 0.3 }}
                   />
                 </div>
 
-                <p className="text-xs text-[var(--accent)] font-mono">{PHASES_INFO[phase].detail}</p>
+                <p className="text-xs text-[var(--accent)] font-mono">{getPhaseInfo(phase, docType).detail}</p>
 
                 {/* Live log stream */}
                 <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-3 font-mono text-[10px] text-[var(--text-3)] max-h-56 overflow-y-auto space-y-1.5">
