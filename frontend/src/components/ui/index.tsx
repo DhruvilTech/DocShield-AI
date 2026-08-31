@@ -174,7 +174,7 @@ export const Card: React.FC<CardProps> = ({ children, className, interactive, ac
           }}
         />
       )}
-      <div className="relative z-10 w-full h-full flex flex-col justify-between">
+      <div className="relative z-10 w-full min-h-0 flex flex-col">
         {children}
       </div>
     </Component>

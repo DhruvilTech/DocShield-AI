@@ -96,7 +96,7 @@ export const SceneManager: React.FC<{ theme: Theme }> = ({ theme }) => {
         camera={{ position: [0, 0.2, 6.2], fov: 42, near: 0.1, far: 40 }}
         dpr={[1, 1.75]}
         gl={{ antialias: false, alpha: false, powerPreference: 'high-performance' }}
-        style={{ width: '100%', height: '100%' }}
+        style={{ width: '100%', height: '100%', pointerEvents: 'none' }}
       >
         <Suspense fallback={null}>
           <SceneInner theme={theme} />
