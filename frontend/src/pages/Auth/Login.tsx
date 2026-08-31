@@ -38,11 +38,6 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const fillQuickAccount = (userEmail: string, userPass: string) => {
-    setEmail(userEmail);
-    setPassword(userPass);
-  };
-
   return (
     <div className="min-h-screen pt-24 pb-12 px-4 flex items-center justify-center relative overflow-hidden">
       {/* Background ambient lighting */}
@@ -158,26 +153,6 @@ export const LoginPage: React.FC = () => {
               Sign In
             </Button>
           </form>
-
-          {/* Quick Demo Credentials helper */}
-          <div className="mt-6 pt-5 border-t border-[var(--border)]">
-            <p className="text-[11px] font-mono uppercase text-[var(--text-3)] mb-2.5 text-center">
-              Quick Demo Account
-            </p>
-            <button
-              type="button"
-              onClick={() => fillQuickAccount('admin123@gmail.com', 'Admin@123')}
-              className="w-full p-2.5 rounded-lg bg-[var(--surface-raised)] hover:border-[var(--accent)] border border-[var(--border)] text-xs font-mono text-[var(--text-2)] hover:text-[var(--text-1)] text-left transition-all flex items-center justify-between"
-            >
-              <div>
-                <div className="font-bold text-[var(--accent)]">Demo User</div>
-                <div className="text-[10px] text-[var(--text-3)]">admin123@gmail.com · Key: Admin@123</div>
-              </div>
-              <span className="text-[10px] font-bold text-[var(--accent)] px-2 py-1 rounded bg-[var(--accent-muted)] border border-[var(--border-accent)]">
-                Auto-Fill
-              </span>
-            </button>
-          </div>
 
           {/* Footer */}
           <div className="text-center mt-6 text-xs text-[var(--text-2)]">
