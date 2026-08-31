@@ -57,7 +57,18 @@ export async function runMigrations() {
         const sqlContent = fs.readFileSync(filePath, 'utf-8');
 
         // Execute migration
-        await dbConn.query(sqlContent);
+        let shouldExecute = true;
+        if (file === '028_add_encryption_metadata_to_document_versions.sql') {
+          const [columns] = await dbConn.query('SHOW COLUMNS FROM document_versions LIKE "iv";');
+          if (columns.length > 0) {
+            console.log('⏩ Columns already exist in document_versions, skipping execution of migration 028.');
+            shouldExecute = false;
+          }
+        }
+
+        if (shouldExecute) {
+          await dbConn.query(sqlContent);
+        }
 
         // Record execution
         await dbConn.query('INSERT INTO _migrations (name) VALUES (?);', [file]);
