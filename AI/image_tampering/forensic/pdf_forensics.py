@@ -81,8 +81,9 @@ def is_flat_text_glyph_region(gray_img: np.ndarray, x: int, y: int, w: int, h: i
     (e.g., "$150.00" repeating down a table column or repeated boilerplate text).
     
     Characteristics:
-    - Thin text line height (h <= 32px or w <= 32px).
-    - Dominated by uniform flat background (> 75% within 12 intensity units of median).
+    - Thin text line height (h <= 90px or w <= 90px at PDF working scale).
+    - Dominated by uniform flat background (> 60% within 12 intensity units of median),
+      or overwhelmingly flat document background (> 80%).
     - Lacks continuous photographic / natural paper / multi-tone texture.
     """
     if w <= 0 or h <= 0:
@@ -95,7 +96,7 @@ def is_flat_text_glyph_region(gray_img: np.ndarray, x: int, y: int, w: int, h: i
     med = float(np.median(roi))
     flat_bg_fraction = float(np.sum(np.abs(roi.astype(float) - med) < 12) / roi.size)
     
-    if (h <= 32 or w <= 32) and flat_bg_fraction >= 0.75:
+    if flat_bg_fraction >= 0.80 or ((h <= 90 or w <= 90) and flat_bg_fraction >= 0.60) or ((h <= 60 or w <= 60) and flat_bg_fraction >= 0.50):
         return True
         
     return False
@@ -275,7 +276,7 @@ def analyze_pdf_copy_move(
                 is_dense_barcode_or_qr_region(gray, int(min_dst_x), int(min_dst_y), int(d_w), int(d_h))
         
         # 4. Check for repeating flat text glyph lines (e.g. table columns)
-        is_text = is_flat_text_glyph_region(gray, int(min_src_x), int(min_src_y), int(s_w), int(s_h)) and \
+        is_text = is_flat_text_glyph_region(gray, int(min_src_x), int(min_src_y), int(s_w), int(s_h)) or \
                   is_flat_text_glyph_region(gray, int(min_dst_x), int(min_dst_y), int(d_w), int(d_h))
 
         cluster_ncc = _calculate_cluster_ncc(inlier_matches, kp, gray)

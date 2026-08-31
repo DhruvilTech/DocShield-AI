@@ -70,7 +70,7 @@ def compute_overall_score(
     """
     Weighted combination of available detector scores and a region bonus,
     enhanced with Dominant Modality Evidence Scaling:
-    - Direct attack indicators (Copy-Move, Splicing) trigger high-confidence alerts.
+    - Direct attack indicators (Copy-Move, Splicing, Content Alteration, Text Tampering) trigger high-confidence alerts.
     - Corroborated multi-detector anomalies elevate the score to HIGH/CRITICAL.
     - Clean documents with natural paper texture or high-frequency security patterns
       are bounded securely in LOW.
@@ -78,6 +78,7 @@ def compute_overall_score(
     cm_score = normalised_scores.get("copy_move") or 0
     splicing_score = normalised_scores.get("splicing") or 0
     alt_score = normalised_scores.get("content_alteration") or 0
+    text_score = normalised_scores.get("text_tampering") or 0
     noise_score = normalised_scores.get("noise") or 0
     ela_score = normalised_scores.get("ela") or 0
     stamp_score = normalised_scores.get("stamp") or 0
@@ -95,6 +96,8 @@ def compute_overall_score(
         score = max(score, 68.0 + 0.28 * splicing_score)
     if alt_score >= 50:
         score = max(score, 68.0 + 0.28 * alt_score)
+    if text_score >= 50:
+        score = max(score, 68.0 + 0.28 * text_score)
     if stamp_score >= 70:
         score = max(score, 68.0 + 0.28 * stamp_score)
     if len(strong_regions) > 0:
@@ -114,6 +117,8 @@ def compute_overall_score(
         # Region bonus addition if moderate regions exist without direct attack
         if len(mod_regions) > 0:
             score = min(w_avg * 0.40 + 8.0 * len(mod_regions), 35.0)
+        elif text_score >= 35:
+            score = min(35.0, 20.0 + 0.35 * text_score)
         else:
             score = min(w_avg * 0.35, 25.0)
 
@@ -143,7 +148,7 @@ def detect_conflict(
     Detect when metadata and image-based detectors strongly disagree.
     Returns (conflict_detected: bool, explanation: str | None).
     """
-    image_keys = ["ela", "noise", "copy_move", "splicing", "stamp"]
+    image_keys = ["ela", "noise", "copy_move", "splicing", "content_alteration", "text_tampering", "stamp"]
     image_scores = [
         normalised_scores[k]
         for k in image_keys

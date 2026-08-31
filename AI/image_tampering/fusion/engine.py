@@ -84,6 +84,7 @@ def fuse(
         "copy_move":          signals.copy_move,
         "splicing":           signals.splicing,
         "content_alteration": getattr(signals, "content_alteration", None),
+        "text_tampering":     getattr(signals, "text_tampering", None),
         "stamp":              signals.stamp,
         "metadata":           signals.metadata,
     }

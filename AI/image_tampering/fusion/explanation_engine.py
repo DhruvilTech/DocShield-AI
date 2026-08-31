@@ -23,6 +23,7 @@ _SIGNAL_LABELS: dict[str, str] = {
     "copy_move":          "visual content duplication (copy-move)",
     "splicing":           "image splicing / insertion anomaly",
     "content_alteration": "content alteration / defacement anomaly",
+    "text_tampering":     "text modification / insertion anomaly",
     "stamp":              "stamp region anomaly",
     "metadata":           "image-processing metadata signature",
 }

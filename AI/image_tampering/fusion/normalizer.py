@@ -77,7 +77,7 @@ def normalize_signal(signal: Optional[ForensicSignal], detector_key: str) -> dic
 
 # ── Batch normalise all signals ───────────────────────────────────────────────
 
-DETECTOR_KEYS = ["ela", "noise", "copy_move", "splicing", "content_alteration", "stamp", "metadata"]
+DETECTOR_KEYS = ["ela", "noise", "copy_move", "splicing", "content_alteration", "text_tampering", "stamp", "metadata"]
 
 
 def normalize_all_signals(signals) -> tuple[dict[str, Any], list[str], list[str]]:
@@ -99,6 +99,7 @@ def normalize_all_signals(signals) -> tuple[dict[str, Any], list[str], list[str]
         "copy_move":          signals.copy_move,
         "splicing":           signals.splicing,
         "content_alteration": getattr(signals, "content_alteration", None),
+        "text_tampering":     getattr(signals, "text_tampering", None),
         "stamp":              signals.stamp,
         "metadata":           signals.metadata,
     }
