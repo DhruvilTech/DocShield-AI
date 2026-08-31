@@ -135,12 +135,22 @@ export class TamperingDetectorService {
       for (const [sigName, sigData] of Object.entries(forensicResult.signals)) {
         if (sigData?.evidence && sigData.evidence.length > 0) {
           for (const ev of sigData.evidence) {
+            const evDesc = typeof ev === 'string'
+              ? ev
+              : (ev?.message || ev?.description || ev?.reason || `Forensic signal ${sigName} triggered`);
+            const evSev = (typeof ev === 'object' && ev?.severity)
+              ? ev.severity
+              : (sigData.score >= 0.7 ? 'HIGH' : sigData.score >= 0.4 ? 'MEDIUM' : 'LOW');
+            const evConfidence = typeof sigData.confidence === 'number'
+              ? sigData.confidence
+              : (typeof sigData.score === 'number' ? sigData.score : 0.75);
+
             indicators.push({
               category: CATEGORY_MAP[sigName] || TAMPERING_CATEGORIES.COMPRESSION_ANOMALY,
-              severity: ev.severity || 'MEDIUM',
-              confidence: sigData.confidence || sigData.score || 0.75,
-              description: ev.message,
-              evidence: `Signal ${sigName} triggered with score ${((sigData.score || 0) * 100).toFixed(1)}%`,
+              severity: evSev,
+              confidence: evConfidence,
+              description: evDesc,
+              evidence: `Signal ${sigName} triggered with score ${(((sigData.score || 0)) * 100).toFixed(1)}%`,
               boundingBox: null,
             });
           }
@@ -148,9 +158,9 @@ export class TamperingDetectorService {
           indicators.push({
             category: CATEGORY_MAP[sigName] || TAMPERING_CATEGORIES.COMPRESSION_ANOMALY,
             severity: sigData.score >= 0.6 ? 'HIGH' : sigData.score >= 0.35 ? 'MEDIUM' : 'LOW',
-            confidence: sigData.confidence || sigData.score,
+            confidence: typeof sigData.confidence === 'number' ? sigData.confidence : (typeof sigData.score === 'number' ? sigData.score : 0.8),
             description: `Forensic anomaly detected in ${sigName} analysis`,
-            evidence: `Detector score: ${(sigData.score * 100).toFixed(1)}%`,
+            evidence: `Detector score: ${((sigData.score || 0) * 100).toFixed(1)}%`,
             boundingBox: null,
           });
         }

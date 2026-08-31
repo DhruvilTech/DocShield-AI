@@ -23,18 +23,27 @@ export class TamperingRepository {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
+    const safeId = id || crypto.randomUUID();
+    const safeDocId = documentId ?? null;
+    const safeVerId = versionId ?? null;
+    const safeOrgId = organizationId ?? null;
+    const safeStatus = status || 'COMPLETED';
+    const safeScore = typeof overallTamperingScore === 'number' ? overallTamperingScore : 0.0;
+    const safeDetected = hasTamperingDetected ? 1 : 0;
+    const safeMeta = analysisMetadata ? JSON.stringify(analysisMetadata) : null;
+
     await db.execute(query, [
-      id,
-      documentId,
-      versionId,
-      organizationId,
-      status,
-      overallTamperingScore,
-      hasTamperingDetected ? 1 : 0,
-      analysisMetadata ? JSON.stringify(analysisMetadata) : null,
+      safeId,
+      safeDocId,
+      safeVerId,
+      safeOrgId,
+      safeStatus,
+      safeScore,
+      safeDetected,
+      safeMeta,
     ]);
 
-    return this.findAnalysisById(id, organizationId);
+    return this.findAnalysisById(safeId, safeOrgId);
   }
 
   /**
@@ -46,7 +55,7 @@ export class TamperingRepository {
     category,
     severity = 'MEDIUM',
     confidence = 0.8,
-    description,
+    description = null,
     evidence = null,
     boundingBox = null,
   }) {
@@ -58,7 +67,14 @@ export class TamperingRepository {
       CONTENT_ALTERATION: 'TEXT_ALTERATION',
       NOISE_INCONSISTENCY: 'COMPRESSION_ANOMALY',
     };
+    const safeId = id || crypto.randomUUID();
+    const safeAnalysisId = tamperingAnalysisId ?? null;
     const safeCategory = NORMALIZED_CATEGORIES[category] || category || 'EDGE_DISCONTINUITY';
+    const safeSeverity = severity || 'MEDIUM';
+    const safeConfidence = typeof confidence === 'number' ? confidence : 0.8;
+    const safeDescription = description || (evidence ? String(evidence) : 'Suspicious forensic anomaly detected');
+    const safeEvidence = evidence !== undefined && evidence !== null ? String(evidence) : null;
+    const safeBoundingBox = boundingBox ? JSON.stringify(boundingBox) : null;
 
     const query = `
       INSERT INTO tampering_indicators (
@@ -68,24 +84,24 @@ export class TamperingRepository {
     `;
 
     await db.execute(query, [
-      id,
-      tamperingAnalysisId,
+      safeId,
+      safeAnalysisId,
       safeCategory,
-      severity,
-      confidence,
-      description,
-      evidence,
-      boundingBox ? JSON.stringify(boundingBox) : null,
+      safeSeverity,
+      safeConfidence,
+      safeDescription,
+      safeEvidence,
+      safeBoundingBox,
     ]);
 
     return {
-      id,
-      tampering_analysis_id: tamperingAnalysisId,
-      category,
-      severity,
-      confidence,
-      description,
-      evidence,
+      id: safeId,
+      tampering_analysis_id: safeAnalysisId,
+      category: safeCategory,
+      severity: safeSeverity,
+      confidence: safeConfidence,
+      description: safeDescription,
+      evidence: safeEvidence,
       bounding_box: boundingBox,
     };
   }

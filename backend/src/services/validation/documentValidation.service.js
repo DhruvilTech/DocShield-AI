@@ -119,6 +119,23 @@ export class DocumentValidationService {
       return null;
     };
 
+    // --- Document Type Consistency Check ---
+    const detectedType = (extractedFields.detectedDocumentType || extractedFields.detected_type || extractedFields.classifiedType || '').toUpperCase();
+    if (detectedType && detectedType !== 'UNKNOWN' && detectedType !== normalizedType) {
+      checks.formatCheck = {
+        status: 'INVALID_FORMAT',
+        details: `Document type mismatch: Detected as ${detectedType}, but category is set to ${normalizedType}.`,
+      };
+      findings.push({
+        rule: 'DOCUMENT_TYPE_MISMATCH',
+        severity: 'CRITICAL',
+        title: 'Document Type Mismatch Detected',
+        description: `Uploaded document structure matches ${detectedType.replace(/_/g, ' ')}, but submitted category is ${normalizedType.replace(/_/g, ' ')}. Document category is incorrect or fraudulent.`,
+        evidence: `Expected: ${normalizedType} | Detected: ${detectedType}`,
+      });
+      totalRiskImpact += 50;
+    }
+
     // --- Required Fields Check ---
     if (normalizedType === 'PASSPORT') {
       const requiredPassportFields = [

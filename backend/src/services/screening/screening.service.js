@@ -76,29 +76,35 @@ export class ScreeningService {
     // 6. Calculate Risk Score
     const riskRecord = await riskScoreService.calculateRiskScore(documentId, organizationId, { versionNumber: targetVersionNumber }, reqMeta);
 
-    // 7. Determine Unified Screening Verdict & Recommendations
+    // 7. Determine Unified Screening Verdict & Recommendations across all 4 modules
     let verdict = SCREENING_VERDICTS.PASSED;
     const recommendations = [];
     const factorsToCreate = [];
 
     const hasWatchlistHit = validationResult?.checks?.watchlistCheck?.status === 'HIT_DETECTED';
+    const hasCriticalValidationFailure = validationResult && !validationResult.isValid;
+    const hasDocTypeMismatch = validationResult?.findings?.some(f => f.rule === 'DOCUMENT_TYPE_MISMATCH' || f.rule?.includes('MISSING_'));
 
     if (
       riskRecord.riskScore >= 50 ||
       hasWatchlistHit ||
+      hasDocTypeMismatch ||
+      hasCriticalValidationFailure ||
       (tampering && tampering.has_tampering_detected && tampering.overall_tampering_score >= 0.35) ||
       (faceVerification && faceVerification.status === 'NO_MATCH')
     ) {
       verdict = SCREENING_VERDICTS.REJECTED;
-      recommendations.push('Refuse identity clearance: Critical security risk, watchlist alert, or tampering detected.');
+      recommendations.push('Refuse identity clearance: Critical security risk, document mismatch, format failure, or tampering detected.');
       recommendations.push('Immediate escalation to Border Fraud & Forensic Enforcement Unit.');
       if (hasWatchlistHit) {
         recommendations.push('INTERPOL / SLTD Watchlist active hit: Detain travel document for secondary inspection.');
       }
+      if (hasDocTypeMismatch) {
+        recommendations.push('Document Type Mismatch: Submitted document does not conform to required category.');
+      }
     } else if (
       riskRecord.riskScore >= 25 ||
-      (faceVerification && faceVerification.status === 'INCONCLUSIVE') ||
-      (validationResult && !validationResult.isValid)
+      (faceVerification && faceVerification.status === 'INCONCLUSIVE')
     ) {
       verdict = SCREENING_VERDICTS.REVIEW_REQUIRED;
       recommendations.push('Manual screening review required by Border Control Officer.');

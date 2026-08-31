@@ -1,5 +1,6 @@
 // src/services/verification/verificationPipeline.service.js
 import { documentStageService } from './documentStage.service.js';
+import { validationStageService } from './validationStage.service.js';
 import { tamperingStageService } from './tamperingStage.service.js';
 import { faceStageService } from './faceStage.service.js';
 import { documentRepository } from '../../repositories/document.repository.js';
@@ -33,6 +34,7 @@ export class VerificationPipelineService {
     const completed_stages = [];
     const stages = {
       document_detection: { status: 'skipped' },
+      validation: { status: 'skipped' },
       tampering: { status: 'skipped' },
       face_verification: { status: 'skipped' }
     };
@@ -61,11 +63,39 @@ export class VerificationPipelineService {
       throw err;
     }
 
-    // ── STAGE 2: Image Tampering Detection ──
+    // ── STAGE 2: Document Standards & Watchlist Validation ──
+    if (success) {
+      completed_stages.push('validation');
+      try {
+        const valResult = await validationStageService.execute(documentId, organizationId, options, reqMeta);
+        stages.validation = {
+          status: valResult.status,
+          confidence: valResult.confidence,
+          reason: valResult.reason,
+          result: valResult.result
+        };
+
+        if (!valResult.should_continue) {
+          pipelineStatus = 'stopped';
+          failedStage = 'validation';
+          success = false;
+        }
+      } catch (err) {
+        throw err;
+      }
+    } else {
+      stages.validation = {
+        status: 'skipped',
+        reason: 'Previous stage (document_detection) failed',
+        result: null
+      };
+    }
+
+    // ── STAGE 3: Image Tampering Detection ──
     if (success) {
       completed_stages.push('tampering');
       
-      // Run AI prompt/analysis service first to populate AI findings/risk indicators if Stage 1 passed
+      // Run AI prompt/analysis service first to populate AI findings/risk indicators if Stage 1 & 2 passed
       try {
         await aiAnalysisService.runAnalysis(documentId, organizationId, { versionNumber: targetVersionNumber }, reqMeta);
       } catch (err) {
@@ -98,7 +128,7 @@ export class VerificationPipelineService {
         status: 'SKIPPED',
         overallTamperingScore: 0.0,
         hasTamperingDetected: false,
-        analysisMetadata: { skipped: true, reason: 'Previous stage (document_detection) failed' }
+        analysisMetadata: { skipped: true, reason: `Previous stage (${failedStage || 'prior'}) failed` }
       });
       stages.tampering = {
         status: 'skipped',
@@ -106,7 +136,7 @@ export class VerificationPipelineService {
       };
     }
 
-    // ── STAGE 3: Face Detection & Verification ──
+    // ── STAGE 4: Face Detection & Verification ──
     const hasFaceInput = Boolean(
       options.referenceFaceBuffer ||
       options.referenceFaceBase64 ||

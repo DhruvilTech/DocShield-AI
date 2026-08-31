@@ -71,12 +71,20 @@ export class DocumentStageService {
         documentType: doc.document_type,
         rawText: rawText,
         normalizedText: rawText,
-        extractedFields: result.extracted_fields || {},
+        extractedFields: {
+          ...(result.extracted_fields || {}),
+          aiValidation: result.validation,
+          detectedDocumentType: detectedType,
+          classifiedType: classifiedType,
+          isSupported: isSupported,
+        },
         confidenceScore: result.ocr?.confidence || 0.95,
         pageCount: 1,
         metadata: {
           engine_used: result.ocr?.engine_used,
-          validation: result.validation
+          validation: result.validation,
+          detected_type: detectedType,
+          is_supported: isSupported,
         }
       });
 

@@ -51,17 +51,17 @@ export class RiskScoreService {
       }
     }
 
-    // 3. Compute component scores (max 100 points total)
+    // 3. Compute component scores (max 100 points total across all 4 modules)
     const breakdown = {
       tamperingScore: 0,   // up to 40
-      validationScore: 0,  // up to 30
+      validationScore: 0,  // up to 45
       biometricScore: 0,   // up to 20
       ocrQualityScore: 0,  // up to 10
     };
 
     const explanationItems = [];
 
-    // --- A. Tampering Signals (0 to 40 points) ---
+    // --- A. Tampering Signals (Module 3: 0 to 40 points) ---
     if (tampering) {
       const tampScore = parseFloat(tampering.overall_tampering_score || 0);
       breakdown.tamperingScore = Math.round(tampScore * 40);
@@ -75,27 +75,47 @@ export class RiskScoreService {
       }
     }
 
-    // --- B. Official Validation, Watchlist & Security Findings (0 to 30 points) ---
+    // --- B. Official Validation, Format Standards & Watchlist (Module 2: 0 to 45 points) ---
     let findingPoints = 0;
     if (analysis && analysis.findings) {
       for (const f of analysis.findings) {
-        if (f.severity === 'CRITICAL') findingPoints += 20;
-        else if (f.severity === 'HIGH') findingPoints += 12;
-        else if (f.severity === 'MEDIUM') findingPoints += 6;
+        if (f.severity === 'CRITICAL') findingPoints += 25;
+        else if (f.severity === 'HIGH') findingPoints += 15;
+        else if (f.severity === 'MEDIUM') findingPoints += 8;
         else if (f.severity === 'LOW') findingPoints += 2;
       }
     }
 
+    let hasCriticalValidationFailure = false;
+    let hasDocTypeMismatch = false;
+
     if (validationResult && validationResult.findings) {
       for (const f of validationResult.findings) {
-        if (f.severity === 'CRITICAL') findingPoints += 25;
-        else if (f.severity === 'HIGH') findingPoints += 15;
-        else if (f.severity === 'MEDIUM') findingPoints += 8;
+        if (f.rule === 'DOCUMENT_TYPE_MISMATCH' || f.rule?.includes('MISSING_')) {
+          hasDocTypeMismatch = true;
+        }
+        if (f.severity === 'CRITICAL') {
+          findingPoints += 35;
+          hasCriticalValidationFailure = true;
+        } else if (f.severity === 'HIGH') {
+          findingPoints += 20;
+          hasCriticalValidationFailure = true;
+        } else if (f.severity === 'MEDIUM') {
+          findingPoints += 10;
+        }
         explanationItems.push(f.description);
       }
     }
 
-    breakdown.validationScore = Math.min(30, findingPoints);
+    if (validationResult && !validationResult.isValid) {
+      hasCriticalValidationFailure = true;
+    }
+
+    if (hasDocTypeMismatch || hasCriticalValidationFailure) {
+      findingPoints = Math.max(findingPoints, 40);
+    }
+
+    breakdown.validationScore = Math.min(45, findingPoints);
 
     if (analysis && analysis.findings) {
       const criticalFindings = analysis.findings.filter((f) => f.severity === 'CRITICAL' || f.severity === 'HIGH');
@@ -104,7 +124,7 @@ export class RiskScoreService {
       }
     }
 
-    // --- C. Biometric Face Verification (0 to 20 points) ---
+    // --- C. Biometric Face Verification (Module 4: 0 to 20 points) ---
     if (faceVerification) {
       const meta = faceVerification.metadata || {};
       const isLivenessFailed = meta.liveness && meta.liveness.status === 'FAIL';
@@ -124,7 +144,7 @@ export class RiskScoreService {
       }
     }
 
-    // --- D. OCR & Extraction Quality (0 to 10 points) ---
+    // --- D. OCR & Extraction Quality (Module 1: 0 to 10 points) ---
     if (extraction) {
       const conf = parseFloat(extraction.confidence_score || 0.95);
       if (conf < 0.70) {
@@ -139,7 +159,12 @@ export class RiskScoreService {
 
     // 4. Aggregate Total Risk Score (0 - 100)
     const rawTotal = breakdown.tamperingScore + breakdown.validationScore + breakdown.biometricScore + breakdown.ocrQualityScore;
-    const finalScore = Math.min(100, Math.max(0, rawTotal));
+    let finalScore = Math.min(100, Math.max(0, rawTotal));
+
+    // If document format / category is invalid, enforce minimum high risk floor
+    if (hasDocTypeMismatch || hasCriticalValidationFailure) {
+      finalScore = Math.max(finalScore, 55);
+    }
 
     // 5. Map to Risk Level
     let riskLevel = RISK_LEVELS.LOW;

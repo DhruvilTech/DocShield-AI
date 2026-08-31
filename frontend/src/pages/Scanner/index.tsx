@@ -252,11 +252,12 @@ export const ScannerPage: React.FC = () => {
       if (docStage && docStage.status === 'passed') {
         addLog(`✓ Module 1 (OCR Extraction) & Document Detection Passed. Confidence: ${((docStage.confidence || 0.95) * 100).toFixed(0)}%`);
       } else {
-        addLog(`✗ Module 1 / Document Detection Failed: ${docStage?.reason || 'Invalid document'}`);
-        addLog(`Module 2 & 3: Aborted`);
+        const failReason = docStage?.reason || 'Document screening failed format detection.';
+        addLog(`✗ Module 1 (OCR Extraction & Detection) Failed: ${failReason}`);
+        addLog(`Module 2, 3 & 4: Aborted`);
         addLog(`Module 4 Biometrics: BLOCKED (Document Failed Integrity Checks)`);
         setPhase('complete');
-        setError(docStage?.reason || 'Document screening failed validation standards.');
+        setError(failReason);
         setScreening(pipelineResult.screening);
         setRiskScore(pipelineResult.riskScore);
         return;
@@ -264,9 +265,23 @@ export const ScannerPage: React.FC = () => {
 
       // Process Stage 2: Document Standards & ICAO Validation
       setPhase('validating');
-      addLog(`→ Running Module 2: ICAO Doc 9303 Checksums & Interpol SLTD Database...`);
+      addLog(`→ Running Module 2: Document Standards, Format Rules & Interpol SLTD Database...`);
       await new Promise((r) => setTimeout(r, 600));
-      addLog(`✓ Module 2 (Document Validation & SLTD) Passed.`);
+
+      const valStage = pipelineResult.stages?.validation;
+      if (valStage && valStage.status === 'passed') {
+        addLog(`✓ Module 2 (Document Validation & SLTD) Passed.`);
+      } else {
+        const failReason = valStage?.reason || (isDocTypeMismatch() ? 'Document is not valid as per selected category format' : 'Document failed validation standards');
+        addLog(`✗ Module 2 (Document Validation & SLTD) Failed: ${failReason}`);
+        addLog(`Module 3 & 4: Aborted`);
+        addLog(`Module 4 Biometrics: BLOCKED (Document Failed Integrity Checks)`);
+        setPhase('complete');
+        setError(failReason);
+        setScreening(pipelineResult.screening);
+        setRiskScore(pipelineResult.riskScore);
+        return;
+      }
 
       // Process Stage 3: Tampering Forensics
       setPhase('forensics');
@@ -279,10 +294,11 @@ export const ScannerPage: React.FC = () => {
         addLog(`✓ Module 3 (Tampering Forensics) Passed. Tampering Score: ${tampStage.result?.overall_tampering_score || 0} pts (0 Alterations)`);
       } else {
         setTampering(tampStage?.result || null);
-        addLog(`✗ Module 3 Tampering Forensics Failed: ${tampStage?.reason || 'Tampering detected'}`);
+        const failReason = tampStage?.reason || 'Tampering detected in document substrate.';
+        addLog(`✗ Module 3 (Tampering Forensics) Failed: ${failReason}`);
         addLog(`Module 4 Biometrics: BLOCKED (Document Failed Integrity Checks)`);
         setPhase('complete');
-        setError(tampStage?.reason || 'Forensic tampering verification failed.');
+        setError(failReason);
         setScreening(pipelineResult.screening);
         setRiskScore(pipelineResult.riskScore);
         return;
@@ -335,15 +351,19 @@ export const ScannerPage: React.FC = () => {
   const isDocTypeMismatch = () => {
     if (!pipelineResult) return false;
     const docStage = pipelineResult.stages?.document_detection;
-    const isPassed = docStage && docStage.status === 'passed';
+    const valStage = pipelineResult.stages?.validation;
+    if (docStage && docStage.status === 'failed') return true;
+    if (valStage && valStage.status === 'failed') return true;
     const factors = pipelineResult.screening?.factors || [];
-    const hasMissingIdentifier = factors.some((f: any) =>
+    const hasMismatch = factors.some((f: any) =>
+      f.rule?.includes('MISMATCH') ||
       f.rule?.includes('MISSING_') ||
       f.rule?.includes('REQUIRED_FIELD_MISSING') ||
+      f.title?.includes('Mismatch') ||
       f.title?.includes('Missing') ||
       f.title?.includes('Required Field')
     );
-    return !(isPassed && !hasMissingIdentifier);
+    return hasMismatch;
   };
 
   const getMrzStatus = () => {
@@ -604,7 +624,13 @@ export const ScannerPage: React.FC = () => {
     ]
   };
 
-  const verdict = screening?.verdict || (riskScore && riskScore.risk_score >= 50 ? 'REJECTED' : 'PASSED');
+  const isRejected =
+    (riskScore && riskScore.risk_score >= 50) ||
+    (screening && screening.verdict === 'REJECTED') ||
+    (pipelineResult?.pipeline_status === 'stopped') ||
+    isDocTypeMismatch();
+  const isReview = !isRejected && ((riskScore && riskScore.risk_score >= 25) || (screening && screening.verdict === 'REVIEW_REQUIRED'));
+  const verdict = isRejected ? 'REJECTED' : isReview ? 'REVIEW_REQUIRED' : (screening?.verdict || 'PASSED');
   const risk = screening?.overall_risk_score ?? (riskScore?.risk_score ?? 0);
   const verdictColor = verdict === 'PASSED' ? 'var(--safe)' : verdict === 'REVIEW_REQUIRED' ? 'var(--warning)' : 'var(--threat)';
 
@@ -934,7 +960,7 @@ export const ScannerPage: React.FC = () => {
                       <span className="font-bold text-[var(--text-1)]">{riskScore?.score_breakdown.tamperingScore ?? 0} pts</span>
                     </div>
                     <div className="p-2 rounded bg-[var(--surface)]">
-                      <span className="text-[9px] text-[var(--text-3)] block">VALIDATION (30)</span>
+                      <span className="text-[9px] text-[var(--text-3)] block">VALIDATION (45)</span>
                       <span className="font-bold text-[var(--text-1)]">{riskScore?.score_breakdown.validationScore ?? 0} pts</span>
                     </div>
                     <div className="p-2 rounded bg-[var(--surface)]">
