@@ -677,8 +677,19 @@ export const VaultPage: React.FC = () => {
 
                         <div className="grid grid-cols-2 gap-3 text-[11px]">
                           <div className="p-3 rounded-lg bg-[var(--surface-alt)] border border-[var(--border)] space-y-1">
-                            <span className="text-[var(--text-3)] text-[10px] uppercase block">Storage Key (Local Enclave)</span>
-                            <span className="text-[var(--text-1)] break-all">{selectedDoc.storage_key}</span>
+                            <span className="text-[var(--text-3)] text-[10px] uppercase block">Storage Location</span>
+                            {selectedDoc.storage_key?.startsWith('http') ? (
+                              <a
+                                href={selectedDoc.storage_key}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[var(--accent)] hover:underline break-all font-mono text-[11px] flex items-center gap-1.5 font-bold"
+                              >
+                                ☁️ Cloudinary Secure URL
+                              </a>
+                            ) : (
+                              <span className="text-[var(--text-1)] break-all">{selectedDoc.storage_key}</span>
+                            )}
                           </div>
                           <div className="p-3 rounded-lg bg-[var(--surface-alt)] border border-[var(--border)] space-y-1">
                             <span className="text-[var(--text-3)] text-[10px] uppercase block">Document Class</span>

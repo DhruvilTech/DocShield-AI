@@ -5,6 +5,8 @@ import crypto from 'crypto';
 import { Readable } from 'stream';
 import { v4 as uuidv4 } from 'uuid';
 import { fileURLToPath } from 'url';
+import { v2 as cloudinary } from 'cloudinary';
+import { env } from '../config/env.js';
 import { AppError } from '../errors/AppError.js';
 import { UPLOAD_LIMITS } from '../config/constants.js';
 import logger from '../utils/logger.js';
@@ -12,7 +14,7 @@ import logger from '../utils/logger.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// 1. Backend local tenant-isolated storage
+// 1. Backend local tenant-isolated storage cache
 const BACKEND_STORAGE_DIR = path.resolve(__dirname, '../../storage');
 
 // 2. Single unified AI upload directory: DocShield-AI/AI/upload/
@@ -29,6 +31,24 @@ export class StorageService {
   constructor(baseDir = BACKEND_STORAGE_DIR) {
     this.baseDir = baseDir;
     this.aiUploadDir = AI_UPLOAD_DIR;
+
+    // Configure Cloudinary SDK
+    this.isCloudinaryConfigured = Boolean(
+      (env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET) ||
+      env.CLOUDINARY_URL
+    );
+
+    if (this.isCloudinaryConfigured) {
+      cloudinary.config({
+        cloud_name: env.CLOUDINARY_CLOUD_NAME || 'docshield',
+        api_key: env.CLOUDINARY_API_KEY,
+        api_secret: env.CLOUDINARY_API_SECRET,
+        secure: true,
+      });
+      logger.info(`[StorageService] Cloudinary cloud storage initialized for cloud: "${env.CLOUDINARY_CLOUD_NAME || 'docshield'}"`);
+    } else {
+      logger.warn('[StorageService] Cloudinary credentials not fully supplied; fallback to local enclave storage.');
+    }
   }
 
   /**
@@ -79,8 +99,38 @@ export class StorageService {
   }
 
   /**
-   * Upload file to 100% Local On-Premise Secure Enclave storage.
-   * Stores in backend isolated storage and the single unified AI/upload/ folder.
+   * Upload buffer directly to Cloudinary
+   */
+  async uploadToCloudinary(fileBuffer, originalFilename, organizationId, fileId) {
+    return new Promise((resolve, reject) => {
+      const ext = path.extname(originalFilename).toLowerCase();
+      const isPdf = ext === '.pdf';
+
+      const uploadOptions = {
+        folder: `docshield/${organizationId}`,
+        public_id: `${fileId}`,
+        resource_type: isPdf ? 'raw' : 'auto',
+        overwrite: true,
+      };
+
+      const uploadStream = cloudinary.uploader.upload_stream(
+        uploadOptions,
+        (error, result) => {
+          if (error) {
+            logger.error(`[StorageService] Cloudinary upload stream error: ${error.message}`);
+            return reject(error);
+          }
+          resolve(result);
+        }
+      );
+
+      const stream = Readable.from(fileBuffer);
+      stream.pipe(uploadStream);
+    });
+  }
+
+  /**
+   * Upload file to Cloudinary Cloud Vault (with local cache sync for AI execution)
    */
   async upload(fileBuffer, originalFilename, mimeType, organizationId) {
     this.validateFile(fileBuffer, originalFilename, mimeType);
@@ -90,7 +140,7 @@ export class StorageService {
     const ext = path.extname(originalFilename).toLowerCase() || '.bin';
     const fileId = uuidv4();
 
-    // 1. Write to backend tenant-isolated storage: storage/<organizationId>/<fileId><ext>
+    // 1. Sync copy to backend tenant storage: storage/<organizationId>/<fileId><ext>
     const relativeKey = path.join(organizationId, `${fileId}${ext}`).replace(/\\/g, '/');
     const absolutePath = this.getSafePath(relativeKey);
     const orgDir = path.dirname(absolutePath);
@@ -99,7 +149,7 @@ export class StorageService {
     }
     await fs.promises.writeFile(absolutePath, fileBuffer);
 
-    // 2. Write to single AI upload folder: AI/upload/<originalFilename>
+    // 2. Sync copy to single AI upload folder: AI/upload/<originalFilename>
     try {
       if (!fs.existsSync(this.aiUploadDir)) {
         await fs.promises.mkdir(this.aiUploadDir, { recursive: true });
@@ -110,66 +160,80 @@ export class StorageService {
       logger.warn(`Could not save copy to AI/upload: ${e.message}`);
     }
 
-    logger.info(`[StorageService] Stored "${originalFilename}" locally in enclave: ${relativeKey}`);
+    // 3. Upload to Cloudinary
+    let cloudResult = null;
+    if (this.isCloudinaryConfigured) {
+      try {
+        cloudResult = await this.uploadToCloudinary(fileBuffer, originalFilename, organizationId, fileId);
+        logger.info(`[StorageService] Uploaded "${originalFilename}" to Cloudinary: ${cloudResult.secure_url}`);
+      } catch (err) {
+        logger.warn(`[StorageService] Cloudinary remote upload failed: ${err.message}. Retaining local enclave storage.`);
+      }
+    }
+
+    const secureUrl = cloudResult?.secure_url || `/api/v1/documents/files/${relativeKey}`;
+    const storageKey = cloudResult?.secure_url || relativeKey;
 
     return {
-      storageKey: relativeKey,
-      secureUrl: `/api/v1/documents/files/${relativeKey}`,
+      storageKey,
+      secureUrl,
+      publicId: cloudResult?.public_id || relativeKey,
       checksum,
       fileSize: fileBuffer.length,
       mimeType,
-      provider: 'local_secure_storage',
+      provider: cloudResult ? 'cloudinary' : 'local_secure_storage',
     };
   }
 
   /**
-   * Get readable stream for downloading or processing from local enclave
-   */
-  async downloadStream(storageKey) {
-    try {
-      const absolutePath = this.getSafePath(storageKey);
-      if (fs.existsSync(absolutePath)) {
-        const stat = await fs.promises.stat(absolutePath);
-        const stream = fs.createReadStream(absolutePath);
-        return {
-          stream,
-          size: stat.size,
-        };
-      }
-    } catch (e) {
-      // Check fallback in single AI upload folder
-      const fallbackPath = path.join(this.aiUploadDir, path.basename(storageKey));
-      if (fs.existsSync(fallbackPath)) {
-        const stat = await fs.promises.stat(fallbackPath);
-        const stream = fs.createReadStream(fallbackPath);
-        return {
-          stream,
-          size: stat.size,
-        };
-      }
-    }
-
-    throw AppError.notFound('Storage artifact not found in local enclave', 'FILE_NOT_FOUND');
-  }
-
-  /**
-   * Get file buffer for processing from local storage
+   * Get file buffer for processing (from local cache or Cloudinary remote)
    */
   async getBuffer(storageKey) {
-    try {
-      const absolutePath = this.getSafePath(storageKey);
-      if (fs.existsSync(absolutePath)) {
-        return await fs.promises.readFile(absolutePath);
-      }
-    } catch (e) {}
+    if (!storageKey) {
+      throw AppError.notFound('Storage key is required', 'FILE_NOT_FOUND');
+    }
 
-    // Fallback check in AI upload
-    const aiFallback = path.join(this.aiUploadDir, path.basename(storageKey));
+    // 1. If key is a local relative path, try reading directly
+    if (!storageKey.startsWith('http://') && !storageKey.startsWith('https://')) {
+      try {
+        const absolutePath = this.getSafePath(storageKey);
+        if (fs.existsSync(absolutePath)) {
+          return await fs.promises.readFile(absolutePath);
+        }
+      } catch (e) {}
+    }
+
+    // 2. Try looking up in local storage directories by filename or basename
+    const baseName = path.basename(storageKey);
+    const aiFallback = path.join(this.aiUploadDir, baseName);
     if (fs.existsSync(aiFallback)) {
       return await fs.promises.readFile(aiFallback);
     }
 
-    throw AppError.notFound('Storage artifact not found in local enclave', 'FILE_NOT_FOUND');
+    // 3. If storageKey is a remote Cloudinary URL, fetch via HTTP
+    if (storageKey.startsWith('http://') || storageKey.startsWith('https://')) {
+      try {
+        const response = await fetch(storageKey);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+
+        // Cache in AI upload directory
+        try {
+          if (!fs.existsSync(aiFallback)) {
+            await fs.promises.writeFile(aiFallback, buffer);
+          }
+        } catch {}
+
+        return buffer;
+      } catch (err) {
+        logger.error(`[StorageService] Failed to fetch buffer from Cloudinary URL: ${err.message}`);
+      }
+    }
+
+    throw AppError.notFound('Storage artifact not found in Cloudinary or local storage', 'FILE_NOT_FOUND');
   }
 
   /**
@@ -180,23 +244,59 @@ export class StorageService {
   }
 
   /**
-   * Delete file from local storage
+   * Get readable stream for downloading or processing
    */
-  async delete(storageKey) {
-    try {
-      const absolutePath = this.getSafePath(storageKey);
-      if (fs.existsSync(absolutePath)) {
-        await fs.promises.unlink(absolutePath);
-      }
-    } catch (err) {
-      // Ignore if already deleted
-    }
+  async downloadStream(storageKey) {
+    const buffer = await this.getBuffer(storageKey);
+    return {
+      stream: Readable.from(buffer),
+      size: buffer.length,
+    };
   }
 
   /**
-   * Check if file exists in local storage
+   * Delete file from Cloudinary and local storage
+   */
+  async delete(storageKey) {
+    if (!storageKey) return;
+
+    // 1. Delete from Cloudinary if remote URL / public_id
+    if (this.isCloudinaryConfigured && (storageKey.includes('cloudinary') || storageKey.startsWith('docshield/'))) {
+      try {
+        // Extract public_id
+        let publicId = storageKey;
+        if (storageKey.includes('res.cloudinary.com')) {
+          const parts = storageKey.split('/upload/');
+          if (parts[1]) {
+            publicId = parts[1].replace(/^v\d+\//, '').replace(/\.[^/.]+$/, '');
+          }
+        }
+        await cloudinary.uploader.destroy(publicId, { resource_type: 'raw' });
+        await cloudinary.uploader.destroy(publicId, { resource_type: 'image' });
+      } catch (err) {
+        logger.warn(`[StorageService] Cloudinary deletion error: ${err.message}`);
+      }
+    }
+
+    // 2. Unlink local file
+    try {
+      if (!storageKey.startsWith('http://') && !storageKey.startsWith('https://')) {
+        const absolutePath = this.getSafePath(storageKey);
+        if (fs.existsSync(absolutePath)) {
+          await fs.promises.unlink(absolutePath);
+        }
+      }
+    } catch (err) {}
+  }
+
+  /**
+   * Check if file exists in Cloudinary or local storage
    */
   async exists(storageKey) {
+    if (!storageKey) return false;
+    if (storageKey.startsWith('http://') || storageKey.startsWith('https://')) {
+      return true;
+    }
     try {
       const absolutePath = this.getSafePath(storageKey);
       if (fs.existsSync(absolutePath)) return true;

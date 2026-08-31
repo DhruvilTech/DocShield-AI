@@ -37,11 +37,15 @@ const envSchema = z.object({
 
   // AI & Document Intelligence Provider
   AI_PROVIDER: z.enum(['heuristic', 'gemini', 'openai', 'mock']).default('heuristic'),
-  AI_MODEL: z.string().default('docshield-intelligence-v1'),
-  GEMINI_API_KEY: z.string().optional(),
-  OPENAI_API_KEY: z.string().optional(),
+  // Unified AI Backend Service
   AI_SERVICE_URL: z.string().default('http://localhost:8000'),
   IMAGE_TAMPERING_PYTHON: z.string().optional(),
+
+  // Cloudinary Cloud Storage
+  CLOUDINARY_CLOUD_NAME: z.string().default('docshield'),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
+  CLOUDINARY_URL: z.string().optional(),
 });
 
 const parseEnv = () => {
