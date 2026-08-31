@@ -115,17 +115,25 @@ export interface Permission {
 
 export interface AuditLog {
   id: string;
-  actorUserId: string | null;
+  actorUserId?: string | null;
+  actor_user_id?: string | null;
   actorName?: string;
+  actor_name?: string;
   actorEmail?: string;
+  actor_email?: string;
   action: string;
-  resourceType: string;
-  resourceId: string | null;
+  resourceType?: string;
+  resource_type?: string;
+  resourceId?: string | null;
+  resource_id?: string | null;
   description?: string;
   metadata: Record<string, any> | null;
-  ipAddress: string | null;
-  userAgent: string | null;
-  createdAt: string;
+  ipAddress?: string | null;
+  ip_address?: string | null;
+  userAgent?: string | null;
+  user_agent?: string | null;
+  createdAt?: string;
+  created_at?: string;
 }
 
 export interface PaginatedResult<T> {
