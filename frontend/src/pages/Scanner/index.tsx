@@ -201,11 +201,20 @@ export const ScannerPage: React.FC = () => {
       });
       setPipelineResult(pipelineResult);
 
+      // Always fetch the DB extraction record if it was created
+      try {
+        const extData = await processingApi.getExtraction(uploadedDoc.id);
+        if (extData) {
+          setExtraction(extData);
+        }
+      } catch (e) {
+        console.error('Failed to fetch extraction record', e);
+      }
+
       // Process Stage 1: Document Detection
       const docStage = pipelineResult.stages?.document_detection;
       if (docStage && docStage.status === 'passed') {
-        setExtraction(docStage.result);
-        addLog(`✓ Document Detection Passed. Confidence: ${((docStage.result?.confidence_score || 0.95) * 100).toFixed(0)}%`);
+        addLog(`✓ Document Detection Passed. Confidence: ${((docStage.confidence || 0.95) * 100).toFixed(0)}%`);
       } else {
         addLog(`✗ Document Detection Failed: ${docStage?.reason || 'Invalid document'}`);
         addLog(`Tampering Analysis: Skipped`);
@@ -699,7 +708,7 @@ export const ScannerPage: React.FC = () => {
                           return (
                             <div key={key} className="p-2.5 rounded border border-[var(--border)] bg-[var(--surface-raised)]">
                               <span className="text-[10px] text-[var(--text-3)] uppercase block mb-0.5">
-                                {key.replace(/([A-Z])/g, ' $1')}
+                                {key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1')}
                               </span>
                               <span className="font-bold text-[var(--text-1)] text-xs">
                                 {val.value ? String(val.value) : '—'}
