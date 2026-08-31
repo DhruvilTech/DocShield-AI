@@ -77,16 +77,20 @@ export class PythonBridgeService {
     // 1. Write buffer to secure temporary file
     await fs.promises.writeFile(tempFilePath, fileBuffer);
 
-    // Also persist a copy to AI/image_tampering/upload/ for module consistency
+    // Also persist a copy to AI/uploads/ (main AI upload folder) and AI/image_tampering/upload/
     try {
-      const uploadDir = path.resolve(__dirname, '../../../../AI/image_tampering/upload');
-      if (!fs.existsSync(uploadDir)) {
-        await fs.promises.mkdir(uploadDir, { recursive: true });
+      const mainUploadDir = path.resolve(__dirname, '../../../../AI/uploads');
+      const tamperUploadDir = path.resolve(__dirname, '../../../../AI/image_tampering/upload');
+      
+      for (const dir of [mainUploadDir, tamperUploadDir]) {
+        if (!fs.existsSync(dir)) {
+          await fs.promises.mkdir(dir, { recursive: true });
+        }
+        const targetUploadPath = path.join(dir, originalFilename);
+        await fs.promises.writeFile(targetUploadPath, fileBuffer);
       }
-      const targetUploadPath = path.join(uploadDir, originalFilename);
-      await fs.promises.writeFile(targetUploadPath, fileBuffer);
     } catch (uploadSaveErr) {
-      logger.warn(`Could not save copy to AI/image_tampering/upload: ${uploadSaveErr.message}`);
+      logger.warn(`Could not save copy to AI uploads directories: ${uploadSaveErr.message}`);
     }
 
     const args = [

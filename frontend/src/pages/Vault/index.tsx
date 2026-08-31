@@ -404,7 +404,7 @@ export const VaultPage: React.FC = () => {
           <SectionHeader
             eyebrow="Zero-Trust Document Vault & AI Enclave"
             title="Encrypted Screening & Intelligence Enclave"
-            description="Tenant-isolated identity and travel documents with Cloudinary storage, automated text extraction, optical tampering detection, face verification, and multi-factor risk assessment."
+            description="Tenant-isolated identity and travel documents with Local Secure Enclave storage, automated text extraction, optical tampering detection, face verification, and multi-factor risk assessment."
             className="mb-0"
           />
 
@@ -423,7 +423,7 @@ export const VaultPage: React.FC = () => {
           {[
             { label: 'Vaulted Artifacts', value: documents.length, status: 'info' },
             { label: 'Active Organization', value: activeOrganization?.name || 'Default', status: 'safe' },
-            { label: 'Storage Enclave', value: 'Cloudinary + SHA-256', status: 'accent' },
+            { label: 'Storage Enclave', value: 'Local Enclave + SHA-256', status: 'accent' },
             { label: 'Total Enclave Size', value: formatFileSize(totalVaultSize), status: 'info' },
           ].map((s, i) => (
             <motion.div key={s.label} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
@@ -677,7 +677,7 @@ export const VaultPage: React.FC = () => {
 
                         <div className="grid grid-cols-2 gap-3 text-[11px]">
                           <div className="p-3 rounded-lg bg-[var(--surface-alt)] border border-[var(--border)] space-y-1">
-                            <span className="text-[var(--text-3)] text-[10px] uppercase block">Storage Key (Cloudinary)</span>
+                            <span className="text-[var(--text-3)] text-[10px] uppercase block">Storage Key (Local Enclave)</span>
                             <span className="text-[var(--text-1)] break-all">{selectedDoc.storage_key}</span>
                           </div>
                           <div className="p-3 rounded-lg bg-[var(--surface-alt)] border border-[var(--border)] space-y-1">
@@ -1240,7 +1240,7 @@ export const VaultPage: React.FC = () => {
                 <Card className="p-6 border-[var(--border-accent)]">
                   <div className="flex justify-between items-center mb-4 border-b border-[var(--border)] pb-3">
                     <h3 className="text-sm font-bold font-mono text-[var(--text-1)] uppercase">
-                      Upload & Vault Artifact (Cloudinary Enclave)
+                      Upload & Vault Artifact (Local Secure Enclave)
                     </h3>
                     <button onClick={() => setShowUploadModal(false)} className="text-[var(--text-3)] hover:text-[var(--text-1)]">
                       ✕

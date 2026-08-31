@@ -5,43 +5,34 @@ import crypto from 'crypto';
 import { Readable } from 'stream';
 import { v4 as uuidv4 } from 'uuid';
 import { fileURLToPath } from 'url';
-import { v2 as cloudinary } from 'cloudinary';
 import { AppError } from '../errors/AppError.js';
 import { UPLOAD_LIMITS } from '../config/constants.js';
-import { env } from '../config/env.js';
+import logger from '../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const STORAGE_BASE_DIR = path.resolve(__dirname, '../../storage');
 
-// Ensure base storage directory exists for offline/fallback caching
-if (!fs.existsSync(STORAGE_BASE_DIR)) {
-  fs.mkdirSync(STORAGE_BASE_DIR, { recursive: true });
-}
+// 1. Backend local tenant-isolated storage
+const BACKEND_STORAGE_DIR = path.resolve(__dirname, '../../storage');
+
+// 2. Main unified AI upload directory (for all AI modules: OCR, Face, Tampering)
+const AI_MAIN_UPLOADS_DIR = path.resolve(__dirname, '../../../../AI/uploads');
+
+// 3. Image Tampering specific upload directory
+const AI_TAMPERING_UPLOADS_DIR = path.resolve(__dirname, '../../../../AI/image_tampering/upload');
+
+// Ensure all storage enclaves exist
+[BACKEND_STORAGE_DIR, AI_MAIN_UPLOADS_DIR, AI_TAMPERING_UPLOADS_DIR].forEach((dir) => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+});
 
 export class StorageService {
-  constructor(baseDir = STORAGE_BASE_DIR) {
+  constructor(baseDir = BACKEND_STORAGE_DIR) {
     this.baseDir = baseDir;
-    this.isCloudinaryConfigured = false;
-    this.initCloudinary();
-  }
-
-  initCloudinary() {
-    if (env.CLOUDINARY_URL) {
-      cloudinary.config({
-        cloudinary_url: env.CLOUDINARY_URL,
-        secure: env.CLOUDINARY_SECURE !== false,
-      });
-      this.isCloudinaryConfigured = true;
-    } else if (env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET) {
-      cloudinary.config({
-        cloud_name: env.CLOUDINARY_CLOUD_NAME,
-        api_key: env.CLOUDINARY_API_KEY,
-        api_secret: env.CLOUDINARY_API_SECRET,
-        secure: env.CLOUDINARY_SECURE !== false,
-      });
-      this.isCloudinaryConfigured = true;
-    }
+    this.aiMainUploadsDir = AI_MAIN_UPLOADS_DIR;
+    this.aiTamperingUploadsDir = AI_TAMPERING_UPLOADS_DIR;
   }
 
   /**
@@ -92,7 +83,8 @@ export class StorageService {
   }
 
   /**
-   * Upload file to Cloudinary (or local enclave storage if Cloudinary is not configured)
+   * Upload file to 100% Local On-Premise Secure Enclave storage.
+   * Copies to backend isolated storage, AI/uploads (main AI directory), and AI/image_tampering/upload.
    */
   async upload(fileBuffer, originalFilename, mimeType, organizationId) {
     this.validateFile(fileBuffer, originalFilename, mimeType);
@@ -102,80 +94,53 @@ export class StorageService {
     const ext = path.extname(originalFilename).toLowerCase() || '.bin';
     const fileId = uuidv4();
 
-    // 1. Cloudinary upload if configured
-    if (this.isCloudinaryConfigured && env.NODE_ENV !== 'test') {
-      try {
-        const publicId = `docshield/organizations/${organizationId}/documents/${fileId}`;
-        const resourceType = mimeType.startsWith('image/') ? 'image' : 'raw';
-
-        const uploadPromise = new Promise((resolve, reject) => {
-          const uploadStream = cloudinary.uploader.upload_stream(
-            {
-              public_id: publicId,
-              resource_type: resourceType,
-              folder: undefined,
-              overwrite: true,
-              tags: [`org_${organizationId}`, 'docshield_document'],
-            },
-            (error, result) => {
-              if (error) return reject(error);
-              resolve(result);
-            }
-          );
-
-          const stream = Readable.from(fileBuffer);
-          stream.pipe(uploadStream);
-        });
-
-        const result = await uploadPromise;
-
-        // Also write a local copy to cache/offline storage for fast text extraction
-        const localRelKey = path.join(organizationId, `${fileId}${ext}`).replace(/\\/g, '/');
-        const localAbsPath = this.getSafePath(localRelKey);
-        const orgDir = path.dirname(localAbsPath);
-        if (!fs.existsSync(orgDir)) {
-          fs.mkdirSync(orgDir, { recursive: true });
-        }
-        await fs.promises.writeFile(localAbsPath, fileBuffer);
-
-        return {
-          storageKey: result.public_id || publicId,
-          secureUrl: result.secure_url,
-          checksum,
-          fileSize: fileBuffer.length,
-          mimeType,
-          provider: 'cloudinary',
-        };
-      } catch (err) {
-        console.error('Cloudinary upload error, using secure local fallback:', err);
-      }
-    }
-
-    // 2. Local fallback storage
+    // 1. Write to backend tenant-isolated storage: storage/<organizationId>/<fileId><ext>
     const relativeKey = path.join(organizationId, `${fileId}${ext}`).replace(/\\/g, '/');
     const absolutePath = this.getSafePath(relativeKey);
-
     const orgDir = path.dirname(absolutePath);
     if (!fs.existsSync(orgDir)) {
-      fs.mkdirSync(orgDir, { recursive: true });
+      await fs.promises.mkdir(orgDir, { recursive: true });
+    }
+    await fs.promises.writeFile(absolutePath, fileBuffer);
+
+    // 2. Write to main AI upload folder: AI/uploads/<originalFilename>
+    try {
+      if (!fs.existsSync(this.aiMainUploadsDir)) {
+        await fs.promises.mkdir(this.aiMainUploadsDir, { recursive: true });
+      }
+      const aiMainFilePath = path.join(this.aiMainUploadsDir, originalFilename);
+      await fs.promises.writeFile(aiMainFilePath, fileBuffer);
+    } catch (e) {
+      logger.warn(`Could not save copy to AI/uploads: ${e.message}`);
     }
 
-    await fs.promises.writeFile(absolutePath, fileBuffer);
+    // 3. Write to Image Tampering folder: AI/image_tampering/upload/<originalFilename>
+    try {
+      if (!fs.existsSync(this.aiTamperingUploadsDir)) {
+        await fs.promises.mkdir(this.aiTamperingUploadsDir, { recursive: true });
+      }
+      const aiTamperFilePath = path.join(this.aiTamperingUploadsDir, originalFilename);
+      await fs.promises.writeFile(aiTamperFilePath, fileBuffer);
+    } catch (e) {
+      logger.warn(`Could not save copy to AI/image_tampering/upload: ${e.message}`);
+    }
+
+    logger.info(`[StorageService] Stored "${originalFilename}" locally in enclave: ${relativeKey}`);
 
     return {
       storageKey: relativeKey,
+      secureUrl: `/api/v1/documents/files/${relativeKey}`,
       checksum,
       fileSize: fileBuffer.length,
       mimeType,
-      provider: 'local',
+      provider: 'local_secure_storage',
     };
   }
 
   /**
-   * Get readable stream for downloading or processing
+   * Get readable stream for downloading or processing from local enclave
    */
   async downloadStream(storageKey) {
-    // 1. Check local filesystem first (cached or stored)
     try {
       const absolutePath = this.getSafePath(storageKey);
       if (fs.existsSync(absolutePath)) {
@@ -187,32 +152,23 @@ export class StorageService {
         };
       }
     } catch (e) {
-      // Not on local filesystem or invalid relative path
-    }
-
-    // 2. Try fetching from Cloudinary if configured
-    if (this.isCloudinaryConfigured) {
-      try {
-        const url = cloudinary.url(storageKey, { resource_type: 'auto', secure: true });
-        const response = await fetch(url);
-        if (response.ok) {
-          const arrayBuffer = await response.arrayBuffer();
-          const buffer = Buffer.from(arrayBuffer);
-          return {
-            stream: Readable.from(buffer),
-            size: buffer.length,
-          };
-        }
-      } catch (err) {
-        console.error('Failed to stream from Cloudinary:', err);
+      // Check fallback in main AI uploads
+      const fallbackPath = path.join(this.aiMainUploadsDir, path.basename(storageKey));
+      if (fs.existsSync(fallbackPath)) {
+        const stat = await fs.promises.stat(fallbackPath);
+        const stream = fs.createReadStream(fallbackPath);
+        return {
+          stream,
+          size: stat.size,
+        };
       }
     }
 
-    throw AppError.notFound('Storage artifact not found', 'FILE_NOT_FOUND');
+    throw AppError.notFound('Storage artifact not found in local enclave', 'FILE_NOT_FOUND');
   }
 
   /**
-   * Get file buffer for processing
+   * Get file buffer for processing from local storage
    */
   async getBuffer(storageKey) {
     try {
@@ -222,16 +178,18 @@ export class StorageService {
       }
     } catch (e) {}
 
-    if (this.isCloudinaryConfigured) {
-      const url = cloudinary.url(storageKey, { resource_type: 'auto', secure: true });
-      const response = await fetch(url);
-      if (response.ok) {
-        const arrayBuffer = await response.arrayBuffer();
-        return Buffer.from(arrayBuffer);
-      }
+    // Fallback check in AI main uploads or tampering uploads
+    const mainAiFallback = path.join(this.aiMainUploadsDir, path.basename(storageKey));
+    if (fs.existsSync(mainAiFallback)) {
+      return await fs.promises.readFile(mainAiFallback);
     }
 
-    throw AppError.notFound('Storage artifact not found', 'FILE_NOT_FOUND');
+    const tamperAiFallback = path.join(this.aiTamperingUploadsDir, path.basename(storageKey));
+    if (fs.existsSync(tamperAiFallback)) {
+      return await fs.promises.readFile(tamperAiFallback);
+    }
+
+    throw AppError.notFound('Storage artifact not found in local enclave', 'FILE_NOT_FOUND');
   }
 
   /**
@@ -242,20 +200,9 @@ export class StorageService {
   }
 
   /**
-   * Delete file from storage
+   * Delete file from local storage
    */
   async delete(storageKey) {
-    // Delete from Cloudinary
-    if (this.isCloudinaryConfigured && storageKey.startsWith('docshield/')) {
-      try {
-        await cloudinary.uploader.destroy(storageKey, { resource_type: 'raw' });
-        await cloudinary.uploader.destroy(storageKey, { resource_type: 'image' });
-      } catch (err) {
-        // Ignore deletion errors
-      }
-    }
-
-    // Delete local file if exists
     try {
       const absolutePath = this.getSafePath(storageKey);
       if (fs.existsSync(absolutePath)) {
@@ -267,7 +214,7 @@ export class StorageService {
   }
 
   /**
-   * Check if file exists
+   * Check if file exists in local storage
    */
   async exists(storageKey) {
     try {
@@ -275,14 +222,8 @@ export class StorageService {
       if (fs.existsSync(absolutePath)) return true;
     } catch (err) {}
 
-    if (this.isCloudinaryConfigured && storageKey.startsWith('docshield/')) {
-      try {
-        const res = await cloudinary.api.resource(storageKey);
-        return Boolean(res);
-      } catch (err) {
-        return false;
-      }
-    }
+    const mainAiFallback = path.join(this.aiMainUploadsDir, path.basename(storageKey));
+    if (fs.existsSync(mainAiFallback)) return true;
 
     return false;
   }
