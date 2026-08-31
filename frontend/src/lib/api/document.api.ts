@@ -115,4 +115,12 @@ export const documentApi = {
   async deleteDocument(id: string): Promise<void> {
     await apiClient(`/documents/${id}`, { method: 'DELETE' });
   },
+
+  async verifyPipeline(id: string, options: { referenceFaceBase64?: string; simulateMismatch?: boolean }): Promise<any> {
+    const res = await apiClient<{ success: boolean; data: any }>(`/documents/${id}/verify-pipeline`, {
+      method: 'POST',
+      body: JSON.stringify(options),
+    });
+    return res.data || res;
+  },
 };

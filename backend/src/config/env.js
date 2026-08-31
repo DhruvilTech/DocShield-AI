@@ -47,6 +47,7 @@ const envSchema = z.object({
   AI_MODEL: z.string().default('docshield-intelligence-v1'),
   GEMINI_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
+  AI_SERVICE_URL: z.string().default('http://localhost:8000'),
 });
 
 const parseEnv = () => {

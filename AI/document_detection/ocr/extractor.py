@@ -139,10 +139,33 @@ class PassportFieldExtractor(BaseFieldExtractor):
 
         # name
         val, conf, src = _find_label_value(regions, ["SURNAME", "GIVEN NAME", "GIVEN NAMES", "NAME"])
+        if val:
+            clean_val = val.strip().upper()
+            if any(noise in clean_val for noise in ["/", "NOM", "GIVEN", "SURNAME", "PRÉNOMS"]):
+                val = None
         fields["name"] = ExtractedField(name="name", value=val, confidence=conf, source_text=src)
 
         # nationality
         val, conf, src = _find_label_value(regions, ["NATIONALITY", "NATIONAL"])
+        if val:
+            clean_val = val.strip().upper()
+            if any(noise in clean_val for noise in ["/", "SURNAME", "GIVEN", "NAME", "NOM"]):
+                val = None
+        
+        # Fallback: scan raw text for country indicators
+        if not val:
+            raw_upper = raw.upper()
+            if "INDIAN" in raw_upper:
+                val, conf, src = "INDIAN", 0.85, "Fallback raw search"
+            elif "IND" in raw_upper:
+                val, conf, src = "IND", 0.80, "Fallback raw search"
+            elif "USA" in raw_upper or "UNITED STATES" in raw_upper:
+                val, conf, src = "USA", 0.80, "Fallback raw search"
+            elif "CAN" in raw_upper or "CANADA" in raw_upper or "CANADIAN" in raw_upper:
+                val, conf, src = "CAN", 0.80, "Fallback raw search"
+            elif "GBR" in raw_upper or "BRITISH" in raw_upper or "UNITED KINGDOM" in raw_upper:
+                val, conf, src = "GBR", 0.80, "Fallback raw search"
+        
         fields["nationality"] = ExtractedField(name="nationality", value=val, confidence=conf, source_text=src)
 
         # dates
@@ -158,7 +181,6 @@ class PassportFieldExtractor(BaseFieldExtractor):
         def is_valid_date_format(date_val: str | None) -> bool:
             if not date_val:
                 return False
-            # Needs to contain digits and a separator / or -
             return bool(re.search(r"\d", date_val) and re.search(r"[-/]", date_val))
 
         # Dates fallback: search for date patterns DD/MM/YYYY
@@ -202,7 +224,14 @@ class PassportFieldExtractor(BaseFieldExtractor):
                 )
 
         # MRZ override (highest priority)
-        mrz_lines = [r.text for r in regions if self._MRZ_RE.match(r.text.replace(" ", ""))]
+        mrz_lines = []
+        for r in regions:
+            cleaned = r.text.replace(" ", "").upper()
+            cleaned = cleaned.replace("(", "<").replace(")", "<").replace("[", "<").replace("]", "<").replace("{", "<").replace("}", "<")
+            filtered = "".join([c for c in cleaned if c.isalnum() or c == "<"])
+            if len(filtered) >= 44 and (filtered.startswith("P") or len(mrz_lines) > 0):
+                mrz_lines.append(filtered[:44])
+
         if len(mrz_lines) >= 2:
             self._apply_mrz(mrz_lines[:2], fields)
 

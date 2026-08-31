@@ -5,6 +5,45 @@ import { auditService } from '../audit.service.js';
 import { AUDIT_ACTIONS } from '../../config/constants.js';
 import logger from '../../utils/logger.js';
 
+function normDate(dateStr) {
+  if (!dateStr || typeof dateStr !== 'string') return dateStr;
+  const clean = dateStr.trim().toUpperCase();
+
+  // 1. ISO format YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) return clean;
+
+  // 2. DD/MM/YYYY or DD.MM.YYYY or DD-MM-YYYY
+  const dmyMatch = clean.match(/^(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{4})$/);
+  if (dmyMatch) {
+    const day = dmyMatch[1].padStart(2, '0');
+    const month = dmyMatch[2].padStart(2, '0');
+    const year = dmyMatch[3];
+    return `${year}-${month}-${day}`;
+  }
+
+  // 3. DD MMM YYYY (e.g. 14 MAY 1995)
+  const monthMap = {
+    JAN: '01', FEB: '02', MAR: '03', APR: '04', MAY: '05', JUN: '06',
+    JUL: '07', AUG: '08', SEP: '09', OCT: '10', NOV: '11', DEC: '12',
+  };
+  const namedMatch = clean.match(/^(\d{1,2})[\s\-]([A-Z]{3})[\s\-](\d{4})$/);
+  if (namedMatch) {
+    const day = namedMatch[1].padStart(2, '0');
+    const month = monthMap[namedMatch[2]];
+    const year = namedMatch[3];
+    if (month) return `${year}-${month}-${day}`;
+  }
+
+  // 4. MRZ YYMMDD format
+  const mrzMatch = clean.match(/^(\d{2})(\d{2})(\d{2})$/);
+  if (mrzMatch) {
+    const yearPrefix = parseInt(mrzMatch[1], 10) > 40 ? '19' : '20';
+    return `${yearPrefix}${mrzMatch[1]}-${mrzMatch[2]}-${mrzMatch[3]}`;
+  }
+
+  return dateStr;
+}
+
 // Verhoeff Algorithm multiplication and permutation tables for Indian Aadhaar validation
 const VERHOEFF_D = [
   [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
@@ -79,6 +118,32 @@ export class DocumentValidationService {
       }
       return null;
     };
+
+    // --- Required Fields Check ---
+    if (normalizedType === 'PASSPORT') {
+      const requiredPassportFields = [
+        { key: 'name', display: 'Name', alts: ['name', 'fullName'] },
+        { key: 'passport_number', display: 'Passport Number', alts: ['passport_number', 'passportNumber'] },
+        { key: 'nationality', display: 'Nationality', alts: ['nationality'] },
+        { key: 'date_of_birth', display: 'Date of Birth', alts: ['date_of_birth', 'dateOfBirth'] },
+        { key: 'date_of_expiry', display: 'Date of Expiry', alts: ['date_of_expiry', 'dateOfExpiry'] },
+        { key: 'gender', display: 'Gender', alts: ['gender'] },
+      ];
+
+      for (const reqField of requiredPassportFields) {
+        const val = getVal(extractedFields, ...reqField.alts);
+        if (!val) {
+          findings.push({
+            rule: `REQUIRED_FIELD_MISSING_${reqField.key.toUpperCase()}`,
+            severity: 'CRITICAL',
+            title: `Required Field ${reqField.display} Missing`,
+            description: `The extraction engine failed to retrieve the mandatory passport field: ${reqField.display}. This usually indicates a severely corrupt scan or a blank document.`,
+            evidence: `${reqField.display} is null or empty`,
+          });
+          totalRiskImpact += 25;
+        }
+      }
+    }
 
     // --- 0. Document-Specific Format & Mathematical Checksum Rules ---
     if (normalizedType === 'NATIONAL_ID' || normalizedType === 'AADHAAR') {
@@ -235,9 +300,10 @@ export class DocumentValidationService {
         const calcDobCheck = PassportParser.computeIcaoCheckDigit(dob);
         const calcExpiryCheck = PassportParser.computeIcaoCheckDigit(expiry);
 
-        const passValid = !passNumCheckDigit || passNumCheckDigit === '<' || parseInt(passNumCheckDigit, 10) === calcPassCheck;
-        const dobValid = !dobCheckDigit || dobCheckDigit === '<' || parseInt(dobCheckDigit, 10) === calcDobCheck;
-        const expValid = !expiryCheckDigit || expiryCheckDigit === '<' || parseInt(expiryCheckDigit, 10) === calcExpiryCheck;
+        // Strict validation: check digits must match computed checksums exactly
+        const passValid = /^\d$/.test(passNumCheckDigit) && parseInt(passNumCheckDigit, 10) === calcPassCheck;
+        const dobValid = /^\d$/.test(dobCheckDigit) && parseInt(dobCheckDigit, 10) === calcDobCheck;
+        const expValid = /^\d$/.test(expiryCheckDigit) && parseInt(expiryCheckDigit, 10) === calcExpiryCheck;
 
         if (passValid && dobValid && expValid) {
           checks.mrzCheck = {
@@ -262,24 +328,21 @@ export class DocumentValidationService {
     }
 
     // --- 2. Expiration Date & 6-Month International Validity Rule ---
-    const expiryStr = getVal(extractedFields, 'dateOfExpiry', 'date_of_expiry', 'validUntil', 'valid_until');
+    const expiryStr = getVal(extractedFields, 'dateOfExpiry', 'date_of_expiry', 'visualDateOfExpiry', 'visual_date_of_expiry', 'validUntil', 'valid_until');
     if (expiryStr) {
-      let expDate = new Date(expiryStr);
-      if (isNaN(expDate.getTime()) && /^\d{2}\/\d{2}\/\d{4}$/.test(expiryStr)) {
-        const [d, m, y] = expiryStr.split('/');
-        expDate = new Date(`${y}-${m}-${d}`);
-      }
+      const parsedDateStr = normDate(expiryStr);
+      let expDate = new Date(parsedDateStr);
       if (!isNaN(expDate.getTime())) {
         if (expDate < now) {
           checks.expirationCheck = {
             status: 'EXPIRED',
-            details: `Document expired on ${expDate.toISOString().split('T')[0]}.`,
+            details: `Document expired on ${parsedDateStr}.`,
           };
           findings.push({
             rule: 'EXPIRED_DOCUMENT',
             severity: 'CRITICAL',
             title: 'Document Credential Expired',
-            description: `The document expired on ${expDate.toISOString().split('T')[0]}, making it invalid for active international clearance.`,
+            description: `The document expired on ${parsedDateStr}, making it invalid for active international clearance.`,
             evidence: `Expiry Date: ${expiryStr}`,
           });
           totalRiskImpact += 35;
@@ -288,7 +351,7 @@ export class DocumentValidationService {
           if (expDate < sixMonthsAhead) {
             checks.expirationCheck = {
               status: 'NEAR_EXPIRY',
-              details: `Document valid but expires within 6 months (${expDate.toISOString().split('T')[0]}).`,
+              details: `Document valid but expires within 6 months (${parsedDateStr}).`,
             };
             findings.push({
               rule: 'SIX_MONTH_EXPIRY_WARNING',
@@ -301,7 +364,7 @@ export class DocumentValidationService {
           } else {
             checks.expirationCheck = {
               status: 'VALID',
-              details: `Active and valid through ${expDate.toISOString().split('T')[0]}.`,
+              details: `Active and valid through ${parsedDateStr}.`,
             };
           }
         }
@@ -309,18 +372,15 @@ export class DocumentValidationService {
     }
 
     // --- 3. Date of Birth & Temporal Sanity ---
-    const dobStr = getVal(extractedFields, 'dateOfBirth', 'date_of_birth');
+    const dobStr = getVal(extractedFields, 'dateOfBirth', 'date_of_birth', 'visualDateOfBirth', 'visual_date_of_birth');
     if (dobStr) {
-      let dobDate = new Date(dobStr);
-      if (isNaN(dobDate.getTime()) && /^\d{2}\/\d{2}\/\d{4}$/.test(dobStr)) {
-        const [d, m, y] = dobStr.split('/');
-        dobDate = new Date(`${y}-${m}-${d}`);
-      }
+      const parsedDobStr = normDate(dobStr);
+      let dobDate = new Date(parsedDobStr);
       if (!isNaN(dobDate.getTime())) {
         if (dobDate > now) {
           checks.temporalSanityCheck = {
             status: 'INVALID_FUTURE_DOB',
-            details: `Date of birth ${dobStr} is in the future.`,
+            details: `Date of birth ${parsedDobStr} is in the future.`,
           };
           findings.push({
             rule: 'FUTURE_DOB_ANOMALY',
@@ -340,31 +400,145 @@ export class DocumentValidationService {
       }
     }
 
-    // --- 4. Cross-Field Consistency (MRZ vs Visual Zone) ---
-    const passNumVal = getVal(extractedFields, 'passportNumber', 'passport_number');
-    if (passNumVal && Array.isArray(mrzLines) && mrzLines.length >= 2) {
-      const visNum = passNumVal.replace(/\s/g, '').toUpperCase();
-      const mrz = mrzLines.join('').toUpperCase();
+    // --- Nationality Validation ---
+    const visNationVal = getVal(extractedFields, 'visualNationality', 'visual_nationality');
+    const isInvalidNationality = (nation) => {
+      if (!nation) return false;
+      const clean = nation.trim().toLowerCase();
+      return clean.includes('/') || clean.includes('surname') || clean.includes('given') || clean.includes('name') || clean.includes('nom') || clean.length < 2;
+    };
+    if (visNationVal && isInvalidNationality(visNationVal)) {
+      findings.push({
+        rule: 'INVALID_NATIONALITY_EXTRACTION',
+        severity: 'CRITICAL',
+        title: 'Invalid Nationality Extraction',
+        description: `The extracted nationality "${visNationVal}" contains visual label noise or invalid formatting.`,
+        evidence: `Nationality: ${visNationVal}`,
+      });
+      totalRiskImpact += 20;
+    }
 
-      if (visNum && !mrz.includes(visNum)) {
-        checks.crossFieldConsistency = {
-          status: 'MISMATCH',
-          details: `Visual number "${visNum}" does not match MRZ sequence.`,
-        };
+    // --- 4. Cross-Field Consistency (MRZ vs Visual Zone) ---
+    // A. Passport Number
+    const mrzPass = getVal(extractedFields, 'passportNumber', 'passport_number', 'mrz_passport_number');
+    const visPass = getVal(extractedFields, 'visualPassportNumber', 'visual_passport_number', 'visPassportNumber');
+    if (mrzPass && visPass) {
+      const normMrz = mrzPass.replace(/[\s<]/g, '').toUpperCase();
+      const normVis = visPass.replace(/[\s<]/g, '').toUpperCase();
+      if (normMrz !== normVis) {
         findings.push({
           rule: 'VISUAL_MRZ_NUMBER_MISMATCH',
           severity: 'CRITICAL',
-          title: 'Visual Zone vs MRZ Identifier Discrepancy',
-          description: 'The passport identifier in the visual inspection zone differs from the encrypted MRZ string.',
-          evidence: `Visual: ${visNum} | MRZ: ${mrz.substring(0, 30)}...`,
+          title: 'Visual vs MRZ Passport Number Mismatch',
+          description: 'The passport number in the visual zone differs from the MRZ zone passport number.',
+          evidence: `Visual: ${visPass} | MRZ: ${mrzPass}`,
         });
         totalRiskImpact += 30;
-      } else {
-        checks.crossFieldConsistency = {
-          status: 'CONSISTENT',
-          details: 'Visual inspection zone aligns with MRZ parsed structure.',
-        };
       }
+    }
+
+    // B. Holder Name
+    const mrzName = getVal(extractedFields, 'name', 'fullName', 'mrz_name');
+    const visName = getVal(extractedFields, 'visualName', 'visual_name', 'visName');
+    if (mrzName && visName) {
+      const normMrz = mrzName.replace(/</g, ' ').replace(/[^A-Z]/g, '').toUpperCase();
+      const normVis = visName.replace(/[^A-Z]/g, '').toUpperCase();
+      if (normMrz && normVis && !normMrz.includes(normVis) && !normVis.includes(normMrz)) {
+        findings.push({
+          rule: 'VISUAL_MRZ_NAME_MISMATCH',
+          severity: 'CRITICAL',
+          title: 'Visual Name vs MRZ Name Mismatch',
+          description: 'The passport holder name in the visual inspection zone differs from the MRZ zone name.',
+          evidence: `Visual: ${visName} | MRZ: ${mrzName}`,
+        });
+        totalRiskImpact += 30;
+      }
+    }
+
+    // C. Nationality
+    const mrzNation = getVal(extractedFields, 'nationality', 'mrz_nationality');
+    const visNation = getVal(extractedFields, 'visualNationality', 'visual_nationality', 'visNationality');
+    if (mrzNation && visNation && !isInvalidNationality(visNation)) {
+      const normMrz = mrzNation.replace(/[\s<]/g, '').toUpperCase();
+      const normVis = visNation.replace(/[\s<]/g, '').toUpperCase();
+      if (normMrz !== normVis) {
+        findings.push({
+          rule: 'VISUAL_MRZ_NATIONALITY_MISMATCH',
+          severity: 'HIGH',
+          title: 'Visual vs MRZ Nationality Mismatch',
+          description: 'The nationality in the visual zone differs from the MRZ zone nationality.',
+          evidence: `Visual: ${visNation} | MRZ: ${mrzNation}`,
+        });
+        totalRiskImpact += 20;
+      }
+    }
+
+    // D. Date of Birth
+    const mrzDob = getVal(extractedFields, 'dateOfBirth', 'date_of_birth', 'mrz_date_of_birth');
+    const visDob = getVal(extractedFields, 'visualDateOfBirth', 'visual_date_of_birth', 'visDateOfBirth');
+    if (mrzDob && visDob) {
+      const normMrz = normDate(mrzDob);
+      const normVis = normDate(visDob);
+      if (normMrz && normVis && normMrz !== normVis) {
+        findings.push({
+          rule: 'VISUAL_MRZ_DOB_MISMATCH',
+          severity: 'CRITICAL',
+          title: 'Visual vs MRZ Date of Birth Mismatch',
+          description: 'The date of birth in the visual zone differs from the MRZ zone date of birth.',
+          evidence: `Visual: ${visDob} | MRZ: ${mrzDob}`,
+        });
+        totalRiskImpact += 30;
+      }
+    }
+
+    // E. Date of Expiry
+    const mrzExp = getVal(extractedFields, 'dateOfExpiry', 'date_of_expiry', 'mrz_date_of_expiry');
+    const visExp = getVal(extractedFields, 'visualDateOfExpiry', 'visual_date_of_expiry', 'visDateOfExpiry');
+    if (mrzExp && visExp) {
+      const normMrz = normDate(mrzExp);
+      const normVis = normDate(visExp);
+      if (normMrz && normVis && normMrz !== normVis) {
+        findings.push({
+          rule: 'VISUAL_MRZ_EXPIRY_MISMATCH',
+          severity: 'CRITICAL',
+          title: 'Visual vs MRZ Date of Expiry Mismatch',
+          description: 'The date of expiry in the visual zone differs from the MRZ zone date of expiry.',
+          evidence: `Visual: ${visExp} | MRZ: ${mrzExp}`,
+        });
+        totalRiskImpact += 30;
+      }
+    }
+
+    // F. Gender
+    const mrzGen = getVal(extractedFields, 'gender', 'mrz_gender');
+    const visGen = getVal(extractedFields, 'visualGender', 'visual_gender', 'visGender');
+    if (mrzGen && visGen) {
+      const normMrz = mrzGen.trim().toUpperCase().charAt(0);
+      const normVis = visGen.trim().toUpperCase().charAt(0);
+      if (normMrz && normVis && normMrz !== normVis) {
+        findings.push({
+          rule: 'VISUAL_MRZ_GENDER_MISMATCH',
+          severity: 'HIGH',
+          title: 'Visual vs MRZ Gender Mismatch',
+          description: 'The gender in the visual zone differs from the MRZ zone gender.',
+          evidence: `Visual: ${visGen} | MRZ: ${mrzGen}`,
+        });
+        totalRiskImpact += 20;
+      }
+    }
+
+    // Ensure checks.crossFieldConsistency reflects any mismatch
+    const hasMismatch = findings.some((f) => f.rule.startsWith('VISUAL_MRZ_') && f.rule.endsWith('_MISMATCH'));
+    if (hasMismatch) {
+      checks.crossFieldConsistency = {
+        status: 'MISMATCH',
+        details: 'Visual inspection zone has data field mismatches against MRZ parsed structure.',
+      };
+    } else {
+      checks.crossFieldConsistency = {
+        status: 'CONSISTENT',
+        details: 'Visual inspection zone aligns with MRZ parsed structure.',
+      };
     }
 
     // --- 5. Visa Entry & Stay Duration Validation ---
