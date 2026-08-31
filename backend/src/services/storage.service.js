@@ -15,14 +15,11 @@ const __dirname = path.dirname(__filename);
 // 1. Backend local tenant-isolated storage
 const BACKEND_STORAGE_DIR = path.resolve(__dirname, '../../storage');
 
-// 2. Main unified AI upload directory (for all AI modules: OCR, Face, Tampering)
-const AI_MAIN_UPLOADS_DIR = path.resolve(__dirname, '../../../../AI/uploads');
+// 2. Single unified AI upload directory: DocShield-AI/AI/upload/
+const AI_UPLOAD_DIR = path.resolve(__dirname, '../../../AI/upload');
 
-// 3. Image Tampering specific upload directory
-const AI_TAMPERING_UPLOADS_DIR = path.resolve(__dirname, '../../../../AI/image_tampering/upload');
-
-// Ensure all storage enclaves exist
-[BACKEND_STORAGE_DIR, AI_MAIN_UPLOADS_DIR, AI_TAMPERING_UPLOADS_DIR].forEach((dir) => {
+// Ensure storage directories exist
+[BACKEND_STORAGE_DIR, AI_UPLOAD_DIR].forEach((dir) => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -31,8 +28,7 @@ const AI_TAMPERING_UPLOADS_DIR = path.resolve(__dirname, '../../../../AI/image_t
 export class StorageService {
   constructor(baseDir = BACKEND_STORAGE_DIR) {
     this.baseDir = baseDir;
-    this.aiMainUploadsDir = AI_MAIN_UPLOADS_DIR;
-    this.aiTamperingUploadsDir = AI_TAMPERING_UPLOADS_DIR;
+    this.aiUploadDir = AI_UPLOAD_DIR;
   }
 
   /**
@@ -84,7 +80,7 @@ export class StorageService {
 
   /**
    * Upload file to 100% Local On-Premise Secure Enclave storage.
-   * Copies to backend isolated storage, AI/uploads (main AI directory), and AI/image_tampering/upload.
+   * Stores in backend isolated storage and the single unified AI/upload/ folder.
    */
   async upload(fileBuffer, originalFilename, mimeType, organizationId) {
     this.validateFile(fileBuffer, originalFilename, mimeType);
@@ -103,26 +99,15 @@ export class StorageService {
     }
     await fs.promises.writeFile(absolutePath, fileBuffer);
 
-    // 2. Write to main AI upload folder: AI/uploads/<originalFilename>
+    // 2. Write to single AI upload folder: AI/upload/<originalFilename>
     try {
-      if (!fs.existsSync(this.aiMainUploadsDir)) {
-        await fs.promises.mkdir(this.aiMainUploadsDir, { recursive: true });
+      if (!fs.existsSync(this.aiUploadDir)) {
+        await fs.promises.mkdir(this.aiUploadDir, { recursive: true });
       }
-      const aiMainFilePath = path.join(this.aiMainUploadsDir, originalFilename);
-      await fs.promises.writeFile(aiMainFilePath, fileBuffer);
+      const aiFilePath = path.join(this.aiUploadDir, originalFilename);
+      await fs.promises.writeFile(aiFilePath, fileBuffer);
     } catch (e) {
-      logger.warn(`Could not save copy to AI/uploads: ${e.message}`);
-    }
-
-    // 3. Write to Image Tampering folder: AI/image_tampering/upload/<originalFilename>
-    try {
-      if (!fs.existsSync(this.aiTamperingUploadsDir)) {
-        await fs.promises.mkdir(this.aiTamperingUploadsDir, { recursive: true });
-      }
-      const aiTamperFilePath = path.join(this.aiTamperingUploadsDir, originalFilename);
-      await fs.promises.writeFile(aiTamperFilePath, fileBuffer);
-    } catch (e) {
-      logger.warn(`Could not save copy to AI/image_tampering/upload: ${e.message}`);
+      logger.warn(`Could not save copy to AI/upload: ${e.message}`);
     }
 
     logger.info(`[StorageService] Stored "${originalFilename}" locally in enclave: ${relativeKey}`);
@@ -152,8 +137,8 @@ export class StorageService {
         };
       }
     } catch (e) {
-      // Check fallback in main AI uploads
-      const fallbackPath = path.join(this.aiMainUploadsDir, path.basename(storageKey));
+      // Check fallback in single AI upload folder
+      const fallbackPath = path.join(this.aiUploadDir, path.basename(storageKey));
       if (fs.existsSync(fallbackPath)) {
         const stat = await fs.promises.stat(fallbackPath);
         const stream = fs.createReadStream(fallbackPath);
@@ -178,15 +163,10 @@ export class StorageService {
       }
     } catch (e) {}
 
-    // Fallback check in AI main uploads or tampering uploads
-    const mainAiFallback = path.join(this.aiMainUploadsDir, path.basename(storageKey));
-    if (fs.existsSync(mainAiFallback)) {
-      return await fs.promises.readFile(mainAiFallback);
-    }
-
-    const tamperAiFallback = path.join(this.aiTamperingUploadsDir, path.basename(storageKey));
-    if (fs.existsSync(tamperAiFallback)) {
-      return await fs.promises.readFile(tamperAiFallback);
+    // Fallback check in AI upload
+    const aiFallback = path.join(this.aiUploadDir, path.basename(storageKey));
+    if (fs.existsSync(aiFallback)) {
+      return await fs.promises.readFile(aiFallback);
     }
 
     throw AppError.notFound('Storage artifact not found in local enclave', 'FILE_NOT_FOUND');
@@ -222,8 +202,8 @@ export class StorageService {
       if (fs.existsSync(absolutePath)) return true;
     } catch (err) {}
 
-    const mainAiFallback = path.join(this.aiMainUploadsDir, path.basename(storageKey));
-    if (fs.existsSync(mainAiFallback)) return true;
+    const aiFallback = path.join(this.aiUploadDir, path.basename(storageKey));
+    if (fs.existsSync(aiFallback)) return true;
 
     return false;
   }

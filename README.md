@@ -25,9 +25,8 @@ DocShield-AI/
 │   │   ├── forensic/             # ELA, Noise, SIFT Copy-Move, Splicing, Defacement, Text Tampering, PDF Forensics
 │   │   ├── fusion/               # Evidence Fusion, Spatial Correlation & Conflict Detection
 │   │   ├── schemas/              # Pydantic Schemas validating forensic results
-│   │   ├── upload/               # Module-specific test and reference uploads
 │   │   └── venv/                 # CPU/GPU-optimized Python Virtual Environment
-│   ├── uploads/                  # 🔒 Main Unified Local Uploads Folder (Ignored by Git)
+│   ├── upload/                   # 🔒 Single Unified Local Uploads Folder (Ignored by Git)
 │   ├── tests/                    # Automated pytest test suites (120+ tests)
 │   ├── app.py                    # Unified FastAPI Application Entrypoint (:8000)
 │   └── requirements.txt          # Python dependencies
@@ -60,10 +59,9 @@ DocShield-AI/
 
 For enterprise data security and compliance, **third-party cloud storage (such as Cloudinary) has been completely eliminated**. All documents, images, and PDFs remain strictly on-premise in encrypted, local hardware-isolated storage enclaves:
 
-1. **Main AI Uploads Directory**: `AI/uploads/` — Unified storage directory for all incoming documents across OCR, Face Verification, and Image Tampering.
-2. **Image Tampering Uploads Directory**: `AI/image_tampering/upload/` — Preserved for direct forensic benchmark testing.
-3. **Backend Local Enclave Storage**: `backend/storage/<organizationId>/<fileId><ext>` — Tenant-isolated storage with SHA-256 cryptographic verification.
-4. **Git Protection**: All upload and storage directories are strictly ignored in `.gitignore` to prevent any personal or test documents from ever being committed to GitHub.
+1. **Single AI Upload Directory**: `AI/upload/` — The one and only unified upload directory for all incoming documents across OCR, Face Verification, and Image Tampering.
+2. **Backend Local Enclave Storage**: `backend/storage/<organizationId>/<fileId><ext>` — Tenant-isolated storage with SHA-256 cryptographic verification.
+3. **Git Protection**: All upload and storage directories are strictly ignored in `.gitignore` to prevent any personal or test documents from ever being committed to GitHub.
 
 ---
 

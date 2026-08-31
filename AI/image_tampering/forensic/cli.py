@@ -97,15 +97,15 @@ def main():
         sys.stdout.flush()
         sys.exit(1)
 
-    # Save a copy of uploaded document to image_tampering/upload folder
+    # Save a copy of uploaded document to single AI/upload folder
     try:
-        upload_dir = os.path.abspath(os.path.join(AI_DIR, "image_tampering", "upload"))
+        upload_dir = os.path.abspath(os.path.join(AI_DIR, "upload"))
         os.makedirs(upload_dir, exist_ok=True)
         save_target = os.path.join(upload_dir, filename)
         with open(save_target, "wb") as f_out:
             f_out.write(input_bytes)
     except Exception as e:
-        sys.stderr.write(f"Warning: could not save to upload directory: {e}\n")
+        sys.stderr.write(f"Warning: could not save to AI/upload: {e}\n")
 
     # 2. Execute Forensic Pipeline
     try:

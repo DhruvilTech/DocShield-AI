@@ -42,18 +42,20 @@ backend/storage/*
 **/.venv/
 **/env/
 
-# AI Generated debug output, uploads, and temporary files
-AI/uploads/*
-!AI/uploads/.gitkeep
-AI/image_tampering/upload/*
-!AI/image_tampering/upload/.gitkeep
+# AI Generated debug output, single upload folder, and temporary files
+AI/upload/*
+!AI/upload/.gitkeep
 AI/image_tampering/outputs/
 AI/image_tampering/**/*.tmp
 AI/image_tampering/output/
 AI/outputs/
+backend/storage/*
+!backend/storage/.gitkeep
 uploads/
 **/uploads/
-test_bridge.mjs
+**/upload/*
+!**/upload/.gitkeep
 *.tmp
 *.temp
+
 
