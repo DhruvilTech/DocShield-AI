@@ -53,25 +53,21 @@ class PaddleOCREngine(BaseOCREngine):
             if isinstance(image, Image.Image):
                 # Convert PIL Image to BGR numpy array
                 image = np.array(image.convert("RGB"))[:, :, ::-1]
-<<<<<<< HEAD
-            try:
-                raw = self._ocr.ocr(image, cls=True)
-            except TypeError:
-                raw = self._ocr.ocr(image)
-=======
             elif isinstance(image, np.ndarray) and len(image.shape) == 2:
                 import cv2
                 image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
 
-            if self._use_rapid:
+            if getattr(self, "_use_rapid", False):
                 res, _ = self._ocr(image)
                 if res:
                     raw = [[[item[0], (item[1], float(item[2]))] for item in res]]
                 else:
                     raw = []
             else:
-                raw = self._ocr.ocr(image, cls=True)
->>>>>>> ab78136 (feat: implement multi-stage verification pipeline and associated API and UI components)
+                try:
+                    raw = self._ocr.ocr(image, cls=True)
+                except TypeError:
+                    raw = self._ocr.ocr(image)
         except Exception as exc:
             raise OCRFailureError(f"OCR inference failed: {exc}") from exc
         return self._normalizer.normalize(raw)

@@ -66,18 +66,24 @@ class Signals(BaseModel):
 # Phase 8 — Evidence Fusion schemas
 # ──────────────────────────────────────────────────────────────────────────────
 
+from typing import Optional, List, Dict, Any, Union
+
 class FusedRegion(BaseModel):
-    """One spatially-corroborated suspicious region produced by Phase 8 fusion."""
-    region_id: str                            # "R001", "R002", …
-    page: int = 1                             # page number (1 for single images)
-    bbox: Dict[str, int]                      # {"x":…, "y":…, "width":…, "height":…}
-    severity: str                             # "LOW" | "MEDIUM" | "HIGH"
-    evidence_strength: str                    # "NONE" | "WEAK" | "MODERATE" | "STRONG"
-    evidence_count: int                       # number of independent supporting signals
-    supporting_signals: List[str]             # e.g. ["ELA", "NOISE", "STAMP"]
-    signal_scores: Dict[str, int]             # normalised 0-100 per signal
-    reason: str                               # human-readable sentence
-    target_bbox: Optional[Dict[str, int]] = None   # copy-move target box, if present
+    """One spatially-corroborated suspicious region produced by Phase 8/10 fusion."""
+    region_id: str                                      # "R001", "R002", …
+    page: int = 1                                       # page number (1 for single images)
+    bbox: Union[Dict[str, int], List[int]]              # {"x":…, "y":…, "width":…, "height":…} or [x, y, w, h]
+    severity: str                                       # "LOW" | "MEDIUM" | "HIGH"
+    evidence_strength: str                              # "NONE" | "WEAK" | "MODERATE" | "STRONG"
+    evidence_count: int = 0                             # number of independent supporting signals (alias for detector_count)
+    detector_count: int = 0                             # Phase 10 detector count
+    supporting_signals: List[str] = []                  # e.g. ["ELA", "NOISE", "STAMP"]
+    supporting_detectors: List[str] = []                # Phase 10 alias e.g. ["ELA", "NOISE"]
+    signals: Dict[str, float] = {}                      # Raw float detector scores e.g. {"ela": 0.86, "noise": 0.81}
+    signal_scores: Dict[str, int] = {}                  # Normalised 0-100 per signal e.g. {"ELA": 86, "NOISE": 81}
+    reason: str                                         # Human-readable explanation sentence
+    target_bbox: Optional[Union[Dict[str, int], List[int]]] = None  # copy-move target box, if present
+    overlap_details: Optional[Dict[str, float]] = None  # Optional IoU/overlap metrics
 
 class FusionEvidence(BaseModel):
     """Full Phase 8 Evidence Fusion result — wraps all fusion outputs."""
