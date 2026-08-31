@@ -39,8 +39,9 @@ export function createApp() {
   app.use(requestLogger);
   app.use('/api', apiLimiter);
 
-  // 5. Mount API Version 1
+  // 5. Mount API Routes
   app.use('/api/v1', v1Router);
+  app.use('/api', v1Router);
 
   // 6. Root & 404 Handlers
   app.get('/', (req, res) => {

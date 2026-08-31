@@ -1,8 +1,31 @@
 // src/lib/api/tampering.api.ts
 import { apiClient } from './client';
-import { TamperingAnalysis } from '../../types';
+import { TamperingAnalysis, ForensicAnalysisResponse } from '../../types';
 
 export const tamperingApi = {
+  /**
+   * Run standalone direct file upload tampering forensics
+   */
+  analyzeDirect: async (
+    file: File,
+    options: { saveDebug?: boolean } = {}
+  ): Promise<ForensicAnalysisResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (options.saveDebug) {
+      formData.append('saveDebug', 'true');
+    }
+
+    const res = await apiClient<{ success: boolean; data: ForensicAnalysisResponse }>(
+      '/image-tampering/analyze',
+      {
+        method: 'POST',
+        body: formData,
+      }
+    );
+    return res.data ?? (res as any);
+  },
+
   /**
    * Run on-demand tampering and forensic analysis
    */
@@ -42,3 +65,4 @@ export const tamperingApi = {
     return res.data?.analysis ?? (res as any)?.analysis ?? (res as any);
   },
 };
+

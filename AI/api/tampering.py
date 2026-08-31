@@ -64,6 +64,16 @@ async def analyze_document(
         )
 
     try:
+        import os
+        upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "image_tampering", "upload"))
+        os.makedirs(upload_dir, exist_ok=True)
+        save_target = os.path.join(upload_dir, file.filename)
+        with open(save_target, "wb") as f_out:
+            f_out.write(image_bytes)
+    except Exception as e:
+        logger.warning(f"Could not persist file to upload directory: {e}")
+
+    try:
         result = run_forensic_pipeline(
             image_bytes=image_bytes,
             filename=file.filename,

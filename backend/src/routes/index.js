@@ -10,6 +10,7 @@ import invitationRoutes from './invitation.routes.js';
 import documentRoutes from './document.routes.js';
 import watchlistRoutes from './watchlist.routes.js';
 import adminRoutes from './admin.routes.js';
+import tamperingRoutes from './tampering.routes.js';
 
 const router = Router();
 
@@ -24,5 +25,7 @@ router.use('/documents', documentRoutes);
 router.use('/watchlists', watchlistRoutes);
 router.use('/watchlist', watchlistRoutes);
 router.use('/admin', adminRoutes);
+router.use('/image-tampering', tamperingRoutes);
+router.use('/tampering', tamperingRoutes);
 
 export default router;

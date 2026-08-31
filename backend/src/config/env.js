@@ -48,6 +48,7 @@ const envSchema = z.object({
   GEMINI_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   AI_SERVICE_URL: z.string().default('http://localhost:8000'),
+  IMAGE_TAMPERING_PYTHON: z.string().optional(),
 });
 
 const parseEnv = () => {

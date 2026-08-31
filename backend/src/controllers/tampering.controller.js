@@ -62,6 +62,40 @@ export class TamperingController {
       next(err);
     }
   }
+
+  /**
+   * Run direct file upload tampering forensics
+   * POST /api/image-tampering/analyze
+   */
+  async analyzeDirect(req, res, next) {
+    try {
+      if (!req.file || !req.file.buffer) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'FILE_REQUIRED',
+            message: 'A document image or PDF file is required for forensic analysis.',
+          },
+        });
+      }
+
+      const saveDebug = req.body?.saveDebug === 'true' || req.query?.saveDebug === 'true';
+      const debugDir = req.body?.debugDir || req.query?.debugDir;
+
+      const result = await tamperingDetectorService.analyzeDirect(
+        req.file.buffer,
+        req.file.originalname || 'document.png',
+        { saveDebug, debugDir }
+      );
+
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 export const tamperingController = new TamperingController();

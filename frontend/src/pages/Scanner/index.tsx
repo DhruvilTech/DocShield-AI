@@ -1290,44 +1290,235 @@ export const ScannerPage: React.FC = () => {
                   </Card>
                 )}
 
-                {/* Tab 4: Module 3 Tampering AI */}
+                {/* Tab 4: Module 3 Tampering Forensics AI Engine */}
                 {activeTab === 'tampering' && (
-                  <Card className="p-4 space-y-3">
-                    <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
-                      <span className="text-xs font-bold font-mono uppercase text-[var(--text-1)]">
-                        Module 3: Tampering Forensics (P8 Use Cases 1 to 4)
-                      </span>
-                      <Badge variant={tampering?.has_tampering_detected ? 'threat' : 'safe'} size="sm">
-                        Score: {tampering?.overall_tampering_score ?? 0}
-                      </Badge>
+                  <Card className="p-4 space-y-4">
+                    {/* Header with Risk & Score */}
+                    <div className="flex items-center justify-between border-b border-[var(--border)] pb-3 flex-wrap gap-2">
+                      <div>
+                        <span className="text-xs font-bold font-mono uppercase text-[var(--text-1)] block">
+                          Module 3: Multi-Signal Forensic Tampering Engine
+                        </span>
+                        <span className="text-[11px] text-[var(--text-3)] font-mono">
+                          Substrate Noise, ELA, SIFT RANSAC, Text Voids & Splicing Disparity
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant={tampering?.has_tampering_detected ? 'threat' : 'safe'}
+                          size="sm"
+                          dot
+                        >
+                          {tampering?.has_tampering_detected ? '🚨 TAMPERED DETECTED' : '✓ NOT TAMPERED'}
+                        </Badge>
+                        <Badge
+                          variant={
+                            (tampering?.analysis_metadata?.riskLevel === 'CRITICAL' || tampering?.overall_tampering_score! >= 0.7)
+                              ? 'threat'
+                              : (tampering?.analysis_metadata?.riskLevel === 'HIGH' || tampering?.overall_tampering_score! >= 0.4)
+                                ? 'threat'
+                                : (tampering?.analysis_metadata?.riskLevel === 'MEDIUM' || tampering?.overall_tampering_score! >= 0.2)
+                                  ? 'warning'
+                                  : 'safe'
+                          }
+                          size="sm"
+                        >
+                          Risk: {tampering?.analysis_metadata?.riskLevel || (tampering?.overall_tampering_score! >= 0.7 ? 'CRITICAL' : tampering?.overall_tampering_score! >= 0.4 ? 'HIGH' : tampering?.overall_tampering_score! >= 0.2 ? 'MEDIUM' : 'LOW')} ({((tampering?.overall_tampering_score ?? 0) * 100).toFixed(0)}%)
+                        </Badge>
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-                      <div className="p-2.5 rounded bg-[var(--surface-raised)] border border-[var(--border)]">
-                        <span className="text-[10px] text-[var(--text-3)] block">PHOTO REPLACEMENT</span>
-                        <span className="font-bold text-[var(--text-1)]">
-                          {tampering?.indicators?.some((i) => i.category === 'PHOTO_SUBSTITUTION') ? '🚨 Alteration Detected' : '✓ Authentic Boundary'}
-                        </span>
-                      </div>
-                      <div className="p-2.5 rounded bg-[var(--surface-raised)] border border-[var(--border)]">
-                        <span className="text-[10px] text-[var(--text-3)] block">TEXT MANIPULATION</span>
-                        <span className="font-bold text-[var(--text-1)]">
-                          {tampering?.indicators?.some((i) => i.category === 'TEXT_ALTERATION') ? '🚨 Text Modified' : '✓ Consistent Font Metrics'}
-                        </span>
-                      </div>
-                      <div className="p-2.5 rounded bg-[var(--surface-raised)] border border-[var(--border)]">
-                        <span className="text-[10px] text-[var(--text-3)] block">STAMP FORGERY</span>
-                        <span className="font-bold text-[var(--text-1)]">
-                          {tampering?.indicators?.some((i) => i.category === 'STAMP_FORGERY' || i.category === 'STAMP_IRREGULARITY') ? '🚨 Stamp Forgery Flag' : '✓ Seal Verified'}
-                        </span>
-                      </div>
-                      <div className="p-2.5 rounded bg-[var(--surface-raised)] border border-[var(--border)]">
-                        <span className="text-[10px] text-[var(--text-3)] block">METADATA & ELA</span>
-                        <span className="font-bold text-[var(--text-1)]">
-                          {tampering?.indicators?.some((i) => i.category === 'METADATA_MISMATCH') ? '🚨 Photoshop Tag Detected' : '✓ Native Encoding'}
-                        </span>
-                      </div>
+                    {/* 8 Forensic Detectors Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
+                      {/* 1. Text Tampering */}
+                      {(() => {
+                        const score = tampering?.analysis_metadata?.rawSignals?.text_tampering?.score ?? (tampering?.indicators?.some(i => i.category === 'TEXT_ALTERATION') ? 0.85 : 0);
+                        const isTriggered = score >= 0.4;
+                        return (
+                          <div className={cn('p-2.5 rounded border transition-colors', isTriggered ? 'bg-[var(--threat)]/10 border-[var(--threat)]/40' : 'bg-[var(--surface-raised)] border-[var(--border)]')}>
+                            <span className="text-[10px] text-[var(--text-3)] block uppercase">Text Alteration</span>
+                            <span className={cn('font-bold text-xs', isTriggered ? 'text-[var(--threat)]' : 'text-[var(--text-1)]')}>
+                              {isTriggered ? `🚨 ${(score * 100).toFixed(0)}% Void/Disparity` : '✓ Clean Glyphs'}
+                            </span>
+                          </div>
+                        );
+                      })()}
+
+                      {/* 2. Content Alteration / Defacement */}
+                      {(() => {
+                        const score = tampering?.analysis_metadata?.rawSignals?.content_alteration?.score ?? 0;
+                        const isTriggered = score >= 0.4;
+                        return (
+                          <div className={cn('p-2.5 rounded border transition-colors', isTriggered ? 'bg-[var(--threat)]/10 border-[var(--threat)]/40' : 'bg-[var(--surface-raised)] border-[var(--border)]')}>
+                            <span className="text-[10px] text-[var(--text-3)] block uppercase">Content Defacement</span>
+                            <span className={cn('font-bold text-xs', isTriggered ? 'text-[var(--threat)]' : 'text-[var(--text-1)]')}>
+                              {isTriggered ? `🚨 ${(score * 100).toFixed(0)}% Overpaint` : '✓ Uniform Surface'}
+                            </span>
+                          </div>
+                        );
+                      })()}
+
+                      {/* 3. Photo Replacement / Splicing */}
+                      {(() => {
+                        const score = tampering?.analysis_metadata?.rawSignals?.splicing?.score ?? (tampering?.indicators?.some(i => i.category === 'PHOTO_SUBSTITUTION') ? 0.75 : 0);
+                        const isTriggered = score >= 0.4;
+                        return (
+                          <div className={cn('p-2.5 rounded border transition-colors', isTriggered ? 'bg-[var(--threat)]/10 border-[var(--threat)]/40' : 'bg-[var(--surface-raised)] border-[var(--border)]')}>
+                            <span className="text-[10px] text-[var(--text-3)] block uppercase">Photo Splicing</span>
+                            <span className={cn('font-bold text-xs', isTriggered ? 'text-[var(--threat)]' : 'text-[var(--text-1)]')}>
+                              {isTriggered ? `🚨 ${(score * 100).toFixed(0)}% Step Gradient` : '✓ Natural Boundary'}
+                            </span>
+                          </div>
+                        );
+                      })()}
+
+                      {/* 4. Copy-Move SIFT Duplication */}
+                      {(() => {
+                        const score = tampering?.analysis_metadata?.rawSignals?.copy_move?.score ?? 0;
+                        const isTriggered = score >= 0.4;
+                        return (
+                          <div className={cn('p-2.5 rounded border transition-colors', isTriggered ? 'bg-[var(--threat)]/10 border-[var(--threat)]/40' : 'bg-[var(--surface-raised)] border-[var(--border)]')}>
+                            <span className="text-[10px] text-[var(--text-3)] block uppercase">Copy-Move Clone</span>
+                            <span className={cn('font-bold text-xs', isTriggered ? 'text-[var(--threat)]' : 'text-[var(--text-1)]')}>
+                              {isTriggered ? `🚨 ${(score * 100).toFixed(0)}% SIFT Matches` : '✓ Unique Textures'}
+                            </span>
+                          </div>
+                        );
+                      })()}
+
+                      {/* 5. Error Level Analysis (ELA) */}
+                      {(() => {
+                        const score = tampering?.analysis_metadata?.rawSignals?.ela?.score ?? 0;
+                        const isTriggered = score >= 0.4;
+                        return (
+                          <div className={cn('p-2.5 rounded border transition-colors', isTriggered ? 'bg-[var(--threat)]/10 border-[var(--threat)]/40' : 'bg-[var(--surface-raised)] border-[var(--border)]')}>
+                            <span className="text-[10px] text-[var(--text-3)] block uppercase">ELA Compression</span>
+                            <span className={cn('font-bold text-xs', isTriggered ? 'text-[var(--threat)]' : 'text-[var(--text-1)]')}>
+                              {isTriggered ? `🚨 ${(score * 100).toFixed(0)}% Inconsistency` : '✓ Uniform Matrix'}
+                            </span>
+                          </div>
+                        );
+                      })()}
+
+                      {/* 6. Substrate Noise Residual */}
+                      {(() => {
+                        const score = tampering?.analysis_metadata?.rawSignals?.noise?.score ?? 0;
+                        const isTriggered = score >= 0.4;
+                        return (
+                          <div className={cn('p-2.5 rounded border transition-colors', isTriggered ? 'bg-[var(--threat)]/10 border-[var(--threat)]/40' : 'bg-[var(--surface-raised)] border-[var(--border)]')}>
+                            <span className="text-[10px] text-[var(--text-3)] block uppercase">Noise Variance</span>
+                            <span className={cn('font-bold text-xs', isTriggered ? 'text-[var(--threat)]' : 'text-[var(--text-1)]')}>
+                              {isTriggered ? `🚨 ${(score * 100).toFixed(0)}% SNR Disparity` : '✓ Consistent Substrate'}
+                            </span>
+                          </div>
+                        );
+                      })()}
+
+                      {/* 7. Stamp & Seal Forgery */}
+                      {(() => {
+                        const score = tampering?.analysis_metadata?.rawSignals?.stamp?.score ?? (tampering?.indicators?.some(i => i.category === 'STAMP_FORGERY' || i.category === 'STAMP_IRREGULARITY') ? 0.8 : 0);
+                        const isTriggered = score >= 0.4;
+                        return (
+                          <div className={cn('p-2.5 rounded border transition-colors', isTriggered ? 'bg-[var(--threat)]/10 border-[var(--threat)]/40' : 'bg-[var(--surface-raised)] border-[var(--border)]')}>
+                            <span className="text-[10px] text-[var(--text-3)] block uppercase">Stamp / Seal</span>
+                            <span className={cn('font-bold text-xs', isTriggered ? 'text-[var(--threat)]' : 'text-[var(--text-1)]')}>
+                              {isTriggered ? `🚨 ${(score * 100).toFixed(0)}% Forgery Flag` : '✓ Verified Seal'}
+                            </span>
+                          </div>
+                        );
+                      })()}
+
+                      {/* 8. Metadata Inconsistency */}
+                      {(() => {
+                        const score = tampering?.analysis_metadata?.rawSignals?.metadata?.score ?? (tampering?.indicators?.some(i => i.category === 'METADATA_MISMATCH') ? 0.88 : 0);
+                        const isTriggered = score >= 0.4;
+                        return (
+                          <div className={cn('p-2.5 rounded border transition-colors', isTriggered ? 'bg-[var(--threat)]/10 border-[var(--threat)]/40' : 'bg-[var(--surface-raised)] border-[var(--border)]')}>
+                            <span className="text-[10px] text-[var(--text-3)] block uppercase">Metadata & EXIF</span>
+                            <span className={cn('font-bold text-xs', isTriggered ? 'text-[var(--threat)]' : 'text-[var(--text-1)]')}>
+                              {isTriggered ? '🚨 Editor Tag / Timestamp' : '✓ Native Encoding'}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </div>
+
+                    {/* Explanations Narrative */}
+                    {tampering?.analysis_metadata?.explanations && tampering.analysis_metadata.explanations.length > 0 && (
+                      <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] space-y-1">
+                        <span className="text-[10px] font-bold font-mono uppercase text-[var(--text-3)] block">
+                          Forensic Evidence Narrative
+                        </span>
+                        <ul className="list-disc list-inside space-y-1 text-xs font-mono text-[var(--text-2)]">
+                          {tampering.analysis_metadata.explanations.map((exp, i) => (
+                            <li key={i}>{exp}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Localized Suspicious Regions List */}
+                    {tampering?.indicators && tampering.indicators.length > 0 && (
+                      <div className="space-y-2">
+                        <span className="text-xs font-bold font-mono uppercase text-[var(--text-1)] block">
+                          Localized Anomaly Regions ({tampering.indicators.length})
+                        </span>
+                        <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                          {tampering.indicators.map((ind, idx) => (
+                            <div
+                              key={idx}
+                              className="p-2.5 rounded border border-[var(--border)] bg-[var(--surface-raised)] text-xs font-mono flex items-start justify-between gap-2"
+                            >
+                              <div className="space-y-0.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-[var(--text-1)]">{ind.category.replace(/_/g, ' ')}</span>
+                                  {ind.bounding_box && (
+                                    <span className="text-[10px] text-[var(--text-3)]">
+                                      [x:{ind.bounding_box.x}, y:{ind.bounding_box.y}, w:{ind.bounding_box.width}, h:{ind.bounding_box.height}]
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-[var(--text-2)]">{ind.description}</p>
+                                {ind.evidence && (
+                                  <p className="text-[10px] text-[var(--text-3)] truncate">Evidence: {ind.evidence}</p>
+                                )}
+                              </div>
+                              <Badge
+                                variant={ind.severity === 'CRITICAL' || ind.severity === 'HIGH' ? 'threat' : ind.severity === 'MEDIUM' ? 'warning' : 'neutral'}
+                                size="sm"
+                              >
+                                {ind.severity}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Multi-Page PDF Page Attributions */}
+                    {tampering?.analysis_metadata?.pages && tampering.analysis_metadata.pages.length > 1 && (
+                      <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] space-y-2">
+                        <span className="text-[10px] font-bold font-mono uppercase text-[var(--text-3)] block">
+                          PDF Page Forensic Attribution ({tampering.analysis_metadata.pages.length} Pages)
+                        </span>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {tampering.analysis_metadata.pages.map((p) => (
+                            <div
+                              key={p.page}
+                              className={cn(
+                                'p-2 rounded border text-xs font-mono text-center',
+                                p.tampered ? 'bg-[var(--threat)]/10 border-[var(--threat)]/40 text-[var(--threat)]' : 'bg-[var(--surface)] border-[var(--border)] text-[var(--text-2)]'
+                              )}
+                            >
+                              <span className="font-bold block">Page {p.page}</span>
+                              <span className="text-[10px] block">
+                                {p.tampered ? `🚨 ${p.risk_level}` : '✓ Clean'} ({p.regions?.length || 0} regions)
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </Card>
                 )}
 

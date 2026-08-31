@@ -428,6 +428,23 @@ export interface TamperingAnalysis {
     totalIndicators?: number;
     checksumVerified?: boolean;
     forensicEngine?: string;
+    quality?: {
+      brightness: number;
+      contrast: number;
+      sharpness: number;
+      blur_detected: boolean;
+    };
+    explanations?: string[];
+    riskLevel?: string;
+    detectorsAvailable?: string[];
+    rawSignals?: Record<string, any>;
+    pages?: Array<{
+      page: number;
+      tampered: boolean;
+      score: number;
+      risk_level: string;
+      regions: any[];
+    }> | null;
     useCaseCoverage?: {
       photoReplacement: boolean;
       textManipulation: boolean;
@@ -438,6 +455,98 @@ export interface TamperingAnalysis {
   created_at: string;
   updated_at: string;
   indicators?: TamperingIndicator[];
+}
+
+export interface ForensicRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  score: number;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  source: string;
+  reason: string;
+  page?: number | null;
+  target_x?: number | null;
+  target_y?: number | null;
+  target_width?: number | null;
+  target_height?: number | null;
+}
+
+export interface ForensicSignalData {
+  name: string;
+  score?: number | null;
+  confidence?: number | null;
+  available?: boolean;
+  regions?: ForensicRegion[];
+  evidence?: Array<{ message: string; severity: string }>;
+  statistics?: Record<string, number>;
+}
+
+export interface ForensicSignalsBreakdown {
+  ela?: ForensicSignalData | null;
+  noise?: ForensicSignalData | null;
+  copy_move?: ForensicSignalData | null;
+  splicing?: ForensicSignalData | null;
+  content_alteration?: ForensicSignalData | null;
+  text_tampering?: ForensicSignalData | null;
+  stamp?: ForensicSignalData | null;
+  metadata?: ForensicSignalData | null;
+}
+
+export interface ForensicPageResult {
+  page: number;
+  tampered: boolean;
+  score: number;
+  risk_level: RiskLevel;
+  regions: ForensicRegion[];
+}
+
+export interface ForensicAnalysisResponse {
+  success: boolean;
+  filename: string;
+  file_type: 'image' | 'pdf';
+  tampered: boolean;
+  score: number;
+  risk_level: RiskLevel;
+  fusion?: {
+    score?: number;
+    risk_level?: RiskLevel;
+    confidence?: number;
+    evidence?: {
+      overall_score: number;
+      overall_level: string;
+      fused_regions: any[];
+      explanations: string[];
+      detectors_available: string[];
+    };
+  };
+  signals?: ForensicSignalsBreakdown;
+  regions?: ForensicRegion[];
+  quality?: {
+    brightness: number;
+    contrast: number;
+    sharpness: number;
+    blur_detected: boolean;
+  };
+  image?: {
+    width: number;
+    height: number;
+    channels: number;
+    format: string;
+    working_width: number;
+    working_height: number;
+  };
+  explanations?: string[];
+  pages?: ForensicPageResult[] | null;
+  debug?: {
+    saved: boolean;
+    debug_dir?: string;
+  } | null;
+  error?: {
+    code: string;
+    message: string;
+  };
 }
 
 export type FaceVerificationStatus = 'MATCH' | 'NO_MATCH' | 'INCONCLUSIVE' | 'NO_FACE_DETECTED';
