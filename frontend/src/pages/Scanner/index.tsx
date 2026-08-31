@@ -78,6 +78,7 @@ export const ScannerPage: React.FC = () => {
   const [screening, setScreening] = useState<DocumentScreening | null>(null);
   const [createdDocId, setCreatedDocId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pipelineResult, setPipelineResult] = useState<any | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const faceInputRef = useRef<HTMLInputElement>(null);
@@ -198,6 +199,7 @@ export const ScannerPage: React.FC = () => {
         referenceFaceBase64: facePreview || undefined,
         simulateMismatch: !facePreview && (fileToUpload.name.includes('forged') || fileToUpload.name.includes('stolen')),
       });
+      setPipelineResult(pipelineResult);
 
       // Process Stage 1: Document Detection
       const docStage = pipelineResult.stages?.document_detection;
@@ -276,6 +278,51 @@ export const ScannerPage: React.FC = () => {
     setError(null);
     setFaceVerifyError(null);
     setLogs([]);
+    setPipelineResult(null);
+  };
+
+  const getMrzStatus = () => {
+    if (!pipelineResult) return { label: 'VALID ICAO', variant: 'safe' as const };
+    const checks = pipelineResult.stages?.document_detection?.result?.validation?.checks || [];
+    const mrzCheck = checks.find((c: any) => c.field === 'mrz');
+    if (mrzCheck) {
+      return mrzCheck.status === 'valid'
+        ? { label: 'VALID ICAO', variant: 'safe' as const }
+        : { label: 'CHECKSUM MISMATCH', variant: 'threat' as const };
+    }
+    const factors = pipelineResult.screening?.factors || [];
+    const hasMrzFailure = factors.some((f: any) => f.title.includes('MRZ') || f.title.includes('ICAO'));
+    if (hasMrzFailure) {
+      return { label: 'CHECKSUM MISMATCH', variant: 'threat' as const };
+    }
+    return { label: 'VALID ICAO', variant: 'safe' as const };
+  };
+
+  const getWatchlistStatus = () => {
+    if (!pipelineResult) return { label: 'CLEAR', variant: 'safe' as const };
+    const factors = pipelineResult.screening?.factors || [];
+    const hasWatchlistHit = factors.some((f: any) => f.title.includes('Watchlist') || f.title.includes('Interpol'));
+    if (hasWatchlistHit) {
+      return { label: 'ALERT / HIT', variant: 'threat' as const };
+    }
+    return { label: 'CLEAR', variant: 'safe' as const };
+  };
+
+  const getExpiryStatus = () => {
+    if (!pipelineResult) return { label: 'COMPLIANT', variant: 'safe' as const };
+    const factors = pipelineResult.screening?.factors || [];
+    const hasExpiryFailure = factors.some((f: any) => f.title.includes('Expired') || f.title.includes('Expiry'));
+    if (hasExpiryFailure) {
+      const expiryVal = extraction?.extracted_fields?.dateOfExpiry?.value;
+      if (expiryVal) {
+        const expDate = new Date(expiryVal);
+        if (!isNaN(expDate.getTime()) && expDate < new Date()) {
+          return { label: 'EXPIRED', variant: 'threat' as const };
+        }
+      }
+      return { label: 'NEAR EXPIRY', variant: 'warning' as const };
+    }
+    return { label: 'COMPLIANT', variant: 'safe' as const };
   };
 
   const verdict = screening?.verdict || (riskScore && riskScore.risk_score >= 50 ? 'REJECTED' : 'PASSED');
@@ -691,9 +738,10 @@ export const ScannerPage: React.FC = () => {
                             Weights 7-3-1 check digits across Document Number, DOB & Expiry
                           </span>
                         </div>
-                        <Badge variant={extraction?.extracted_fields?.mrzValidation?.value?.isValid !== false ? 'safe' : 'threat'} size="sm">
-                          {extraction?.extracted_fields?.mrzValidation?.value?.isValid !== false ? 'VALID ICAO' : 'CHECKSUM MISMATCH'}
-                        </Badge>
+                        {(() => {
+                          const status = getMrzStatus();
+                          return <Badge variant={status.variant} size="sm">{status.label}</Badge>;
+                        })()}
                       </div>
 
                       <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
@@ -703,9 +751,10 @@ export const ScannerPage: React.FC = () => {
                             Cross-referencing stolen passport alerts, travel bans & identity fraud suspects
                           </span>
                         </div>
-                        <Badge variant={risk > 50 ? 'threat' : 'safe'} size="sm">
-                          {risk > 50 ? 'ALERT / HIT' : 'CLEAR'}
-                        </Badge>
+                        {(() => {
+                          const status = getWatchlistStatus();
+                          return <Badge variant={status.variant} size="sm">{status.label}</Badge>;
+                        })()}
                       </div>
 
                       <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
@@ -715,7 +764,10 @@ export const ScannerPage: React.FC = () => {
                             Ensures document remains valid for mandatory minimum travel period
                           </span>
                         </div>
-                        <Badge variant="safe" size="sm">COMPLIANT</Badge>
+                        {(() => {
+                          const status = getExpiryStatus();
+                          return <Badge variant={status.variant} size="sm">{status.label}</Badge>;
+                        })()}
                       </div>
                     </div>
                   </Card>
