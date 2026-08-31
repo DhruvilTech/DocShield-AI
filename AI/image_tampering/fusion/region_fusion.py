@@ -148,15 +148,26 @@ def build_fused_regions(
                 "height": loc.target_height,
             }
 
+        # Calculate corroborated severity based on multi-signal evidence strength
+        max_sig = max(signal_scores.values()) if signal_scores else 0
+        if evidence_strength == "STRONG":
+            corroborated_sev = "HIGH"
+        elif evidence_strength == "MODERATE":
+            corroborated_sev = "HIGH" if max_sig >= 70 else "MEDIUM"
+        elif evidence_strength == "WEAK":
+            corroborated_sev = "MEDIUM" if max_sig >= 75 else "LOW"
+        else:
+            corroborated_sev = "LOW"
+
         # Build human-readable reason
-        reason = _build_region_reason(supporting_signals, evidence_strength, loc.severity)
+        reason = _build_region_reason(supporting_signals, evidence_strength, corroborated_sev)
         region_page = page if page != 1 else (getattr(loc, "page", None) or 1)
 
         fused.append(FusedRegion(
             region_id=region_id,
             page=region_page,
             bbox=bbox,
-            severity=loc.severity,
+            severity=corroborated_sev,
             evidence_strength=evidence_strength,
             evidence_count=len(supporting_signals),
             supporting_signals=supporting_signals,

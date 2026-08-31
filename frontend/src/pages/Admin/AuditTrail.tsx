@@ -125,7 +125,9 @@ export const AuditTrailPage: React.FC = () => {
                 {logs.map((log) => (
                   <tr key={log.id} className="hover:bg-[var(--surface-raised)]/40 transition-colors">
                     <td className="px-6 py-3.5 text-[var(--text-3)]">
-                      {new Date(log.created_at).toISOString().replace('T', ' ').substring(0, 19)}
+                      {log.created_at || log.createdAt
+                        ? new Date(log.created_at || log.createdAt!).toISOString().replace('T', ' ').substring(0, 19)
+                        : '—'}
                     </td>
                     <td className="px-6 py-3.5">
                       <Badge variant={getActionBadgeVariant(log.action)} size="sm">
@@ -133,25 +135,25 @@ export const AuditTrailPage: React.FC = () => {
                       </Badge>
                     </td>
                     <td className="px-6 py-3.5">
-                      {log.actor_name ? (
+                      {log.actor_name || log.actorName ? (
                         <div>
-                          <span className="font-bold text-[var(--text-1)]">{log.actor_name}</span>
-                          <span className="text-[10px] text-[var(--text-3)] block">{log.actor_email}</span>
+                          <span className="font-bold text-[var(--text-1)]">{log.actor_name || log.actorName}</span>
+                          <span className="text-[10px] text-[var(--text-3)] block">{log.actor_email || log.actorEmail}</span>
                         </div>
                       ) : (
                         <span className="text-[var(--text-3)] italic">System / Anonymous</span>
                       )}
                     </td>
                     <td className="px-6 py-3.5 text-[var(--text-2)]">
-                      {log.resource_type}
-                      {log.resource_id && (
+                      {log.resource_type || log.resourceType}
+                      {(log.resource_id || log.resourceId) && (
                         <span className="text-[10px] text-[var(--text-3)] block truncate max-w-[120px]">
-                          {log.resource_id}
+                          {log.resource_id || log.resourceId}
                         </span>
                       )}
                     </td>
                     <td className="px-6 py-3.5 text-[var(--text-3)]">
-                      {log.ip_address || '—'}
+                      {log.ip_address || log.ipAddress || '—'}
                     </td>
                     <td className="px-6 py-3.5 text-right">
                       {log.metadata ? (
@@ -223,7 +225,7 @@ export const AuditTrailPage: React.FC = () => {
             <div className="mb-4">
               <p className="text-xs text-[var(--text-3)] font-mono mb-2">User Agent:</p>
               <p className="text-xs text-[var(--text-2)] font-mono bg-[var(--surface-raised)] p-2 rounded break-all">
-                {selectedLog.user_agent || 'N/A'}
+                {selectedLog.user_agent || selectedLog.userAgent || 'N/A'}
               </p>
             </div>
             <div>

@@ -164,8 +164,8 @@ def analyze_pdf_copy_move(
     gray = cv2.cvtColor(working_image_rgb, cv2.COLOR_RGB2GRAY)
     h_limit, w_limit = working_image_rgb.shape[:2]
 
-    # SIFT Feature Detection & Descriptor Extraction (Cap at 1,000 keypoints)
-    sift = cv2.SIFT_create(nfeatures=1000)
+    # SIFT Feature Detection & Descriptor Extraction (Cap at 1,500 keypoints)
+    sift = cv2.SIFT_create(nfeatures=1500, contrastThreshold=0.02, edgeThreshold=15)
     kp, des = sift.detectAndCompute(gray, None)
 
     if des is None or len(kp) < 15:
@@ -280,14 +280,15 @@ def analyze_pdf_copy_move(
 
         cluster_ncc = _calculate_cluster_ncc(inlier_matches, kp, gray)
 
-        # 5. Check for sparse table grid / empty background (> 90% flat background with low NCC)
+        # 5. Check for sparse table grid / empty background (> 85% flat background over large page section)
         roi_s = gray[int(min_src_y):int(max_src_y), int(min_src_x):int(max_src_x)]
         roi_d = gray[int(min_dst_y):int(max_dst_y), int(min_dst_x):int(max_dst_x)]
         med_s = float(np.median(roi_s)) if roi_s.size > 0 else 255.0
         med_d = float(np.median(roi_d)) if roi_d.size > 0 else 255.0
         flat_bg_s = float(np.mean(np.abs(roi_s.astype(float) - med_s) < 12)) if roi_s.size > 0 else 1.0
         flat_bg_d = float(np.mean(np.abs(roi_d.astype(float) - med_d) < 12)) if roi_d.size > 0 else 1.0
-        is_sparse_table = (flat_bg_s > 0.90 and flat_bg_d > 0.90 and cluster_ncc < 0.80)
+        total_pixels = gray.shape[0] * gray.shape[1]
+        is_sparse_table = ((flat_bg_s > 0.85 or flat_bg_d > 0.85) and (s_w * s_h > 0.12 * total_pixels or d_w * d_h > 0.12 * total_pixels))
         
         # Accept cluster only if it is a genuine non-overlapping 2D copy-move tampering
         if iou < 0.15 and overlap_ratio < 0.20 and not is_line and not is_qr and not is_text and not is_sparse_table and cluster_ncc >= 0.45:
