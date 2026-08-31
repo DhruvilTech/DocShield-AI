@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../hooks/useAuth';
-import { Button, Card, cn } from '../../components/ui';
+import { Button, Card } from '../../components/ui';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -29,14 +29,10 @@ export const LoginPage: React.FC = () => {
     setError(null);
 
     try {
-      await login({ email, password });
-      if (email.toLowerCase().includes('admin')) {
-        navigate('/admin', { replace: true });
-      } else {
-        navigate(from === '/admin' ? '/scanner' : from, { replace: true });
-      }
+      await login({ email: email.trim(), password });
+      navigate(from, { replace: true });
     } catch (err: any) {
-      setError(err.message || 'Failed to authenticate. Please check your credentials.');
+      setError(err.message || 'Failed to sign in. Please check your credentials.');
     } finally {
       setLoading(false);
     }
@@ -73,10 +69,10 @@ export const LoginPage: React.FC = () => {
               </svg>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold text-[var(--text-1)] tracking-tight">
-              Access Enclave
+              Sign In
             </h1>
             <p className="text-xs text-[var(--text-2)] mt-1.5 font-mono">
-              Authenticate to DocShield AI Security Node
+              Access DocShield AI Security Platform
             </p>
           </div>
 
@@ -100,7 +96,7 @@ export const LoginPage: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-mono font-medium text-[var(--text-2)] mb-1.5 uppercase tracking-wider">
-                Identity / Email
+                Email Address
               </label>
               <input
                 type="email"
@@ -115,13 +111,13 @@ export const LoginPage: React.FC = () => {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-xs font-mono font-medium text-[var(--text-2)] uppercase tracking-wider">
-                  Access Key / Password
+                  Password
                 </label>
                 <Link
                   to="/forgot-password"
                   className="text-xs font-mono text-[var(--accent)] hover:underline"
                 >
-                  Forgot Key?
+                  Forgot Password?
                 </Link>
               </div>
               <div className="relative">
@@ -159,14 +155,14 @@ export const LoginPage: React.FC = () => {
               loading={loading}
               className="w-full mt-2"
             >
-              Sign In to Node
+              Sign In
             </Button>
           </form>
 
           {/* Quick Demo Credentials helper */}
           <div className="mt-6 pt-5 border-t border-[var(--border)]">
             <p className="text-[11px] font-mono uppercase text-[var(--text-3)] mb-2.5 text-center">
-              Quick Admin Credentials
+              Quick Demo Account
             </p>
             <button
               type="button"
@@ -174,7 +170,7 @@ export const LoginPage: React.FC = () => {
               className="w-full p-2.5 rounded-lg bg-[var(--surface-raised)] hover:border-[var(--accent)] border border-[var(--border)] text-xs font-mono text-[var(--text-2)] hover:text-[var(--text-1)] text-left transition-all flex items-center justify-between"
             >
               <div>
-                <div className="font-bold text-[var(--accent)]">Master Administrator</div>
+                <div className="font-bold text-[var(--accent)]">Demo User</div>
                 <div className="text-[10px] text-[var(--text-3)]">admin123@gmail.com · Key: Admin@123</div>
               </div>
               <span className="text-[10px] font-bold text-[var(--accent)] px-2 py-1 rounded bg-[var(--accent-muted)] border border-[var(--border-accent)]">
@@ -185,9 +181,9 @@ export const LoginPage: React.FC = () => {
 
           {/* Footer */}
           <div className="text-center mt-6 text-xs text-[var(--text-2)]">
-            Need an officer clearance account?{' '}
+            Don't have an account?{' '}
             <Link to="/register" className="text-[var(--accent)] font-semibold hover:underline">
-              Register Border Personnel
+              Create Account
             </Link>
           </div>
         </Card>

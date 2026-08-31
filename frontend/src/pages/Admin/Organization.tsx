@@ -270,7 +270,7 @@ export const OrganizationManagementPage: React.FC = () => {
 
         <div className="flex items-center gap-2">
           {isAdmin && (
-            <Button size="sm" variant="accent" onClick={() => setShowInviteModal(true)}>
+            <Button size="sm" variant="primary" onClick={() => setShowInviteModal(true)}>
               <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
               </svg>
@@ -384,11 +384,11 @@ export const OrganizationManagementPage: React.FC = () => {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-lg bg-[var(--accent)]/15 text-[var(--accent)] font-bold flex items-center justify-center border border-[var(--border-accent)]">
-                            {m.name.charAt(0).toUpperCase()}
+                            {(m.name || m.user_name || 'Member').charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <div className="font-bold text-[var(--text-1)]">{m.name}</div>
-                            <div className="text-[10px] text-[var(--text-3)]">{m.email}</div>
+                            <div className="font-bold text-[var(--text-1)]">{m.name || m.user_name || 'Member'}</div>
+                            <div className="text-[10px] text-[var(--text-3)]">{m.email || m.user_email || ''}</div>
                           </div>
                         </div>
                       </td>

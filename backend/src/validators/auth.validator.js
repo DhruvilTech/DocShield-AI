@@ -6,7 +6,6 @@ export const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(100),
   email: z.string().email('Please provide a valid email address').max(255),
   password: z.string().min(8, 'Password must be at least 8 characters').regex(PASSWORD_REGEX, PASSWORD_REQUIREMENT_MSG),
-  role: z.enum(['screening_officer', 'investigator', 'analyst_viewer']).optional(),
 });
 
 export const loginSchema = z.object({

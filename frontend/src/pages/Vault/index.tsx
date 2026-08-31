@@ -551,7 +551,7 @@ export const VaultPage: React.FC = () => {
                       <div className="flex items-center gap-3">
                         {/* File Icon */}
                         <div className="w-10 h-10 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-center text-xl flex-shrink-0">
-                          {FILE_ICONS[doc.mime_type] ?? '📄'}
+                          {(doc.mime_type ? FILE_ICONS[doc.mime_type] : null) ?? '📄'}
                         </div>
 
                         {/* File Info */}
@@ -562,7 +562,7 @@ export const VaultPage: React.FC = () => {
                             <Badge variant="accent" size="sm">v{doc.current_version}</Badge>
                           </div>
                           <div className="flex flex-wrap gap-2 text-[10px] font-mono text-[var(--text-3)]">
-                            <span>{formatFileSize(doc.file_size)}</span>
+                            <span>{formatFileSize(doc.file_size || 0)}</span>
                             <span>·</span>
                             <span>{doc.document_type.replace(/_/g, ' ')}</span>
                             <span>·</span>
@@ -801,7 +801,7 @@ export const VaultPage: React.FC = () => {
                             <div className="p-3 bg-[var(--surface-alt)] rounded-lg border border-[var(--border)] space-y-2">
                               <div className="flex justify-between items-center">
                                 <span className="text-[10px] text-[var(--text-3)] uppercase font-bold">
-                                  Model: {analysis.provider.toUpperCase()} ({analysis.model})
+                                  Model: {(analysis.provider || analysis.ai_provider || 'AI').toUpperCase()} ({analysis.model || analysis.model_name || 'Gemini'})
                                 </span>
                                 <Badge variant="accent" size="sm">{Math.round((analysis.confidence || 0.95) * 100)}% Confidence</Badge>
                               </div>

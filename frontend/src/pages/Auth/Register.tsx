@@ -11,9 +11,6 @@ export const RegisterPage: React.FC = () => {
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [badgeId, setBadgeId] = useState('');
-  const [checkpoint, setCheckpoint] = useState('');
-  const [role, setRole] = useState('screening_officer');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -28,7 +25,7 @@ export const RegisterPage: React.FC = () => {
     }
 
     if (password !== confirmPassword) {
-      setError('Access key confirmation does not match.');
+      setError('Password confirmation does not match.');
       return;
     }
 
@@ -42,14 +39,13 @@ export const RegisterPage: React.FC = () => {
 
     try {
       await register({
-        name: `${name.trim()}${badgeId ? ` [Badge: ${badgeId.trim()}]` : ''}`,
+        name: name.trim(),
         email: email.trim(),
         password,
-        role,
       });
       navigate('/scanner', { replace: true });
     } catch (err: any) {
-      setError(err.message || 'Failed to register account. Please check your inputs.');
+      setError(err.message || 'Failed to create account. Please check your inputs.');
     } finally {
       setLoading(false);
     }
@@ -68,7 +64,7 @@ export const RegisterPage: React.FC = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="relative z-10 w-full max-w-lg"
+        className="relative z-10 w-full max-w-md"
       >
         <Card className="p-8 sm:p-10 border-[var(--border-strong)] bg-[var(--surface)]/80 backdrop-blur-2xl shadow-[var(--shadow-lg)]">
           <div className="text-center mb-6">
@@ -81,10 +77,10 @@ export const RegisterPage: React.FC = () => {
               </svg>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold text-[var(--text-1)] tracking-tight">
-              Border Clearance Registration
+              Create an Account
             </h1>
             <p className="text-xs text-[var(--text-2)] mt-1 font-mono">
-              Register border security personnel & screening officers
+              Sign up to access DocShield AI
             </p>
           </div>
 
@@ -103,106 +99,61 @@ export const RegisterPage: React.FC = () => {
             </motion.div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
+          <form onSubmit={handleSubmit} className="space-y-4 text-xs">
             <div>
               <label className="block font-mono text-[10px] uppercase tracking-wider text-[var(--text-2)] mb-1">
-                Full Officer Name *
+                Full Name *
               </label>
               <input
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Officer James Mitchell"
+                placeholder="e.g. John Doe"
                 className="w-full px-3.5 py-2.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--accent)] transition-colors"
               />
             </div>
 
             <div>
               <label className="block font-mono text-[10px] uppercase tracking-wider text-[var(--text-2)] mb-1">
-                Official Agency / Security Email *
+                Email Address *
               </label>
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="e.g. j.mitchell@bordercontrol.gov"
+                placeholder="e.g. john.doe@example.com"
                 className="w-full px-3.5 py-2.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--accent)] transition-colors"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block font-mono text-[10px] uppercase tracking-wider text-[var(--text-2)] mb-1">
-                  Badge / Service ID
-                </label>
-                <input
-                  type="text"
-                  value={badgeId}
-                  onChange={(e) => setBadgeId(e.target.value)}
-                  placeholder="e.g. BC-90214"
-                  className="w-full px-3.5 py-2.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--accent)] transition-colors font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block font-mono text-[10px] uppercase tracking-wider text-[var(--text-2)] mb-1">
-                  Assigned Checkpoint
-                </label>
-                <input
-                  type="text"
-                  value={checkpoint}
-                  onChange={(e) => setCheckpoint(e.target.value)}
-                  placeholder="e.g. Terminal 4 Checkpoint"
-                  className="w-full px-3.5 py-2.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--accent)] transition-colors font-mono"
-                />
-              </div>
+            <div>
+              <label className="block font-mono text-[10px] uppercase tracking-wider text-[var(--text-2)] mb-1">
+                Password *
+              </label>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••••••"
+                className="w-full px-3.5 py-2.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+              />
             </div>
 
             <div>
               <label className="block font-mono text-[10px] uppercase tracking-wider text-[var(--text-2)] mb-1">
-                Clearance Role & Function
+                Confirm Password *
               </label>
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--text-1)] focus:outline-none focus:border-[var(--accent)] transition-colors font-mono"
-              >
-                <option value="screening_officer">Border Screening Officer (Checkpoint Verification)</option>
-                <option value="investigator">Forensic Investigator (Deep Document Forensics)</option>
-                <option value="analyst_viewer">Compliance Analyst (Inspection Reports & Audit)</option>
-              </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block font-mono text-[10px] uppercase tracking-wider text-[var(--text-2)] mb-1">
-                  Access Key / Password *
-                </label>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
-                  className="w-full px-3.5 py-2.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-                />
-              </div>
-
-              <div>
-                <label className="block font-mono text-[10px] uppercase tracking-wider text-[var(--text-2)] mb-1">
-                  Confirm Password *
-                </label>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="••••••••••••"
-                  className="w-full px-3.5 py-2.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-                />
-              </div>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="••••••••••••"
+                className="w-full px-3.5 py-2.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+              />
             </div>
 
             <div className="flex items-center gap-2 pt-1">
@@ -225,14 +176,14 @@ export const RegisterPage: React.FC = () => {
               loading={loading}
               className="w-full mt-2"
             >
-              Authorize & Create Account
+              Sign Up
             </Button>
           </form>
 
           <div className="text-center mt-5 text-xs text-[var(--text-2)]">
-            Already registered?{' '}
+            Already have an account?{' '}
             <Link to="/login" className="text-[var(--accent)] font-semibold hover:underline">
-              Access Enclave Node
+              Log In
             </Link>
           </div>
         </Card>

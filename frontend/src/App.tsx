@@ -30,11 +30,6 @@ const ResetPasswordPage = lazy(() => import('./pages/Auth/ResetPassword'));
 const VerifyEmailPage = lazy(() => import('./pages/Auth/VerifyEmail'));
 const AcceptInvitationPage = lazy(() => import('./pages/Auth/AcceptInvitation').then(m => ({ default: m.AcceptInvitationPage })));
 const ProfilePage = lazy(() => import('./pages/Profile'));
-const MissionCommandPage = lazy(() => import('./pages/Admin/MissionCommand'));
-const AdminUsersPage = lazy(() => import('./pages/Admin/Users'));
-const AuditTrailPage = lazy(() => import('./pages/Admin/AuditTrail'));
-const OrganizationManagementPage = lazy(() => import('./pages/Admin/Organization').then(m => ({ default: m.OrganizationManagementPage })));
-const WatchlistManagementPage = lazy(() => import('./pages/Admin/Watchlist').then(m => ({ default: m.WatchlistManagementPage })));
 
 /* §9 lazy-load R3F so first paint is not blocked by WebGL */
 const SceneManager = lazy(() => import('./components/3d/SceneManager'));
@@ -134,7 +129,7 @@ const AppRoutes: React.FC<{ theme: 'dark' | 'light'; onToggle: () => void }> = (
               <Route
                 path="/security"
                 element={
-                  <ProtectedRoute requireSuperAdmin>
+                  <ProtectedRoute>
                     <PageWrapper><SecurityPage /></PageWrapper>
                   </ProtectedRoute>
                 }
@@ -158,60 +153,18 @@ const AppRoutes: React.FC<{ theme: 'dark' | 'light'; onToggle: () => void }> = (
               <Route
                 path="/enterprise"
                 element={
-                  <ProtectedRoute requireSuperAdmin>
+                  <ProtectedRoute>
                     <PageWrapper><EnterprisePage /></PageWrapper>
                   </ProtectedRoute>
                 }
               />
 
-              {/* Protected User & Admin Routes */}
+              {/* Protected User Profile Route */}
               <Route
                 path="/profile"
                 element={
                   <ProtectedRoute>
                     <PageWrapper><ProfilePage /></PageWrapper>
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Super Admin Mission Command Console */}
-              <Route
-                path="/admin"
-                element={
-                  <ProtectedRoute requireSuperAdmin>
-                    <PageWrapper><MissionCommandPage /></PageWrapper>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/organization"
-                element={
-                  <ProtectedRoute requireSuperAdmin>
-                    <PageWrapper><OrganizationManagementPage /></PageWrapper>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/watchlist"
-                element={
-                  <ProtectedRoute requireSuperAdmin>
-                    <PageWrapper><WatchlistManagementPage /></PageWrapper>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/users"
-                element={
-                  <ProtectedRoute requireSuperAdmin>
-                    <PageWrapper><AdminUsersPage /></PageWrapper>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/audit-trail"
-                element={
-                  <ProtectedRoute requireSuperAdmin>
-                    <PageWrapper><AuditTrailPage /></PageWrapper>
                   </ProtectedRoute>
                 }
               />

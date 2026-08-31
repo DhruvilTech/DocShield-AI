@@ -173,6 +173,9 @@ export interface OrganizationMember {
   joined_at: string;
   user_name: string;
   user_email: string;
+  name?: string;
+  email?: string;
+  membership_status?: string;
   avatar_url: string | null;
   role_name: string;
   role_slug: string;
@@ -185,6 +188,9 @@ export interface OrganizationInvitation {
   email: string;
   role_id: string;
   role_name?: string;
+  inviter_name?: string;
+  accepted_at?: string;
+  revoked_at?: string;
   status: 'PENDING' | 'ACCEPTED' | 'REVOKED' | 'EXPIRED';
   expires_at: string;
   created_at: string;
@@ -196,6 +202,7 @@ export type DocType =
   | 'VISA'
   | 'NATIONAL_ID'
   | 'DRIVING_LICENSE'
+  | 'DRIVERS_LICENSE'
   | 'PERMIT'
   | 'CONTRACT'
   | 'INVOICE'
@@ -204,7 +211,7 @@ export type DocType =
   | 'LEGAL_BRIEF'
   | 'OTHER';
 
-export type DocumentProcessingStatus = 'ACTIVE' | 'ARCHIVED' | 'DELETED' | 'PROCESSING';
+export type DocumentProcessingStatus = 'ACTIVE' | 'ARCHIVED' | 'DELETED' | 'PROCESSING' | 'FLAGGED';
 export type ProcessingStatus = 'UPLOADED' | 'QUEUED' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 
 export interface VaultDocument {
@@ -219,6 +226,9 @@ export interface VaultDocument {
   metadata: Record<string, any> | null;
   created_at: string;
   updated_at: string;
+  original_filename?: string;
+  storage_key?: string;
+  current_checksum?: string;
   uploader_name?: string;
   file_size?: number;
   mime_type?: string;
@@ -373,6 +383,10 @@ export interface DocumentAnalysis {
   duration_ms: number;
   findings?: AnalysisFinding[];
   riskIndicators?: RiskIndicator[];
+  risk_indicators?: RiskIndicator[];
+  provider?: string;
+  model?: string;
+  confidence?: number;
 }
 
 /* ---- Tampering Forensics & Face Verification ---- */
