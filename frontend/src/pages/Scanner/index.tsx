@@ -1079,34 +1079,23 @@ export const ScannerPage: React.FC = () => {
                     </span>
 
                     <div className="space-y-2 text-xs font-mono">
-                      {(() => {
-                        const items = checklistsConfig[docType] || [];
-                        const visibleItems = [];
-                        for (const item of items) {
-                          visibleItems.push(item);
-                          const status = item.getStatus();
-                          if (status.variant === 'threat') {
-                            break;
-                          }
-                        }
-                        return visibleItems.map((item, index) => {
-                          const status = item.getStatus();
-                          const icon = status.variant === 'safe' ? '✓' : '✗';
-                          const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
-                          return (
-                            <div key={index} className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
-                              <div>
-                                <span className="font-bold text-[var(--text-1)] block">{item.title}</span>
-                                <span className="text-[11px] text-[var(--text-3)]">{item.description}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className={cn('font-bold font-mono', color)}>{icon}</span>
-                                <Badge variant={status.variant} size="sm">{status.label}</Badge>
-                              </div>
+                      {checklistsConfig[docType]?.map((item, index) => {
+                        const status = item.getStatus();
+                        const icon = status.variant === 'safe' ? '✓' : '✗';
+                        const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                        return (
+                          <div key={index} className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-[var(--text-1)] block">{item.title}</span>
+                              <span className="text-[11px] text-[var(--text-3)]">{item.description}</span>
                             </div>
-                          );
-                        });
-                      })()}
+                            <div className="flex items-center gap-2">
+                              <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                              <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </Card>
                 )}
