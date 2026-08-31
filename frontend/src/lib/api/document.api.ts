@@ -116,10 +116,19 @@ export const documentApi = {
     await apiClient(`/documents/${id}`, { method: 'DELETE' });
   },
 
-  async verifyPipeline(id: string, options: { referenceFaceBase64?: string; simulateMismatch?: boolean }): Promise<any> {
+  async verifyPipeline(
+    id: string,
+    options?: {
+      referenceFaceBase64?: string;
+      simulateMismatch?: boolean;
+      skipFaceVerification?: boolean;
+      versionNumber?: number;
+      threshold?: number;
+    }
+  ): Promise<any> {
     const res = await apiClient<{ success: boolean; data: any }>(`/documents/${id}/verify-pipeline`, {
       method: 'POST',
-      body: JSON.stringify(options),
+      body: JSON.stringify(options || {}),
     });
     return res.data || res;
   },

@@ -107,7 +107,17 @@ export class VerificationPipelineService {
     }
 
     // ── STAGE 3: Face Detection & Verification ──
-    if (success) {
+    const hasFaceInput = Boolean(
+      options.referenceFaceBuffer ||
+      options.referenceFaceBase64 ||
+      options.simulateMismatch ||
+      options.simulateInconclusive ||
+      options.simulateNoFace ||
+      options.simulateMultipleFaces ||
+      options.simulatePoorQuality
+    );
+
+    if (success && !options.skipFaceVerification && hasFaceInput) {
       completed_stages.push('face_verification');
       try {
         const faceOptions = {
@@ -138,8 +148,16 @@ export class VerificationPipelineService {
       } catch (err) {
         throw err;
       }
+    } else if (success && (!hasFaceInput || options.skipFaceVerification)) {
+      // Stages 1-3 passed successfully. Module 4 is ready and waiting for live face capture.
+      stages.face_verification = {
+        status: 'awaiting_capture',
+        reason: 'Modules 1 to 3 verified. Ready for Module 4 live camera capture.',
+        result: null
+      };
+      pipelineStatus = 'stages_1_to_3_completed';
     } else {
-      // Record SKIPPED face verification
+      // Record SKIPPED face verification because prior stage failed
       const skippedFace = await faceVerificationRepository.create({
         documentId,
         versionId: version.id,
