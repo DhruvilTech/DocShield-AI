@@ -160,8 +160,11 @@ def build_fused_regions(
             corroborated_sev = "LOW"
 
         # Build human-readable reason
-        reason = _build_region_reason(supporting_signals, evidence_strength, corroborated_sev)
+        reason = _build_region_reason(region_id, supporting_signals, evidence_strength, corroborated_sev)
         region_page = page if page != 1 else (getattr(loc, "page", None) or 1)
+
+        # Raw float signals map
+        raw_signals = {sig_key: round(raw_sc, 4) for sig_key, raw_sc in attribution.items()}
 
         fused.append(FusedRegion(
             region_id=region_id,
@@ -170,7 +173,10 @@ def build_fused_regions(
             severity=corroborated_sev,
             evidence_strength=evidence_strength,
             evidence_count=len(supporting_signals),
+            detector_count=len(supporting_signals),
             supporting_signals=supporting_signals,
+            supporting_detectors=supporting_signals,
+            signals=raw_signals,
             signal_scores=signal_scores,
             reason=reason,
             target_bbox=target_bbox,
@@ -180,6 +186,7 @@ def build_fused_regions(
 
 
 def _build_region_reason(
+    region_id: str,
     supporting_signals: list[str],
     evidence_strength: str,
     severity: str,
@@ -191,7 +198,4 @@ def _build_region_reason(
         sig = supporting_signals[0]
         return f"Single forensic indicator ({sig}) flags this region as suspicious."
     sigs_str = ", ".join(supporting_signals[:-1]) + f" and {supporting_signals[-1]}"
-    return (
-        f"{n} independent forensic signals ({sigs_str}) overlap in this region — "
-        f"{evidence_strength.lower()} evidence of tampering."
-    )
+    return f"Region {region_id} is suspicious because {sigs_str} independently detected anomalies in the same area."

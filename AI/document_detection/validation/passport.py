@@ -203,6 +203,8 @@ class PassportValidator(BaseDocumentValidator):
             except ValueError:
                 return None
         try:
-            return dateutil_parser.parse(val, dayfirst=True).date()
+            if len(val) >= 10 and val[4] == '-' and val[7] == '-':
+                return date.fromisoformat(val[:10])
+            return dateutil_parser.parse(val).date()
         except Exception:
             return None
