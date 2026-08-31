@@ -18,6 +18,7 @@ import {
   Terminal,
   Cpu,
   Lock,
+  ExternalLink,
 } from 'lucide-react';
 import { Badge, Card, Button, SectionHeader, cn, Reveal } from '../../components/ui';
 import { ScanLine } from '../../components/security';
@@ -36,6 +37,8 @@ import {
 
 type ForensicLayer = 'tampering' | 'mrz' | 'metadata' | 'hex' | 'findings';
 type VisualFilter = 'normal' | 'ela' | 'contrast' | 'invert';
+type TargetFilter = 'ALL' | 'PASSPORT' | 'VISA' | 'NATIONAL_ID' | 'THREATS';
+type IndicatorFilter = 'ALL' | 'THREATS' | 'LOW';
 
 export const AnalysisPage: React.FC = () => {
   const navigate = useNavigate();
@@ -44,6 +47,8 @@ export const AnalysisPage: React.FC = () => {
   const [documents, setDocuments] = useState<VaultDocument[]>([]);
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
   const [docPreviewUrl, setDocPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState(false);
 
   const [tampering, setTampering] = useState<TamperingAnalysis | null>(null);
   const [extraction, setExtraction] = useState<DocumentExtraction | null>(null);
@@ -57,12 +62,17 @@ export const AnalysisPage: React.FC = () => {
   const [selectedIndicatorIdx, setSelectedIndicatorIdx] = useState<number | null>(null);
   const [exporting, setExporting] = useState(false);
 
+  // Search & Filter States
+  const [targetSearch, setTargetSearch] = useState('');
+  const [targetTypeFilter, setTargetTypeFilter] = useState<TargetFilter>('ALL');
+  const [indicatorFilter, setIndicatorFilter] = useState<IndicatorFilter>('ALL');
+
   // Load organization documents
   useEffect(() => {
     if (activeOrganization) {
       setLoading(true);
       documentApi
-        .listDocuments({ limit: 50 })
+        .listDocuments({ limit: 100 })
         .then((res) => {
           const docs = res.data || [];
           setDocuments(docs);
@@ -77,6 +87,7 @@ export const AnalysisPage: React.FC = () => {
 
   // Load telemetry & preview for the selected document
   useEffect(() => {
+    let active = true;
     if (!selectedDocId) {
       setDocPreviewUrl(null);
       setTampering(null);
@@ -86,37 +97,106 @@ export const AnalysisPage: React.FC = () => {
       return;
     }
 
-    // 1. Fetch document preview
+    setPreviewLoading(true);
+    setPreviewError(false);
+
+    // 1. Fetch document preview (blob URL)
     documentApi
       .previewDocument(selectedDocId)
-      .then((url) => setDocPreviewUrl(url))
-      .catch(() => setDocPreviewUrl(null));
+      .then((url) => {
+        if (active) {
+          setDocPreviewUrl(url);
+          setPreviewLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to fetch document preview', err);
+        if (active) {
+          setDocPreviewUrl(null);
+          setPreviewLoading(false);
+          setPreviewError(true);
+        }
+      });
 
     // 2. Fetch tampering forensic analysis
     tamperingApi
       .getTamperingAnalysis(selectedDocId)
-      .then(setTampering)
-      .catch(() => setTampering(null));
+      .then((res) => {
+        if (active) setTampering(res);
+      })
+      .catch(() => {
+        if (active) setTampering(null);
+      });
 
     // 3. Fetch text & MRZ extraction
     processingApi
       .getExtraction(selectedDocId)
-      .then(setExtraction)
-      .catch(() => setExtraction(null));
+      .then((res) => {
+        if (active) setExtraction(res);
+      })
+      .catch(() => {
+        if (active) setExtraction(null);
+      });
 
     // 4. Fetch AI intelligence analysis & findings
     analysisApi
       .getLatestAnalysis(selectedDocId)
-      .then((res) => setAiAnalysis(res))
-      .catch(() => setAiAnalysis(null));
+      .then((res) => {
+        if (active) setAiAnalysis(res);
+      })
+      .catch(() => {
+        if (active) setAiAnalysis(null);
+      });
 
     analysisApi
       .getFindings(selectedDocId)
-      .then(setFindings)
-      .catch(() => setFindings([]));
+      .then((res) => {
+        if (active) setFindings(res);
+      })
+      .catch(() => {
+        if (active) setFindings([]);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [selectedDocId]);
 
   const selectedDoc = documents.find((d) => d.id === selectedDocId);
+  const isPdf =
+    selectedDoc?.mime_type === 'application/pdf' ||
+    selectedDoc?.name?.toLowerCase().endsWith('.pdf') ||
+    selectedDoc?.original_filename?.toLowerCase().endsWith('.pdf');
+
+  // Filtered documents list for target selector
+  const filteredDocuments = documents.filter((d) => {
+    const matchesSearch =
+      !targetSearch ||
+      d.name.toLowerCase().includes(targetSearch.toLowerCase()) ||
+      d.document_type.toLowerCase().includes(targetSearch.toLowerCase());
+
+    if (!matchesSearch) return false;
+
+    if (targetTypeFilter === 'THREATS') {
+      return d.has_tampering || (d.risk_score && d.risk_score > 30);
+    }
+    if (targetTypeFilter !== 'ALL') {
+      return d.document_type === targetTypeFilter;
+    }
+    return true;
+  });
+
+  // Filtered indicators list
+  const allIndicators = tampering?.indicators || [];
+  const filteredIndicators = allIndicators.filter((ind) => {
+    if (indicatorFilter === 'THREATS') {
+      return ind.severity === 'CRITICAL' || ind.severity === 'HIGH' || ind.severity === 'MEDIUM';
+    }
+    if (indicatorFilter === 'LOW') {
+      return ind.severity === 'LOW';
+    }
+    return true;
+  });
 
   // Trigger On-Demand Deep Forensic AI Scan
   const handleRunForensicScan = async () => {
@@ -206,7 +286,7 @@ export const AnalysisPage: React.FC = () => {
           <SectionHeader
             eyebrow="AI Document Forensics Lab"
             title="Deep Forensic & Tampering Inspection"
-            description="Examine raw byte structures, multi-spectral tampering boundaries, ICAO 9303 check digits, and cryptographic integrity."
+            description="Examine raw byte structures, multi-spectral tampering boundaries, ICAO 9303 check digits, and cryptographic integrity across image and PDF artifacts."
             className="mb-0"
           />
 
@@ -258,37 +338,86 @@ export const AnalysisPage: React.FC = () => {
           </Card>
         ) : (
           <div className="grid lg:grid-cols-12 gap-6">
-            {/* Left Column: Select Target & Telemetry Dossier */}
+            {/* Left Column: Target Selector, Telemetry & Indicators */}
             <div className="lg:col-span-4 space-y-4">
-              {/* Document Selector */}
-              <Card className="p-4 border-[var(--border)]">
-                <div className="flex items-center justify-between mb-2">
+              {/* Document Selector with Search and Filters */}
+              <Card className="p-4 border-[var(--border)] space-y-3">
+                <div className="flex items-center justify-between">
                   <span className="text-[10px] font-mono uppercase text-[var(--text-3)] font-bold">
-                    Forensic Targets ({documents.length})
+                    Forensic Targets ({filteredDocuments.length}{filteredDocuments.length !== documents.length ? ` / ${documents.length}` : ''})
                   </span>
-                  <Badge variant="accent" size="sm">TEE Store</Badge>
+                  <Badge variant="accent" size="sm">TEE Enclave</Badge>
                 </div>
-                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
-                  {documents.map((d) => (
+
+                {/* Search Bar */}
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-3)]" />
+                  <input
+                    type="text"
+                    placeholder="Search documents..."
+                    value={targetSearch}
+                    onChange={(e) => setTargetSearch(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 bg-[var(--surface-raised)] border border-[var(--border)] rounded-lg text-xs font-mono text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--accent)] transition-all"
+                  />
+                </div>
+
+                {/* Quick Filter Tabs */}
+                <div className="flex gap-1 overflow-x-auto pb-1 text-[10px] font-mono custom-scrollbar">
+                  {[
+                    { id: 'ALL', label: 'All' },
+                    { id: 'PASSPORT', label: 'Passports' },
+                    { id: 'VISA', label: 'Visas' },
+                    { id: 'NATIONAL_ID', label: 'IDs' },
+                    { id: 'THREATS', label: '🚨 Threats' },
+                  ].map((tab) => (
                     <button
-                      key={d.id}
-                      onClick={() => {
-                        setSelectedDocId(d.id);
-                        setSelectedIndicatorIdx(null);
-                      }}
+                      key={tab.id}
+                      onClick={() => setTargetTypeFilter(tab.id as any)}
                       className={cn(
-                        'w-full p-2.5 rounded-lg border text-left text-xs font-mono transition-all flex items-center justify-between',
-                        selectedDocId === d.id
-                          ? 'border-[var(--accent)] bg-[var(--accent-muted)] text-[var(--text-1)] font-bold shadow-sm'
-                          : 'border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-2)] hover:border-[var(--border-accent)]'
+                        'px-2 py-0.5 rounded transition-all whitespace-nowrap',
+                        targetTypeFilter === tab.id
+                          ? 'bg-[var(--accent)] text-black font-bold'
+                          : 'bg-[var(--surface-raised)] text-[var(--text-2)] hover:text-[var(--text-1)] border border-[var(--border)]'
                       )}
                     >
-                      <span className="truncate mr-2 font-mono">{d.name}</span>
-                      <Badge variant={d.has_tampering ? 'threat' : 'safe'} size="sm">
-                        {d.document_type}
-                      </Badge>
+                      {tab.label}
                     </button>
                   ))}
+                </div>
+
+                {/* Scrollable Target List Container */}
+                <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1.5 custom-scrollbar">
+                  {filteredDocuments.map((d) => {
+                    const isDocPdf = d.mime_type === 'application/pdf' || d.name.endsWith('.pdf');
+                    return (
+                      <button
+                        key={d.id}
+                        onClick={() => {
+                          setSelectedDocId(d.id);
+                          setSelectedIndicatorIdx(null);
+                        }}
+                        className={cn(
+                          'w-full p-2.5 rounded-xl border text-left text-xs font-mono transition-all flex items-center justify-between card-interactive',
+                          selectedDocId === d.id
+                            ? 'border-[var(--accent)] bg-[var(--accent-muted)] text-[var(--text-1)] font-bold shadow-sm'
+                            : 'border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-2)] hover:border-[var(--border-accent)]'
+                        )}
+                      >
+                        <div className="flex items-center gap-2 min-w-0 pr-2">
+                          <span className="text-sm">{isDocPdf ? '📄' : '🖼️'}</span>
+                          <span className="truncate font-mono">{d.name}</span>
+                        </div>
+                        <Badge variant={d.has_tampering ? 'threat' : 'safe'} size="sm" className="flex-shrink-0">
+                          {d.document_type}
+                        </Badge>
+                      </button>
+                    );
+                  })}
+                  {filteredDocuments.length === 0 && (
+                    <div className="p-4 text-center text-xs font-mono text-[var(--text-3)]">
+                      No documents match "{targetSearch}".
+                    </div>
+                  )}
                 </div>
               </Card>
 
@@ -335,63 +464,122 @@ export const AnalysisPage: React.FC = () => {
                 </Card>
               )}
 
-              {/* Detected Forensic Alteration Indicators */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between px-1">
-                  <span className="text-[10px] font-mono uppercase text-[var(--text-3)] font-bold">
-                    Forensic Indicators ({tampering?.indicators?.length || 0})
-                  </span>
-                  {tampering?.indicators && tampering.indicators.length > 0 && (
+              {/* Forensic Indicators (Explainable AI Anomaly Evidence) */}
+              <Card className="p-4 border-[var(--border)] space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-mono uppercase text-[var(--text-3)] font-bold">
+                      Forensic Indicators ({allIndicators.length})
+                    </span>
+                    {allIndicators.some((i) => i.severity !== 'LOW') && (
+                      <span className="w-2 h-2 rounded-full bg-[var(--threat)] animate-pulse" />
+                    )}
+                  </div>
+                  {allIndicators.length > 0 && (
                     <span className="text-[9px] text-[var(--accent)] font-mono">Click to inspect</span>
                   )}
                 </div>
 
-                {tampering?.indicators && tampering.indicators.length > 0 ? (
-                  tampering.indicators.map((ind, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => {
-                        setSelectedIndicatorIdx(idx === selectedIndicatorIdx ? null : idx);
-                        setActiveLayer('tampering');
-                      }}
+                {/* Filter tabs */}
+                {allIndicators.length > 0 && (
+                  <div className="flex gap-1 bg-[var(--surface-raised)] p-1 rounded-lg border border-[var(--border)] text-[10px] font-mono">
+                    <button
+                      onClick={() => setIndicatorFilter('ALL')}
                       className={cn(
-                        'p-3 rounded-xl border font-mono text-xs space-y-1.5 cursor-pointer transition-all',
-                        selectedIndicatorIdx === idx
-                          ? 'border-[var(--threat)] bg-[var(--threat)]/15 shadow-md ring-1 ring-[var(--threat)]'
-                          : 'border-[var(--border)] bg-[var(--surface-raised)] hover:border-[var(--border-accent)]'
+                        'px-2 py-0.5 rounded transition-all flex-1 text-center',
+                        indicatorFilter === 'ALL'
+                          ? 'bg-[var(--accent)] text-black font-bold'
+                          : 'text-[var(--text-2)] hover:text-[var(--text-1)]'
                       )}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-[var(--text-1)]">{ind.category.replace(/_/g, ' ')}</span>
-                        <Badge
-                          variant={ind.severity === 'CRITICAL' || ind.severity === 'HIGH' ? 'threat' : 'warning'}
-                          size="sm"
-                        >
-                          {ind.severity}
-                        </Badge>
-                      </div>
-                      <p className="text-[11px] text-[var(--text-2)] font-sans leading-relaxed">{ind.description}</p>
-                      {ind.evidence && (
-                        <p className="text-[10px] text-[var(--text-3)] font-mono truncate bg-black/40 p-1 rounded">
-                          Evidence: {ind.evidence}
-                        </p>
+                      All ({allIndicators.length})
+                    </button>
+                    <button
+                      onClick={() => setIndicatorFilter('THREATS')}
+                      className={cn(
+                        'px-2 py-0.5 rounded transition-all flex-1 text-center',
+                        indicatorFilter === 'THREATS'
+                          ? 'bg-[var(--threat)] text-white font-bold'
+                          : 'text-[var(--text-2)] hover:text-[var(--threat)]'
                       )}
-                    </div>
-                  ))
-                ) : (
-                  <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] text-xs text-[var(--safe)] font-mono text-center flex items-center justify-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-[var(--safe)]" />
-                    <span>✓ No structural alterations detected on this credential.</span>
+                    >
+                      Anomalies ({allIndicators.filter((i) => i.severity !== 'LOW').length})
+                    </button>
+                    <button
+                      onClick={() => setIndicatorFilter('LOW')}
+                      className={cn(
+                        'px-2 py-0.5 rounded transition-all flex-1 text-center',
+                        indicatorFilter === 'LOW'
+                          ? 'bg-[var(--surface-alt)] text-[var(--text-1)] font-bold'
+                          : 'text-[var(--text-2)] hover:text-[var(--text-1)]'
+                      )}
+                    >
+                      Low ({allIndicators.filter((i) => i.severity === 'LOW').length})
+                    </button>
                   </div>
                 )}
-              </div>
+
+                {/* Scrollable Indicator List */}
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-1.5 custom-scrollbar">
+                  {filteredIndicators.length > 0 ? (
+                    filteredIndicators.map((ind, idx) => {
+                      const isSelected = selectedIndicatorIdx === idx;
+                      const isCritical = ind.severity === 'CRITICAL' || ind.severity === 'HIGH';
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            setSelectedIndicatorIdx(isSelected ? null : idx);
+                            setActiveLayer('tampering');
+                          }}
+                          className={cn(
+                            'p-3 rounded-xl border font-mono text-xs space-y-1.5 cursor-pointer transition-all card-interactive',
+                            isSelected
+                              ? 'border-[var(--threat)] bg-[var(--threat)]/20 shadow-md ring-2 ring-[var(--threat)]/60'
+                              : 'border-[var(--border)] bg-[var(--surface-raised)] hover:border-[var(--border-accent)]'
+                          )}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-[var(--text-1)] truncate pr-2">
+                              {ind.category.replace(/_/g, ' ')}
+                            </span>
+                            <Badge
+                              variant={isCritical ? 'threat' : ind.severity === 'MEDIUM' ? 'warning' : 'neutral'}
+                              size="sm"
+                            >
+                              {ind.severity}
+                            </Badge>
+                          </div>
+                          <p className="text-[11px] text-[var(--text-2)] font-sans leading-relaxed">
+                            {ind.description}
+                          </p>
+                          {ind.evidence && (
+                            <p className="text-[10px] text-[var(--text-3)] font-mono truncate bg-black/50 p-1 rounded border border-white/5">
+                              Evidence: {ind.evidence}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] text-xs text-[var(--safe)] font-mono text-center flex items-center justify-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-[var(--safe)]" />
+                      <span>
+                        {allIndicators.length === 0
+                          ? '✓ No structural alterations detected on this credential.'
+                          : '✓ No indicators match current filter.'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </Card>
             </div>
 
             {/* Right Column: Multi-Layer Deep Disassembly Studio */}
             <div className="lg:col-span-8 space-y-4">
               {/* Layer Navigation Tabs */}
               <div className="flex items-center justify-between border-b border-[var(--border)] pb-2 flex-wrap gap-2">
-                <div className="flex gap-2 text-xs font-mono">
+                <div className="flex gap-2 text-xs font-mono overflow-x-auto pb-1 custom-scrollbar">
                   {[
                     { id: 'tampering', label: 'Layer 1: Visual Forensics & ELA', icon: <Layers className="w-3.5 h-3.5" /> },
                     { id: 'mrz', label: 'Layer 2: ICAO 9303 MRZ Engine', icon: <FileText className="w-3.5 h-3.5" /> },
@@ -403,7 +591,7 @@ export const AnalysisPage: React.FC = () => {
                       key={l.id}
                       onClick={() => setActiveLayer(l.id as any)}
                       className={cn(
-                        'px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5',
+                        'px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5 whitespace-nowrap',
                         activeLayer === l.id
                           ? 'bg-[var(--accent-muted)] text-[var(--accent)] border border-[var(--border-accent)] shadow-sm'
                           : 'text-[var(--text-3)] hover:text-[var(--text-1)]'
@@ -415,7 +603,7 @@ export const AnalysisPage: React.FC = () => {
                   ))}
                 </div>
 
-                {activeLayer === 'tampering' && (
+                {activeLayer === 'tampering' && !isPdf && (
                   <div className="flex items-center gap-1 bg-[var(--surface-raised)] p-1 rounded-lg border border-[var(--border)] text-[10px] font-mono">
                     <span className="text-[var(--text-3)] px-1.5">Filter:</span>
                     {(['normal', 'ela', 'contrast', 'invert'] as VisualFilter[]).map((f) => (
@@ -440,13 +628,13 @@ export const AnalysisPage: React.FC = () => {
               <Card className="p-5 border-[var(--border)] min-h-[460px] relative overflow-hidden bg-black/60">
                 <ScanLine />
 
-                {/* Layer 1: Visual Tampering Heatmap & Bounding Box Localization */}
+                {/* Layer 1: Visual Tampering Heatmap & Document Inspection */}
                 {activeLayer === 'tampering' && (
                   <div className="space-y-4 font-mono text-xs">
-                    <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
+                    <div className="flex items-center justify-between border-b border-[var(--border)] pb-2 flex-wrap gap-2">
                       <span className="text-[var(--text-1)] font-bold flex items-center gap-2">
                         <Shield className="w-4 h-4 text-[var(--accent)]" />
-                        Multi-Spectral Boundary & Splicing Analysis
+                        Multi-Spectral Boundary &amp; Splicing Analysis
                       </span>
                       <div className="flex items-center gap-2">
                         <Badge variant={tampering?.has_tampering_detected ? 'threat' : 'safe'} size="sm" dot>
@@ -456,61 +644,104 @@ export const AnalysisPage: React.FC = () => {
                     </div>
 
                     {/* Viewport container */}
-                    <div className="relative w-full min-h-[340px] rounded-xl border border-[var(--border)] bg-[#070b12] flex items-center justify-center p-4 overflow-hidden">
-                      {docPreviewUrl ? (
-                        <div className="relative inline-block max-h-[380px] max-w-full rounded-lg overflow-hidden border border-white/10 shadow-2xl">
-                          <img
-                            src={docPreviewUrl}
-                            alt="Document Target"
-                            className={cn(
-                              'max-h-[380px] object-contain transition-all duration-300',
-                              visualFilter === 'ela' && 'filter hue-rotate-180 saturate-200 contrast-150',
-                              visualFilter === 'contrast' && 'filter contrast-200 brightness-90',
-                              visualFilter === 'invert' && 'filter invert'
-                            )}
-                          />
-
-                          {/* Dynamic Bounding Box Overlay for Detected Tampering */}
-                          {tampering?.indicators &&
-                            tampering.indicators.map((ind, idx) => {
-                              const isSelected = selectedIndicatorIdx === idx;
-                              const box = ind.bounding_box || (ind as any).boundingBox || { x: 10 + idx * 15, y: 15 + idx * 20, width: 35, height: 25 };
-                              return (
-                                <motion.div
-                                  key={idx}
-                                  initial={{ opacity: 0, scale: 0.9 }}
-                                  animate={{ opacity: 1, scale: 1 }}
-                                  className={cn(
-                                    'absolute rounded border-2 cursor-pointer transition-all flex flex-col justify-between p-1',
-                                    isSelected
-                                      ? 'border-[var(--threat)] bg-[var(--threat)]/30 ring-2 ring-[var(--threat)]'
-                                      : 'border-[var(--threat)]/80 bg-[var(--threat)]/15 hover:bg-[var(--threat)]/25'
-                                  )}
-                                  style={{
-                                    left: `${box.x}%`,
-                                    top: `${box.y}%`,
-                                    width: `${box.width}%`,
-                                    height: `${box.height}%`,
-                                  }}
-                                  onClick={() => setSelectedIndicatorIdx(idx)}
-                                >
-                                  <span className="text-[9px] bg-red-950/90 text-red-300 font-bold px-1 rounded border border-red-500/50 w-fit truncate">
-                                    🚨 {ind.category.replace(/_/g, ' ')}
-                                  </span>
-                                  <span className="text-[8px] text-white/90 bg-black/80 px-1 rounded self-end">
-                                    {(ind.confidence * 100).toFixed(0)}% Conf
-                                  </span>
-                                </motion.div>
-                              );
-                            })}
+                    <div className="relative w-full min-h-[380px] rounded-xl border border-[var(--border)] bg-[#070b12] flex items-center justify-center p-3 overflow-hidden">
+                      {previewLoading ? (
+                        <div className="text-center space-y-3 py-10">
+                          <div className="w-12 h-12 rounded-2xl bg-[var(--accent-muted)] border border-[var(--border-accent)] flex items-center justify-center mx-auto text-xl text-[var(--accent)] animate-spin">
+                            <RefreshCw className="w-6 h-6" />
+                          </div>
+                          <span className="text-xs text-[var(--text-2)] block font-mono">
+                            Loading document stream into security enclave...
+                          </span>
                         </div>
+                      ) : docPreviewUrl ? (
+                        isPdf ? (
+                          /* PDF Viewer Studio Container */
+                          <div className="relative w-full h-[460px] rounded-lg overflow-hidden border border-white/10 shadow-2xl bg-[#0d1117] flex flex-col">
+                            {/* PDF Top Control Bar */}
+                            <div className="flex items-center justify-between px-3 py-2 bg-[var(--surface-raised)] border-b border-[var(--border)] text-xs font-mono">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm">📄</span>
+                                <span className="text-[var(--text-1)] font-bold truncate max-w-[240px]">{selectedDoc?.name}</span>
+                                <Badge variant="accent" size="sm">PDF Enclave Target</Badge>
+                              </div>
+                              <a
+                                href={docPreviewUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[11px] text-[var(--accent)] hover:underline flex items-center gap-1 font-mono font-bold"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                                Popout PDF
+                              </a>
+                            </div>
+
+                            {/* PDF Embedded View */}
+                            <iframe
+                              src={`${docPreviewUrl}#toolbar=0&navpanes=0`}
+                              className="w-full flex-1 border-none bg-[#1a1e24]"
+                              title={`PDF Forensic Target: ${selectedDoc?.name}`}
+                            />
+                          </div>
+                        ) : (
+                          /* Image Forensic Stage with Filters & Bounding Boxes */
+                          <div className="relative inline-block max-h-[420px] max-w-full rounded-lg overflow-hidden border border-white/10 shadow-2xl">
+                            <img
+                              src={docPreviewUrl}
+                              alt={selectedDoc?.name || "Document Target"}
+                              className={cn(
+                                'max-h-[420px] object-contain transition-all duration-300',
+                                visualFilter === 'ela' && 'filter hue-rotate-180 saturate-200 contrast-150',
+                                visualFilter === 'contrast' && 'filter contrast-200 brightness-90',
+                                visualFilter === 'invert' && 'filter invert'
+                              )}
+                            />
+
+                            {/* Dynamic Bounding Box Overlay for Detected Tampering */}
+                            {tampering?.indicators &&
+                              tampering.indicators.map((ind, idx) => {
+                                const isSelected = selectedIndicatorIdx === idx;
+                                const box = ind.boundingBox || (ind as any).bounding_box;
+                                if (!box || typeof box.x !== 'number') return null;
+                                return (
+                                  <motion.div
+                                    key={idx}
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className={cn(
+                                      'absolute rounded border-2 cursor-pointer transition-all flex flex-col justify-between p-1 z-20',
+                                      isSelected
+                                        ? 'border-[var(--threat)] bg-[var(--threat)]/35 ring-2 ring-[var(--threat)] shadow-[0_0_18px_rgba(239,68,68,0.6)]'
+                                        : 'border-[var(--threat)]/80 bg-[var(--threat)]/15 hover:bg-[var(--threat)]/25'
+                                    )}
+                                    style={{
+                                      left: `${box.x}%`,
+                                      top: `${box.y}%`,
+                                      width: `${box.width}%`,
+                                      height: `${box.height}%`,
+                                    }}
+                                    onClick={() => setSelectedIndicatorIdx(idx)}
+                                  >
+                                    <span className="text-[9px] bg-red-950/90 text-red-300 font-bold px-1 rounded border border-red-500/50 w-fit truncate">
+                                      🚨 {ind.category.replace(/_/g, ' ')}
+                                    </span>
+                                    <span className="text-[8px] text-white/90 bg-black/80 px-1 rounded self-end font-mono">
+                                      {(ind.confidence * 100).toFixed(0)}% Conf
+                                    </span>
+                                  </motion.div>
+                                );
+                              })}
+                          </div>
+                        )
                       ) : (
-                        <div className="text-center space-y-2">
+                        <div className="text-center space-y-2 py-10">
                           <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-xl text-[var(--accent)]">
                             📄
                           </div>
                           <span className="text-xs text-[var(--text-3)] block font-mono">
-                            Previewing Document: {selectedDoc?.name}
+                            {previewError
+                              ? 'Failed to load document stream from Cloudinary enclave.'
+                              : `Previewing Document: ${selectedDoc?.name}`}
                           </span>
                         </div>
                       )}
@@ -519,7 +750,7 @@ export const AnalysisPage: React.FC = () => {
                     <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] text-[11px] text-[var(--text-2)] leading-relaxed">
                       {tampering?.has_tampering_detected ? (
                         <span className="text-red-400">
-                          🚨 Potential forensic discontinuity detected: Anomalous JPEG compression markers, copy-move splicing, or font boundary inconsistency flagged by neural forensic weights.
+                          🚨 Potential forensic discontinuity detected: Anomalous compression markers, copy-move splicing, or font boundary inconsistency flagged by neural forensic weights.
                         </span>
                       ) : (
                         <span className="text-emerald-400">
@@ -593,7 +824,7 @@ export const AnalysisPage: React.FC = () => {
                     <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
                       <span className="text-[var(--text-1)] font-bold flex items-center gap-2">
                         <Code className="w-4 h-4 text-[var(--accent)]" />
-                        Binary Stream & Software Fingerprint Inspector
+                        Binary Stream &amp; Software Fingerprint Inspector
                       </span>
                       <Badge variant="safe" size="sm">Native Stream</Badge>
                     </div>
@@ -609,7 +840,7 @@ export const AnalysisPage: React.FC = () => {
                       </div>
                       <div className="flex justify-between py-1.5 border-b border-white/5">
                         <span className="text-[var(--text-3)]">MIME Container:</span>
-                        <span className="text-[var(--text-1)]">{selectedDoc?.mime_type || 'application/pdf / image/jpeg'}</span>
+                        <span className="text-[var(--text-1)]">{selectedDoc?.mime_type || (isPdf ? 'application/pdf' : 'image/jpeg')}</span>
                       </div>
                       <div className="flex justify-between py-1.5 border-b border-white/5">
                         <span className="text-[var(--text-3)]">File Size:</span>
@@ -642,13 +873,13 @@ export const AnalysisPage: React.FC = () => {
                       <Badge variant="accent" size="sm">TEE Binary Frame</Badge>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-black/95 border border-[var(--border)] text-[11px] space-y-1 text-emerald-400 overflow-x-auto leading-relaxed font-mono">
+                    <div className="p-4 rounded-xl bg-black/95 border border-[var(--border)] text-[11px] space-y-1 text-emerald-400 overflow-x-auto leading-relaxed font-mono custom-scrollbar">
                       {generateHexDump().map((line, idx) => (
                         <div key={idx}>{line}</div>
                       ))}
                     </div>
                     <p className="text-[10px] text-[var(--text-3)]">
-                      Magic Header & structural byte stream aligned with ISO/IEC cryptographic specifications.
+                      Magic Header &amp; structural byte stream aligned with ISO/IEC cryptographic specifications.
                     </p>
                   </div>
                 )}
@@ -665,11 +896,11 @@ export const AnalysisPage: React.FC = () => {
                     </div>
 
                     {findings.length > 0 ? (
-                      <div className="space-y-2">
+                      <div className="space-y-2 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
                         {findings.map((f, idx) => (
                           <div
                             key={idx}
-                            className="p-3 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] space-y-1"
+                            className="p-3 rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] space-y-1 card-interactive"
                           >
                             <div className="flex items-center justify-between">
                               <span className="font-bold text-[var(--text-1)]">{f.title || f.category}</span>

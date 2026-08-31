@@ -172,19 +172,19 @@ const FeaturesSection: React.FC = () => (
       <RevealTilt className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {FEATURES.map((f, i) => (
           <div key={f.label} data-tilt-card="">
-            <Link to={f.link}>
-              <Card interactive className="p-5 h-full flex flex-col justify-between">
+            <Link to={f.link} className="block h-full">
+              <Card interactive className="p-5 h-full flex flex-col justify-between group/card">
                 <div>
                   <div className="flex items-start justify-between mb-3">
-                    <span className="text-2xl">{f.icon}</span>
+                    <span className="text-2xl card-icon">{f.icon}</span>
                     <Badge variant={f.badgeVariant} size="sm">{f.badge}</Badge>
                   </div>
-                  <h3 className="text-sm font-bold text-[var(--text-1)] mb-2">{f.label}</h3>
+                  <h3 className="text-sm font-bold text-[var(--text-1)] mb-2 transition-colors group-hover/card:text-[var(--text-1)]">{f.label}</h3>
                   <p className="text-xs text-[var(--text-2)] leading-relaxed">{f.description}</p>
                 </div>
                 <div className="mt-4 pt-3 border-t border-[var(--border)] flex items-center justify-between text-[11px] font-mono text-[var(--accent)] font-semibold">
                   <span>Explore Module</span>
-                  <span>→</span>
+                  <span className="card-arrow text-sm">→</span>
                 </div>
               </Card>
             </Link>
@@ -258,7 +258,7 @@ const InteractiveSandboxSection: React.FC = () => {
                 badgeVariant: 'safe' as const,
               },
             ].map((item) => (
-              <Card key={item.step} className="p-4 border-[var(--border)] hover:border-[var(--border-accent)] transition-all">
+              <Card key={item.step} interactive className="p-4 transition-all">
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-mono font-bold text-[var(--accent)] bg-[var(--accent-muted)] px-1.5 py-0.5 rounded">

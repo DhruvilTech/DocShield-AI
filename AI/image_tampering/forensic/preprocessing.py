@@ -4,10 +4,10 @@ from PIL import Image, ImageOps
 import numpy as np
 import cv2
 
-SUPPORTED_FORMATS = {'JPEG', 'JPG', 'PNG', 'WEBP'}
+SUPPORTED_FORMATS = {'JPEG', 'JPG', 'PNG', 'WEBP', 'TIFF', 'TIF', 'BMP', 'JFIF', 'HEIC', 'AVIF'}
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
-MIN_DIM = 10
-MAX_DIM = 20000
+MIN_DIM = 5
+MAX_DIM = 25000
 
 class CoordinateMapper:
     """
@@ -54,16 +54,16 @@ def detect_file_type(data: bytes, filename: str = "") -> str:
     """
     Safely detects the file format by checking magic bytes first (authoritative),
     falling back to filename extension only if magic bytes are not present or ambiguous.
-    Returns: 'PDF', 'JPEG', 'PNG', 'WEBP', or 'UNKNOWN'
+    Returns: 'PDF', 'JPEG', 'PNG', 'WEBP', 'BMP', 'TIFF', or 'UNKNOWN'
     """
     if not data:
         if filename:
             _, ext = os.path.splitext(filename)
             ext_clean = ext.lstrip('.').upper()
-            if ext_clean in ('JPG', 'JPEG'):
+            if ext_clean in ('JPG', 'JPEG', 'JFIF'):
                 return 'JPEG'
-            if ext_clean in ('PNG', 'WEBP', 'PDF'):
-                return ext_clean
+            if ext_clean in ('PNG', 'WEBP', 'PDF', 'BMP', 'TIFF', 'TIF', 'HEIC', 'AVIF'):
+                return 'PDF' if ext_clean == 'PDF' else ('TIFF' if ext_clean in ('TIFF', 'TIF') else ext_clean)
         return 'UNKNOWN'
 
     # Check Magic Bytes first (authoritative content inspection)
@@ -75,22 +75,29 @@ def detect_file_type(data: bytes, filename: str = "") -> str:
         return 'WEBP'
     if data.startswith(b'%PDF') or b'%PDF-' in data[:1024]:
         return 'PDF'
+    if data.startswith(b'BM'):
+        return 'BMP'
+    if data.startswith(b'II*\x00') or data.startswith(b'MM\x00*'):
+        return 'TIFF'
 
     # Fallback to filename extension if magic bytes are not standard
     if filename:
         _, ext = os.path.splitext(filename)
         ext_clean = ext.lstrip('.').upper()
-        if ext_clean in ('JPG', 'JPEG'):
+        if ext_clean in ('JPG', 'JPEG', 'JFIF'):
             return 'JPEG'
-        if ext_clean in ('PNG', 'WEBP', 'PDF'):
-            return ext_clean
+        if ext_clean == 'PDF':
+            return 'PDF'
+        if ext_clean in ('PNG', 'WEBP', 'BMP', 'TIFF', 'TIF', 'HEIC', 'AVIF'):
+            return 'TIFF' if ext_clean in ('TIFF', 'TIF') else ext_clean
 
     return 'UNKNOWN'
 
 
 def is_pdf(image_bytes: bytes, filename: str = "") -> bool:
-    
-    return detect_file_type(image_bytes, filename) == "PDF"
+    if not image_bytes:
+        return filename.lower().endswith('.pdf')
+    return detect_file_type(image_bytes, filename) == "PDF" or image_bytes.startswith(b'%PDF') or b'%PDF-' in image_bytes[:1024] or filename.lower().endswith('.pdf')
 
 
 def validate_image_file(filepath: str) -> None:
@@ -136,7 +143,7 @@ def load_and_preprocess_pdf(
         raise ValueError(f"File size exceeds the maximum limit of {MAX_FILE_SIZE // (1024*1024)}MB: {len(pdf_bytes)} bytes")
 
     detected = detect_file_type(pdf_bytes, filename)
-    if detected != "PDF" and not (pdf_bytes.startswith(b'%PDF') or b'%PDF-' in pdf_bytes[:1024]):
+    if detected != "PDF" and not (pdf_bytes.startswith(b'%PDF') or b'%PDF-' in pdf_bytes[:1024] or filename.lower().endswith('.pdf')):
         raise ValueError(f"Provided data is not a valid PDF document (detected format: {detected}).")
 
     try:
@@ -214,31 +221,33 @@ def load_and_preprocess_image(image_bytes: bytes, filename: str = "image.jpg", m
         raise ValueError("Image bytes are empty.")
 
     detected_type = detect_file_type(image_bytes, filename)
-    if detected_type not in SUPPORTED_FORMATS:
-        raise ValueError(f"Unsupported image format/extension: {detected_type}. Supported formats: {SUPPORTED_FORMATS}")
+    pil_img = None
+    img_format = detected_type if detected_type != 'UNKNOWN' else 'JPEG'
 
     try:
-        # Load using Pillow for safety check
-        pil_img = Image.open(io.BytesIO(image_bytes))
-        img_format = pil_img.format
-        if not img_format or img_format.upper() not in SUPPORTED_FORMATS:
-            # Check file extension as fallback if format not set
-            _, ext = os.path.splitext(filename)
-            img_format = ext.lstrip('.').upper()
-            if img_format not in SUPPORTED_FORMATS:
-                raise ValueError(f"Unsupported image format: {img_format}")
+        # Load using Pillow
+        loaded_pil = Image.open(io.BytesIO(image_bytes))
+        img_format = loaded_pil.format or img_format
         
-        # Verify image structure for corruption
-        pil_img.verify()
-        
-        # Re-open stream since verify() voids it
-        pil_img = Image.open(io.BytesIO(image_bytes))
-        
-        # Orient according to EXIF tags
-        pil_img = ImageOps.exif_transpose(pil_img)
-        
-    except Exception as e:
-        raise ValueError(f"Corrupted or invalid image data: {e}")
+        # Orient according to EXIF tags if present
+        try:
+            loaded_pil = ImageOps.exif_transpose(loaded_pil)
+        except Exception:
+            pass
+        pil_img = loaded_pil
+    except Exception:
+        # Fallback to OpenCV imdecode if Pillow encounters non-fatal structure warnings
+        try:
+            nparr = np.frombuffer(image_bytes, np.uint8)
+            cv_img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if cv_img is not None:
+                cv_img_rgb = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
+                pil_img = Image.fromarray(cv_img_rgb)
+        except Exception:
+            pass
+
+    if pil_img is None:
+        raise ValueError(f"Corrupted or invalid image data: {filename}")
 
     w, h = pil_img.size
     if w < MIN_DIM or h < MIN_DIM:

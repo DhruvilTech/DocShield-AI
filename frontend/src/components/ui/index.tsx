@@ -19,14 +19,14 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   variant = 'primary', size = 'md', loading = false,
   icon, iconPosition = 'left', children, className, disabled, ...rest
 }, ref) => {
-  const base = 'inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)] disabled:opacity-50 disabled:pointer-events-none select-none cursor-pointer';
+  const base = 'inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)] disabled:opacity-50 disabled:pointer-events-none select-none cursor-pointer active:scale-[0.96] hover:scale-[1.02] hover:-translate-y-0.5';
 
   const variants = {
-    primary:   'btn-sheen bg-[var(--accent)] hover:bg-[var(--accent-bright)] text-[#05070A] shadow-sm hover:shadow-[var(--glow-accent)]',
-    secondary: 'bg-[var(--surface-raised)] hover:bg-[var(--surface-alt)] text-[var(--text-1)] border border-[var(--border)] hover:border-[var(--border-strong)]',
-    outline:   'bg-transparent border border-[var(--border-accent)] text-[var(--accent)] hover:bg-[var(--accent-muted)]',
-    ghost:     'bg-transparent text-[var(--text-2)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-1)]',
-    danger:    'bg-[var(--threat)] hover:brightness-110 text-white',
+    primary:   'btn-sheen bg-[var(--accent)] hover:bg-[var(--accent-bright)] text-[#05070A] shadow-sm hover:shadow-[0_0_25px_rgba(45,212,191,0.45)] font-semibold',
+    secondary: 'bg-[var(--surface-raised)] hover:bg-[var(--surface-alt)] text-[var(--text-1)] border border-[var(--border)] hover:border-[var(--accent)] hover:shadow-[0_0_20px_rgba(45,212,191,0.2)]',
+    outline:   'bg-transparent border border-[var(--border-accent)] text-[var(--accent)] hover:bg-[var(--accent-muted)] hover:border-[var(--accent)] hover:shadow-[0_0_20px_rgba(45,212,191,0.25)]',
+    ghost:     'bg-transparent text-[var(--text-2)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-1)] hover:shadow-[var(--shadow-sm)]',
+    danger:    'bg-[var(--threat)] hover:brightness-110 text-white shadow-sm hover:shadow-[0_0_25px_rgba(251,74,74,0.45)]',
   };
 
   const sizes = {
@@ -48,9 +48,9 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
         </svg>
       )}
-      {!loading && icon && iconPosition === 'left' && icon}
+      {!loading && icon && iconPosition === 'left' && <span className="transition-transform duration-200 group-hover:scale-110">{icon}</span>}
       {children}
-      {!loading && icon && iconPosition === 'right' && icon}
+      {!loading && icon && iconPosition === 'right' && <span className="transition-transform duration-200 group-hover:translate-x-1">{icon}</span>}
     </button>
   );
 });
@@ -69,7 +69,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           ref={ref}
           className={cn(
             'w-full bg-[var(--surface-raised)] border border-[var(--border)] rounded-xl px-3.5 py-2.5 text-xs text-[var(--text-1)] placeholder-[var(--text-3)] font-mono transition-all duration-150',
-            'focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)]',
+            'hover:border-[var(--border-strong)] focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] focus:shadow-[0_0_16px_rgba(45,212,191,0.22)]',
             'disabled:opacity-50 disabled:cursor-not-allowed',
             error && 'border-[var(--threat)] focus:border-[var(--threat)] focus:ring-[var(--threat)]',
             className
@@ -95,13 +95,13 @@ interface BadgeProps {
 
 export const Badge: React.FC<BadgeProps> = ({ children, variant = 'neutral', size = 'sm', dot, className }) => {
   const variants = {
-    safe:    'bg-[#22C55E]/10 text-[#22C55E] border-[#22C55E]/25',
-    warning: 'bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/25',
-    threat:  'bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/25',
-    info:    'bg-[#3B82F6]/10 text-[#3B82F6] border-[#3B82F6]/25',
-    ai:      'bg-[#8B5CF6]/10 text-[#8B5CF6] border-[#8B5CF6]/25',
-    accent:  'bg-[var(--accent-muted)] text-[var(--accent)] border-[var(--border-accent)]',
-    neutral: 'bg-[var(--surface-raised)] text-[var(--text-2)] border-[var(--border)]',
+    safe:    'bg-[#22C55E]/10 text-[#22C55E] border-[#22C55E]/25 hover:border-[#22C55E]/50 hover:shadow-[0_0_12px_rgba(34,197,94,0.3)]',
+    warning: 'bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/25 hover:border-[#F59E0B]/50 hover:shadow-[0_0_12px_rgba(245,158,11,0.3)]',
+    threat:  'bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/25 hover:border-[#EF4444]/50 hover:shadow-[0_0_12px_rgba(239,68,68,0.3)]',
+    info:    'bg-[#3B82F6]/10 text-[#3B82F6] border-[#3B82F6]/25 hover:border-[#3B82F6]/50 hover:shadow-[0_0_12px_rgba(59,130,246,0.3)]',
+    ai:      'bg-[#8B5CF6]/10 text-[#8B5CF6] border-[#8B5CF6]/25 hover:border-[#8B5CF6]/50 hover:shadow-[0_0_12px_rgba(139,92,246,0.3)]',
+    accent:  'bg-[var(--accent-muted)] text-[var(--accent)] border-[var(--border-accent)] hover:border-[var(--accent)] hover:shadow-[0_0_12px_rgba(45,212,191,0.35)]',
+    neutral: 'bg-[var(--surface-raised)] text-[var(--text-2)] border-[var(--border)] hover:border-[var(--border-strong)]',
   };
   const sizes = {
     sm: 'px-2 py-0.5 text-xs font-medium',
@@ -114,7 +114,7 @@ export const Badge: React.FC<BadgeProps> = ({ children, variant = 'neutral', siz
   };
 
   return (
-    <span className={cn('inline-flex items-center gap-1.5 rounded-full border', variants[variant], sizes[size], className)}>
+    <span className={cn('inline-flex items-center gap-1.5 rounded-full border badge-interactive badge-glow transition-all duration-200', variants[variant], sizes[size], className)}>
       {dot && (
         <span className="relative flex w-1.5 h-1.5">
           <span className={cn('absolute inline-flex w-full h-full rounded-full opacity-75 animate-ping', dotColors[variant])} />
@@ -138,13 +138,26 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 export const Card: React.FC<CardProps> = ({ children, className, interactive, accent, as: Tag = 'div', onClick, style, ...rest }) => {
+  const cardRef = React.useRef<HTMLDivElement>(null);
+
+  const handleMouseMove = React.useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!interactive || !cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    cardRef.current.style.setProperty('--mouse-x', `${x}px`);
+    cardRef.current.style.setProperty('--mouse-y', `${y}px`);
+  }, [interactive]);
+
   const Component = Tag as any;
   return (
     <Component
+      ref={cardRef}
+      onMouseMove={handleMouseMove}
       className={cn(
-        'rounded-[18px] border bg-[var(--surface)]/50 backdrop-blur-xl border-[var(--border)]',
-        'transition-all duration-200 shadow-[var(--shadow-sm)]',
-        interactive && 'cursor-pointer card-magnetic hover:border-[var(--accent)] hover:bg-[var(--surface)]/70',
+        'group/card relative rounded-[18px] border bg-[var(--surface)]/50 backdrop-blur-xl border-[var(--border)]',
+        'transition-all duration-300 shadow-[var(--shadow-sm)] overflow-hidden',
+        interactive && 'cursor-pointer card-interactive card-display card-magnetic hover:border-[var(--accent)]',
         accent && 'border-[var(--border-accent)] hover:shadow-[var(--glow-sm)]',
         className
       )}
@@ -152,7 +165,18 @@ export const Card: React.FC<CardProps> = ({ children, className, interactive, ac
       onClick={onClick}
       {...rest}
     >
-      {children}
+      {/* Dynamic Cursor Spotlight Effect */}
+      {interactive && (
+        <div
+          className="pointer-events-none absolute -inset-px rounded-[18px] opacity-0 transition-opacity duration-300 group-hover/card:opacity-100 z-0"
+          style={{
+            background: 'radial-gradient(550px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(45, 212, 191, 0.12), rgba(124, 92, 252, 0.06) 40%, transparent 80%)',
+          }}
+        />
+      )}
+      <div className="relative z-10 w-full h-full flex flex-col justify-between">
+        {children}
+      </div>
     </Component>
   );
 };
@@ -171,12 +195,12 @@ interface MetricProps {
 export const Metric: React.FC<MetricProps> = ({ label, value, description, trend, status, icon, className }) => {
   const statusColor = status === 'safe' ? 'var(--safe)' : status === 'warning' ? 'var(--warning)' : status === 'threat' ? 'var(--threat)' : 'var(--accent)';
   return (
-    <Card className={cn('p-4', className)}>
+    <Card interactive className={cn('p-4', className)}>
       <div className="flex items-start justify-between mb-2">
-        <span className="text-xs font-medium text-[var(--text-2)] uppercase tracking-wider">{label}</span>
-        {icon && <span className="text-[var(--text-3)]">{icon}</span>}
+        <span className="text-xs font-medium text-[var(--text-2)] uppercase tracking-wider font-mono">{label}</span>
+        {icon && <span className="text-[var(--text-3)] card-icon">{icon}</span>}
       </div>
-      <div className="text-2xl font-semibold text-[var(--text-1)]" style={{ color: status ? statusColor : undefined }}>
+      <div className="text-2xl font-semibold text-[var(--text-1)] font-display" style={{ color: status ? statusColor : undefined }}>
         {value}
       </div>
       {description && <div className="mt-1 text-xs text-[var(--text-2)]">{description}</div>}
