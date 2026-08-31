@@ -11,7 +11,7 @@ import { AUDIT_ACTIONS, TAMPERING_CATEGORIES } from '../../config/constants.js';
 import { AppError } from '../../errors/AppError.js';
 import logger from '../../utils/logger.js';
 
-// Map detector sources to backend categories
+// Map detector sources to backend categories (compatible with database schema)
 const CATEGORY_MAP = {
   text_tampering: TAMPERING_CATEGORIES.TEXT_ALTERATION,
   content_alteration: TAMPERING_CATEGORIES.TEXT_ALTERATION,
@@ -20,7 +20,13 @@ const CATEGORY_MAP = {
   ela: TAMPERING_CATEGORIES.COMPRESSION_ANOMALY,
   noise: TAMPERING_CATEGORIES.COMPRESSION_ANOMALY,
   metadata: TAMPERING_CATEGORIES.METADATA_MISMATCH,
-  stamp: TAMPERING_CATEGORIES.STAMP_FORGERY,
+  stamp: TAMPERING_CATEGORIES.STAMP_IRREGULARITY,
+  stamp_forgery: TAMPERING_CATEGORIES.STAMP_IRREGULARITY,
+  STAMP_FORGERY: TAMPERING_CATEGORIES.STAMP_IRREGULARITY,
+  COPY_MOVE_FORGERY: TAMPERING_CATEGORIES.PHOTO_SUBSTITUTION,
+  IMAGE_SPLICING: TAMPERING_CATEGORIES.PHOTO_SUBSTITUTION,
+  CONTENT_ALTERATION: TAMPERING_CATEGORIES.TEXT_ALTERATION,
+  NOISE_INCONSISTENCY: TAMPERING_CATEGORIES.COMPRESSION_ANOMALY,
 };
 
 export class TamperingDetectorService {
@@ -78,46 +84,75 @@ export class TamperingDetectorService {
     // 4. Transform regions & signal evidence to database indicators
     const indicators = [];
 
-    // Localized spatial regions
-    if (Array.isArray(forensicResult.regions)) {
-      for (const reg of forensicResult.regions) {
+    // 1. Localized spatial regions
+    const regionsList = Array.isArray(forensicResult.regions) ? forensicResult.regions : [];
+    for (const reg of regionsList) {
+      indicators.push({
+        category: CATEGORY_MAP[reg.source] || TAMPERING_CATEGORIES.EDGE_DISCONTINUITY,
+        severity: reg.severity || (reg.score >= 0.7 ? 'HIGH' : reg.score >= 0.4 ? 'MEDIUM' : 'LOW'),
+        confidence: reg.score || 0.85,
+        description: reg.reason || `Suspicious forensic anomaly detected via ${reg.source}`,
+        evidence: `Localized anomaly (Score: ${(reg.score * 100).toFixed(1)}%) in Page ${reg.page || 1}`,
+        boundingBox: {
+          x: reg.x,
+          y: reg.y,
+          width: reg.width,
+          height: reg.height,
+          page: reg.page || 1,
+          target_x: reg.target_x,
+          target_y: reg.target_y,
+          target_width: reg.target_width,
+          target_height: reg.target_height,
+        },
+      });
+    }
+
+    // 2. Correlated Fused Regions from Phase 10 Evidence Fusion
+    const fusedList = forensicResult.fusion?.evidence?.fused_regions || forensicResult.fused_regions || [];
+    for (const fused of fusedList) {
+      if (!indicators.some((i) => i.description === fused.reason)) {
+        const supporting = fused.supporting_detectors || [];
+        const primSource = supporting[0] ? supporting[0].toLowerCase() : 'fusion';
         indicators.push({
-          category: CATEGORY_MAP[reg.source] || TAMPERING_CATEGORIES.EDGE_DISCONTINUITY,
-          severity: reg.severity || (reg.score >= 0.7 ? 'HIGH' : reg.score >= 0.4 ? 'MEDIUM' : 'LOW'),
-          confidence: reg.score || 0.85,
-          description: reg.reason || `Suspicious forensic anomaly detected via ${reg.source}`,
-          evidence: `Localized anomaly (Score: ${(reg.score * 100).toFixed(1)}%) in Page ${reg.page || 1}`,
-          boundingBox: {
-            x: reg.x,
-            y: reg.y,
-            width: reg.width,
-            height: reg.height,
-            page: reg.page || 1,
-            target_x: reg.target_x,
-            target_y: reg.target_y,
-            target_width: reg.target_width,
-            target_height: reg.target_height,
-          },
+          category: CATEGORY_MAP[primSource] || TAMPERING_CATEGORIES.COMPRESSION_ANOMALY,
+          severity: fused.severity || 'MEDIUM',
+          confidence: fused.detector_count ? Math.min(1.0, 0.4 + fused.detector_count * 0.2) : 0.8,
+          description: fused.reason || `Spatial evidence correlation across ${supporting.join(', ')}`,
+          evidence: `Fused Region ${fused.region_id || ''} (${fused.evidence_strength || 'MODERATE'} evidence)`,
+          boundingBox: fused.bbox ? {
+            x: fused.bbox[0] || 0,
+            y: fused.bbox[1] || 0,
+            width: fused.bbox[2] || 0,
+            height: fused.bbox[3] || 0,
+            page: fused.page || 1,
+          } : null,
         });
       }
     }
 
-    // High-severity detector signal evidence
+    // 3. Detector signal evidence
     if (forensicResult.signals) {
       for (const [sigName, sigData] of Object.entries(forensicResult.signals)) {
-        if (sigData?.evidence && sigData.score >= 0.5) {
+        if (sigData?.evidence && sigData.evidence.length > 0) {
           for (const ev of sigData.evidence) {
-            if (ev.severity === 'HIGH' || ev.severity === 'CRITICAL') {
-              indicators.push({
-                category: CATEGORY_MAP[sigName] || TAMPERING_CATEGORIES.COMPRESSION_ANOMALY,
-                severity: ev.severity,
-                confidence: sigData.confidence || sigData.score,
-                description: ev.message,
-                evidence: `Signal ${sigName} triggered with score ${(sigData.score * 100).toFixed(1)}%`,
-                boundingBox: null,
-              });
-            }
+            indicators.push({
+              category: CATEGORY_MAP[sigName] || TAMPERING_CATEGORIES.COMPRESSION_ANOMALY,
+              severity: ev.severity || 'MEDIUM',
+              confidence: sigData.confidence || sigData.score || 0.75,
+              description: ev.message,
+              evidence: `Signal ${sigName} triggered with score ${((sigData.score || 0) * 100).toFixed(1)}%`,
+              boundingBox: null,
+            });
           }
+        } else if (sigData?.score >= 0.25) {
+          indicators.push({
+            category: CATEGORY_MAP[sigName] || TAMPERING_CATEGORIES.COMPRESSION_ANOMALY,
+            severity: sigData.score >= 0.6 ? 'HIGH' : sigData.score >= 0.35 ? 'MEDIUM' : 'LOW',
+            confidence: sigData.confidence || sigData.score,
+            description: `Forensic anomaly detected in ${sigName} analysis`,
+            evidence: `Detector score: ${(sigData.score * 100).toFixed(1)}%`,
+            boundingBox: null,
+          });
         }
       }
     }

@@ -308,7 +308,9 @@ export class FaceVerificationService {
           } else if (pyResult.error) {
             const errCode = pyResult.error.code;
             const errMsg = pyResult.error.message || '';
-            if (errCode === 'NO_FACE_DETECTED' || errMsg.toLowerCase().includes('no face')) {
+            if (errCode === 'INTERNAL_ERROR' || errMsg.toLowerCase().includes('not found') || errMsg.toLowerCase().includes('cannot identify') || errMsg.toLowerCase().includes('cannot read') || errMsg.toLowerCase().includes('failed to read')) {
+              pythonExecuted = false;
+            } else if (errCode === 'NO_FACE_DETECTED' || errMsg.toLowerCase().includes('no face')) {
               status = FACE_VERIFICATION_STATUSES.NO_FACE_DETECTED;
               faceDetectedInDoc = false;
               similarityScore = 0.0;
@@ -322,15 +324,17 @@ export class FaceVerificationService {
               similarityScore = 0.0;
               confidence = 0.50;
             }
-            metadata = {
-              ...metadata,
-              similarity: 0.0,
-              match: false,
-              confidence,
-              rejectionError: pyResult.error,
-              rejectionReason: pyResult.error.message || 'No face detected or verification error',
-              liveness,
-            };
+            if (pythonExecuted) {
+              metadata = {
+                ...metadata,
+                similarity: 0.0,
+                match: false,
+                confidence,
+                rejectionError: pyResult.error,
+                rejectionReason: pyResult.error.message || 'No face detected or verification error',
+                liveness,
+              };
+            }
           }
         }
       }

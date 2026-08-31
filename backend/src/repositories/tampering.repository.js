@@ -50,6 +50,16 @@ export class TamperingRepository {
     evidence = null,
     boundingBox = null,
   }) {
+    // Normalize category to schema ENUM values to prevent truncation
+    const NORMALIZED_CATEGORIES = {
+      STAMP_FORGERY: 'STAMP_IRREGULARITY',
+      COPY_MOVE_FORGERY: 'PHOTO_SUBSTITUTION',
+      IMAGE_SPLICING: 'PHOTO_SUBSTITUTION',
+      CONTENT_ALTERATION: 'TEXT_ALTERATION',
+      NOISE_INCONSISTENCY: 'COMPRESSION_ANOMALY',
+    };
+    const safeCategory = NORMALIZED_CATEGORIES[category] || category || 'EDGE_DISCONTINUITY';
+
     const query = `
       INSERT INTO tampering_indicators (
         id, tampering_analysis_id, category, severity,
@@ -60,7 +70,7 @@ export class TamperingRepository {
     await db.execute(query, [
       id,
       tamperingAnalysisId,
-      category,
+      safeCategory,
       severity,
       confidence,
       description,
