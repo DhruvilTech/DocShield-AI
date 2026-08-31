@@ -82,17 +82,17 @@ describe('Sequential Verification Pipeline Integration Tests', () => {
   });
 
   test('Scenario 1 — Invalid Document: Should stop at Stage 1 and skip Stage 2 and Stage 3', async () => {
-    // Mock FastAPI Document Detection to return business validation failure
+    // Mock FastAPI Document Detection to return unsupported document type
     aiClient.analyzeDocument = async () => {
       return {
         request_id: 'test-req-id-s1',
-        document_type: 'passport',
-        ocr: { raw_text: 'Invalid OCR raw text', confidence: 0.4 },
+        document_type: 'unknown',
+        ocr: { raw_text: '', confidence: 0.0 },
         extracted_fields: {},
         validation: {
-          document_type: 'PASSPORT',
+          document_type: 'UNKNOWN',
           valid: false,
-          checks: [{ field: 'passport_number', status: 'missing', message: 'Passport number missing', confidence: 0.1 }],
+          checks: [],
           errors: ['Uploaded file could not be verified as a supported document'],
           warnings: []
         }

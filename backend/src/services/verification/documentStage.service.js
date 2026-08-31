@@ -35,7 +35,8 @@ export class DocumentStageService {
         doc.document_type
       );
 
-      const isValid = result.validation?.valid ?? false;
+      const detectedType = result.document_type;
+      const isSupported = detectedType && detectedType.toLowerCase() !== 'unknown' && detectedType.toLowerCase() === doc.document_type.toLowerCase();
 
       // 3. Persist extraction record to DB so downstream services can access it
       await extractionRepository.create({
@@ -58,11 +59,11 @@ export class DocumentStageService {
       });
 
       return {
-        status: isValid ? 'passed' : 'failed',
-        should_continue: isValid,
-        document_type: result.document_type || doc.document_type,
-        confidence: result.validation?.checks?.[0]?.confidence ?? result.ocr?.confidence ?? 1.0,
-        reason: isValid ? null : (result.validation?.errors?.[0] || 'Uploaded file could not be verified as a supported document'),
+        status: isSupported ? 'passed' : 'failed',
+        should_continue: isSupported,
+        document_type: detectedType || doc.document_type,
+        confidence: result.ocr?.confidence ?? 0.95,
+        reason: isSupported ? null : 'Uploaded file could not be verified as a supported document',
         result: result
       };
     } catch (err) {

@@ -290,48 +290,67 @@ export const ScannerPage: React.FC = () => {
     setPipelineResult(null);
   };
 
-  const getMrzStatus = () => {
-    if (!pipelineResult) return { label: 'VALID ICAO', variant: 'safe' as const };
-    const checks = pipelineResult.stages?.document_detection?.result?.validation?.checks || [];
-    const mrzCheck = checks.find((c: any) => c.field === 'mrz');
-    if (mrzCheck) {
-      return mrzCheck.status === 'valid'
-        ? { label: 'VALID ICAO', variant: 'safe' as const }
-        : { label: 'CHECKSUM MISMATCH', variant: 'threat' as const };
+  const getDocDetectedStatus = () => {
+    if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
+    const docStage = pipelineResult.stages?.document_detection;
+    if (docStage && docStage.status === 'passed') {
+      return { label: 'PASSED', variant: 'safe' as const };
     }
+    return { label: 'FAILED', variant: 'threat' as const };
+  };
+
+  const getMrzStatus = () => {
+    if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
     const factors = pipelineResult.screening?.factors || [];
     const hasMrzFailure = factors.some((f: any) => f.title.includes('MRZ') || f.title.includes('ICAO'));
     if (hasMrzFailure) {
       return { label: 'CHECKSUM MISMATCH', variant: 'threat' as const };
     }
-    return { label: 'VALID ICAO', variant: 'safe' as const };
+    return { label: 'VALID MRZ', variant: 'safe' as const };
   };
 
-  const getWatchlistStatus = () => {
-    if (!pipelineResult) return { label: 'CLEAR', variant: 'safe' as const };
+  const getCrossValidationStatus = () => {
+    if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
     const factors = pipelineResult.screening?.factors || [];
-    const hasWatchlistHit = factors.some((f: any) => f.title.includes('Watchlist') || f.title.includes('Interpol'));
-    if (hasWatchlistHit) {
-      return { label: 'ALERT / HIT', variant: 'threat' as const };
+    const hasMismatch = factors.some((f: any) => f.title.includes('Mismatch') || f.title.includes('Discrepancy'));
+    if (hasMismatch) {
+      return { label: 'DATA MISMATCH', variant: 'threat' as const };
     }
-    return { label: 'CLEAR', variant: 'safe' as const };
+    return { label: 'MATCHED', variant: 'safe' as const };
   };
 
-  const getExpiryStatus = () => {
-    if (!pipelineResult) return { label: 'COMPLIANT', variant: 'safe' as const };
+  const getExpiryStatusCheck = () => {
+    if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
     const factors = pipelineResult.screening?.factors || [];
-    const hasExpiryFailure = factors.some((f: any) => f.title.includes('Expired') || f.title.includes('Expiry'));
-    if (hasExpiryFailure) {
-      const expiryVal = extraction?.extracted_fields?.dateOfExpiry?.value;
-      if (expiryVal) {
-        const expDate = new Date(expiryVal);
-        if (!isNaN(expDate.getTime()) && expDate < new Date()) {
-          return { label: 'EXPIRED', variant: 'threat' as const };
-        }
-      }
-      return { label: 'NEAR EXPIRY', variant: 'warning' as const };
+    const isExpired = factors.some((f: any) => f.title.includes('Expired'));
+    if (isExpired) {
+      return { label: 'EXPIRED', variant: 'threat' as const };
+    }
+    return { label: 'ACTIVE', variant: 'safe' as const };
+  };
+
+  const getSixMonthStatus = () => {
+    if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
+    const factors = pipelineResult.screening?.factors || [];
+    const isExpired = factors.some((f: any) => f.title.includes('Expired'));
+    if (isExpired) {
+      return { label: 'FAILED (EXPIRED)', variant: 'threat' as const };
+    }
+    const isNearExpiry = factors.some((f: any) => f.title.includes('Expires Within 6 Months'));
+    if (isNearExpiry) {
+      return { label: 'FAILED (NEAR EXPIRY)', variant: 'warning' as const };
     }
     return { label: 'COMPLIANT', variant: 'safe' as const };
+  };
+
+  const getNationalityStatus = () => {
+    if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
+    const factors = pipelineResult.screening?.factors || [];
+    const hasInvalidNationality = factors.some((f: any) => f.title.includes('Nationality') && f.title.includes('Invalid'));
+    if (hasInvalidNationality) {
+      return { label: 'INVALID EXTRACTION', variant: 'threat' as const };
+    }
+    return { label: 'VALID', variant: 'safe' as const };
   };
 
   const verdict = screening?.verdict || (riskScore && riskScore.risk_score >= 50 ? 'REJECTED' : 'PASSED');
@@ -742,6 +761,26 @@ export const ScannerPage: React.FC = () => {
                     <div className="space-y-2 text-xs font-mono">
                       <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
                         <div>
+                          <span className="font-bold text-[var(--text-1)] block">Passport Document Detected</span>
+                          <span className="text-[11px] text-[var(--text-3)]">
+                            Checks if the uploaded document contains passport credentials
+                          </span>
+                        </div>
+                        {(() => {
+                          const status = getDocDetectedStatus();
+                          const icon = status.variant === 'safe' ? '✓' : '✗';
+                          const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                          return (
+                            <div className="flex items-center gap-2">
+                              <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                              <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                            </div>
+                          );
+                        })()}
+                      </div>
+
+                      <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
+                        <div>
                           <span className="font-bold text-[var(--text-1)] block">ICAO Doc 9303 Checksum Validation</span>
                           <span className="text-[11px] text-[var(--text-3)]">
                             Weights 7-3-1 check digits across Document Number, DOB & Expiry
@@ -749,20 +788,54 @@ export const ScannerPage: React.FC = () => {
                         </div>
                         {(() => {
                           const status = getMrzStatus();
-                          return <Badge variant={status.variant} size="sm">{status.label}</Badge>;
+                          const icon = status.variant === 'safe' ? '✓' : '✗';
+                          const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                          return (
+                            <div className="flex items-center gap-2">
+                              <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                              <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                            </div>
+                          );
                         })()}
                       </div>
 
                       <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
                         <div>
-                          <span className="font-bold text-[var(--text-1)] block">Interpol SLTD & Border Watchlist Check</span>
+                          <span className="font-bold text-[var(--text-1)] block">MRZ Data Matches Visual Data</span>
                           <span className="text-[11px] text-[var(--text-3)]">
-                            Cross-referencing stolen passport alerts, travel bans & identity fraud suspects
+                            Cross-checks MRZ extracted strings against Visual Inspection Zone
                           </span>
                         </div>
                         {(() => {
-                          const status = getWatchlistStatus();
-                          return <Badge variant={status.variant} size="sm">{status.label}</Badge>;
+                          const status = getCrossValidationStatus();
+                          const icon = status.variant === 'safe' ? '✓' : '✗';
+                          const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                          return (
+                            <div className="flex items-center gap-2">
+                              <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                              <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                            </div>
+                          );
+                        })()}
+                      </div>
+
+                      <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-[var(--text-1)] block">Passport Expiry Status</span>
+                          <span className="text-[11px] text-[var(--text-3)]">
+                            Checks if the passport credential has passed its expiration date
+                          </span>
+                        </div>
+                        {(() => {
+                          const status = getExpiryStatusCheck();
+                          const icon = status.variant === 'safe' ? '✓' : '✗';
+                          const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                          return (
+                            <div className="flex items-center gap-2">
+                              <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                              <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                            </div>
+                          );
                         })()}
                       </div>
 
@@ -770,12 +843,39 @@ export const ScannerPage: React.FC = () => {
                         <div>
                           <span className="font-bold text-[var(--text-1)] block">International 6-Month Expiry Rule</span>
                           <span className="text-[11px] text-[var(--text-3)]">
-                            Ensures document remains valid for mandatory minimum travel period
+                            Ensures document has at least 6 months remaining validity
                           </span>
                         </div>
                         {(() => {
-                          const status = getExpiryStatus();
-                          return <Badge variant={status.variant} size="sm">{status.label}</Badge>;
+                          const status = getSixMonthStatus();
+                          const icon = status.variant === 'safe' ? '✓' : '✗';
+                          const color = status.variant === 'safe' ? 'text-[var(--safe)]' : status.variant === 'warning' ? 'text-[var(--warning)]' : 'text-[var(--threat)]';
+                          return (
+                            <div className="flex items-center gap-2">
+                              <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                              <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                            </div>
+                          );
+                        })()}
+                      </div>
+
+                      <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-[var(--text-1)] block">Nationality Extraction Check</span>
+                          <span className="text-[11px] text-[var(--text-3)]">
+                            Validates that extracted nationality value is clean of OCR noise
+                          </span>
+                        </div>
+                        {(() => {
+                          const status = getNationalityStatus();
+                          const icon = status.variant === 'safe' ? '✓' : '✗';
+                          const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                          return (
+                            <div className="flex items-center gap-2">
+                              <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                              <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                            </div>
+                          );
                         })()}
                       </div>
                     </div>
