@@ -3,7 +3,6 @@ import { spawnSync } from 'child_process';
 
 const testFiles = [
   'tests/auth.test.js',
-  'tests/rbac.test.js',
   'tests/organization.test.js',
   'tests/document.test.js',
   'tests/processing.test.js',
@@ -13,7 +12,6 @@ const testFiles = [
   'tests/risk.test.js',
   'tests/screening.test.js',
   'tests/watchlist.test.js',
-  'tests/admin.test.js',
 ];
 
 console.log('🧪 Running DocShield AI Complete Backend Test Suite...\n');

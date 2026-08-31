@@ -16,7 +16,7 @@ describe('Sequential Verification Pipeline Integration Tests', () => {
   let baseUrl;
   let adminToken;
   let defaultOrgId;
-  let createdDocId;
+  let createMockDocument;
 
   // Save original methods
   const originalAnalyzeDocument = aiClient.analyzeDocument;
@@ -46,24 +46,26 @@ describe('Sequential Verification Pipeline Integration Tests', () => {
     const orgsData = await orgsRes.json();
     defaultOrgId = orgsData.data.organizations[0].id;
 
-    // Create a mock document for testing
-    const docRes = await fetch(`${baseUrl}/documents`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${adminToken}`,
-        'x-organization-id': defaultOrgId,
-      },
-      body: (() => {
-        const formData = new FormData();
-        const fileBlob = new Blob(['Mock document content'], { type: 'image/jpeg' });
-        formData.append('file', fileBlob, 'passport.jpg');
-        formData.append('name', 'Test Pipeline Passport');
-        formData.append('documentType', 'PASSPORT');
-        return formData;
-      })(),
-    });
-    const docData = await docRes.json();
-    createdDocId = docData.data.document.id;
+    // Helper to create a fresh mock document for each scenario
+    createMockDocument = async (filename = 'passport.jpg', docType = 'PASSPORT') => {
+      const docRes = await fetch(`${baseUrl}/documents`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+          'x-organization-id': defaultOrgId,
+        },
+        body: (() => {
+          const formData = new FormData();
+          const fileBlob = new Blob(['Mock document content'], { type: 'image/jpeg' });
+          formData.append('file', fileBlob, filename);
+          formData.append('name', 'Test Pipeline Passport');
+          formData.append('documentType', docType);
+          return formData;
+        })(),
+      });
+      const docData = await docRes.json();
+      return docData.data.document.id;
+    };
   });
 
   after(async () => {
@@ -82,6 +84,7 @@ describe('Sequential Verification Pipeline Integration Tests', () => {
   });
 
   test('Scenario 1 — Invalid Document: Should stop at Stage 1 and skip Stage 2 and Stage 3', async () => {
+    const docId = await createMockDocument();
     // Mock FastAPI Document Detection to return unsupported document type
     aiClient.analyzeDocument = async () => {
       return {
@@ -114,7 +117,7 @@ describe('Sequential Verification Pipeline Integration Tests', () => {
     };
 
     // Execute sequential pipeline
-    const res = await fetch(`${baseUrl}/documents/${createdDocId}/verify-pipeline`, {
+    const res = await fetch(`${baseUrl}/documents/${docId}/verify-pipeline`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -141,14 +144,15 @@ describe('Sequential Verification Pipeline Integration Tests', () => {
     assert.strictEqual(stage3Executed, false);
 
     // Verify database audit trail: skipped records are logged in their tables
-    const latestTampering = await tamperingRepository.findLatestByDocument(createdDocId, defaultOrgId);
+    const latestTampering = await tamperingRepository.findLatestByDocument(docId, defaultOrgId);
     assert.strictEqual(latestTampering.status, 'SKIPPED');
 
-    const latestFace = await faceVerificationRepository.findLatestByDocument(createdDocId, defaultOrgId);
+    const latestFace = await faceVerificationRepository.findLatestByDocument(docId, defaultOrgId);
     assert.strictEqual(latestFace.status, 'SKIPPED');
   });
 
   test('Scenario 2 — Valid Document but Tampered: Should pass Stage 1, fail Stage 2, and skip Stage 3', async () => {
+    const docId = await createMockDocument();
     // Mock FastAPI Document Detection to pass
     aiClient.analyzeDocument = async () => {
       return {
@@ -185,7 +189,7 @@ describe('Sequential Verification Pipeline Integration Tests', () => {
       return { status: 'MATCH', similarity_score: 0.9 };
     };
 
-    const res = await fetch(`${baseUrl}/documents/${createdDocId}/verify-pipeline`, {
+    const res = await fetch(`${baseUrl}/documents/${docId}/verify-pipeline`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -210,11 +214,12 @@ describe('Sequential Verification Pipeline Integration Tests', () => {
     assert.strictEqual(stage3Executed, false);
 
     // Verify database audit trail: skipped Face Verification logged in database
-    const latestFace = await faceVerificationRepository.findLatestByDocument(createdDocId, defaultOrgId);
+    const latestFace = await faceVerificationRepository.findLatestByDocument(docId, defaultOrgId);
     assert.strictEqual(latestFace.status, 'SKIPPED');
   });
 
   test('Scenario 3 — Complete Success: All stages run and pass', async () => {
+    const docId = await createMockDocument();
     aiClient.analyzeDocument = async () => {
       return {
         request_id: 'test-req-id-s3',
@@ -260,14 +265,14 @@ describe('Sequential Verification Pipeline Integration Tests', () => {
       });
     };
 
-    const res = await fetch(`${baseUrl}/documents/${createdDocId}/verify-pipeline`, {
+    const res = await fetch(`${baseUrl}/documents/${docId}/verify-pipeline`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${adminToken}`,
         'x-organization-id': defaultOrgId,
       },
-      body: JSON.stringify({}),
+      body: JSON.stringify({ referenceFaceBase64: 'dGVzdA==' }),
     });
 
     const body = await res.json();
@@ -284,12 +289,13 @@ describe('Sequential Verification Pipeline Integration Tests', () => {
   });
 
   test('Scenario 4 — AI Service Failure: Handle FastAPI network errors gracefully', async () => {
+    const docId = await createMockDocument();
     // Mock FastAPI Document Detection to raise a system network error
     aiClient.analyzeDocument = async () => {
       throw new Error('Connect ETIMEDOUT 127.0.0.1:8000');
     };
 
-    const res = await fetch(`${baseUrl}/documents/${createdDocId}/verify-pipeline`, {
+    const res = await fetch(`${baseUrl}/documents/${docId}/verify-pipeline`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -303,5 +309,47 @@ describe('Sequential Verification Pipeline Integration Tests', () => {
     assert.strictEqual(res.status, 500); // Properly translated to a system error (500)
     assert.strictEqual(body.success, false);
     assert.strictEqual(body.error?.code, 'DOCUMENT_DETECTION_FAILED');
+  });
+
+  test('Scenario 5 — Mismatched Document Type: Should stop at Stage 1 with Document Category Mismatch error', async () => {
+    const docId = await createMockDocument();
+    // Mock FastAPI Document Detection to return a Passport selection but Driving License OCR text
+    aiClient.analyzeDocument = async () => {
+      return {
+        request_id: 'test-req-id-s5',
+        document_type: 'passport',
+        ocr: { raw_text: 'UNION OF INDIA DRIVING LICENCE MH0120200034761', confidence: 0.95 },
+        extracted_fields: { license_number: 'MH0120200034761' },
+        validation: {
+          document_type: 'DRIVING_LICENSE',
+          valid: false,
+          checks: [],
+          errors: [],
+          warnings: []
+        }
+      };
+    };
+
+    // Execute sequential pipeline
+    const res = await fetch(`${baseUrl}/documents/${docId}/verify-pipeline`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+        'x-organization-id': defaultOrgId,
+      },
+      body: JSON.stringify({}),
+    });
+
+    const body = await res.json();
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(body.success, true);
+    
+    const pipelineData = body.data;
+    assert.strictEqual(pipelineData.success, false);
+    assert.strictEqual(pipelineData.pipeline_status, 'stopped');
+    assert.strictEqual(pipelineData.failed_stage, 'document_detection');
+    assert.strictEqual(pipelineData.stages.document_detection.status, 'failed');
+    assert.strictEqual(pipelineData.stages.document_detection.reason, 'Document is not valid as per selected document');
   });
 });

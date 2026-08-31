@@ -173,7 +173,18 @@ export class ScreeningRepository {
         impact_score DESC
     `;
 
-    return db.query(query, [screeningId]);
+    const rows = await db.query(query, [screeningId]);
+    return rows.map(row => {
+      const match = row.title.match(/^Validation:\s+\[([A-Z0-9_]+)\]\s+(.*)$/);
+      if (match) {
+        return {
+          ...row,
+          rule: match[1],
+          title: `Validation: ${match[2]}`
+        };
+      }
+      return row;
+    });
   }
 }
 

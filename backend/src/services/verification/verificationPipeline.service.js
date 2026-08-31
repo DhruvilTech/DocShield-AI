@@ -259,6 +259,18 @@ export class VerificationPipelineService {
       screening = await screeningRepository.findScreeningById(screeningRecord.id, organizationId);
     }
 
+    // Determine if we should soft delete the document due to failure, fake status, or expiry
+    const isRejected = screening && screening.verdict === 'REJECTED';
+    const isExpired = screening && (
+      screening.metadata?.validationStatus === 'FLAGGED' || 
+      (screening.factors && screening.factors.some(f => f.title.includes('Expired') || f.title.includes('Expiry')))
+    );
+    const shouldDelete = !success || isRejected || isExpired;
+
+    if (shouldDelete) {
+      await documentRepository.softDelete(documentId, organizationId);
+    }
+
     return {
       success,
       pipeline_status: pipelineStatus,

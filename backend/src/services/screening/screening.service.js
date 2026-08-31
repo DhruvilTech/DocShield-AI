@@ -116,7 +116,7 @@ export class ScreeningService {
         factorsToCreate.push({
           category: 'COMPLIANCE',
           severity: vf.severity,
-          title: `Validation: ${vf.title}`,
+          title: `Validation: [${vf.rule}] ${vf.title}`,
           description: vf.description,
           impactScore: vf.severity === 'CRITICAL' ? 35 : (vf.severity === 'HIGH' ? 20 : 10),
           evidence: vf.evidence,

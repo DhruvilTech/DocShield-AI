@@ -27,6 +27,7 @@ class PaddleOCREngine(BaseOCREngine):
                 pass
             import paddle
             paddle.set_flags({'FLAGS_use_mkldnn': False})
+            from paddleocr import PaddleOCR
             try:
                 self._ocr = PaddleOCR(use_angle_cls=True, lang=language, use_gpu=use_gpu, show_log=False, enable_mkldnn=False)
             except (TypeError, ValueError):
