@@ -32,6 +32,38 @@ class PaddleOCRResponseNormalizer:
         for page_result in raw_response:
             if not page_result:
                 continue
+            # Support PaddleOCR 3.x dict response format
+            if isinstance(page_result, dict):
+                rec_texts = page_result.get("rec_texts", [])
+                rec_scores = page_result.get("rec_scores", [])
+                rec_polys = page_result.get("rec_polys", page_result.get("dt_polys", []))
+                for i, text in enumerate(rec_texts):
+                    conf = rec_scores[i] if i < len(rec_scores) else None
+                    poly = rec_polys[i] if i < len(rec_polys) else None
+                    bbox = None
+                    if poly is not None:
+                        try:
+                            poly_list = poly.tolist() if hasattr(poly, "tolist") else list(poly)
+                            if len(poly_list) == 4:
+                                bbox = BoundingBox(
+                                    points=[[float(c) for c in p] for p in poly_list]
+                                )
+                        except Exception:
+                            pass
+
+                    conf_float = float(conf) if conf is not None else None
+                    if conf_float is not None:
+                        conf_float = max(0.0, min(1.0, conf_float))
+                        confidences.append(conf_float)
+
+                    regions.append(TextRegion(
+                        text=str(text),
+                        confidence=conf_float,
+                        bounding_box=bbox,
+                    ))
+                continue
+
+            # Support PaddleOCR 2.x nested list format
             for detection in page_result:
                 try:
                     bbox_points, text_conf = detection

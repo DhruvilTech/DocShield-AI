@@ -1,6 +1,8 @@
 from __future__ import annotations
 import os
 os.environ['FLAGS_use_mkldnn'] = '0'
+os.environ['FLAGS_enable_pir_api'] = '0'
+os.environ['FLAGS_enable_pir_in_executor'] = '0'
 
 from document_detection.ocr.base import BaseOCREngine
 from document_detection.ocr.models import OCRResult
@@ -18,10 +20,19 @@ class PaddleOCREngine(BaseOCREngine):
 
     def __init__(self, language: str = "en", use_gpu: bool = False) -> None:
         try:
+            # Pre-import torch to avoid Windows DLL symbol clash with Paddle
+            try:
+                import torch  # noqa: F401
+            except Exception:
+                pass
             import paddle
             paddle.set_flags({'FLAGS_use_mkldnn': False})
             from paddleocr import PaddleOCR  # noqa: PLC0415
-            self._ocr = PaddleOCR(use_angle_cls=True, lang=language, use_gpu=use_gpu, show_log=False, enable_mkldnn=False)
+            try:
+                self._ocr = PaddleOCR(use_angle_cls=True, lang=language, use_gpu=use_gpu, show_log=False, enable_mkldnn=False)
+            except (TypeError, ValueError):
+                # PaddleOCR 3.x compatibility
+                self._ocr = PaddleOCR(lang=language, enable_mkldnn=False)
         except Exception as exc:
             raise OCRFailureError(f"Failed to initialize PaddleOCR: {exc}") from exc
         self._normalizer = PaddleOCRResponseNormalizer()
@@ -35,7 +46,10 @@ class PaddleOCREngine(BaseOCREngine):
             if isinstance(image, Image.Image):
                 # Convert PIL Image to BGR numpy array as PaddleOCR/OpenCV expects BGR
                 image = np.array(image.convert("RGB"))[:, :, ::-1]
-            raw = self._ocr.ocr(image, cls=True)
+            try:
+                raw = self._ocr.ocr(image, cls=True)
+            except TypeError:
+                raw = self._ocr.ocr(image)
         except Exception as exc:
             raise OCRFailureError(f"PaddleOCR inference failed: {exc}") from exc
         return self._normalizer.normalize(raw)
