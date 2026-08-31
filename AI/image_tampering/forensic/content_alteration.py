@@ -137,6 +137,10 @@ def analyze_content_alteration(
             if _is_thin_rule_or_banner(bw, bh, img_w, img_h):
                 continue
 
+            # Filter large full-page document boundary frames
+            if bw > 0.85 * img_w and bh > 0.85 * img_h:
+                continue
+
             # Filter single-line header text (low height, wide aspect ratio)
             aspect = max(bw, bh) / (min(bw, bh) + 1e-5)
             if (bw < 45 or bh < 40) and aspect > 2.0:
@@ -183,16 +187,18 @@ def analyze_content_alteration(
             # ── Attack Detection Conditions ───────────────────────────────────────
             # 1. Freehand digital stroke defacement / scribble:
             is_stroke_defacement = (
-                bw >= 60 and bh >= 45 and area >= 800 and
+                bw >= 50 and bh >= 40 and area >= 600 and
                 thinness >= 35.0 and surround_std >= 25.0 and
-                surround_dynamic_range >= 70.0 and fill_ratio <= 0.65
+                surround_dynamic_range >= 70.0 and fill_ratio <= 0.65 and
+                (thinness >= 70.0 or stroke_ela_max >= 32.0)
             )
 
             # 2. Localized content alteration / text overpainting:
             is_localized_scribble = (
-                bw >= 35 and bh >= 35 and area >= 600 and
-                thinness >= 55.0 and surround_std >= 35.0 and
-                surround_dynamic_range >= 90.0
+                bw >= 35 and bh >= 35 and area >= 500 and
+                thinness >= 40.0 and surround_std >= 35.0 and
+                surround_dynamic_range >= 90.0 and
+                (thinness >= 70.0 or stroke_ela_max >= 32.0)
             )
 
             if is_stroke_defacement or is_localized_scribble:

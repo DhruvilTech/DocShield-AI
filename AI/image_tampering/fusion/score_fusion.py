@@ -85,32 +85,37 @@ def compute_overall_score(
 
     strong_regions = [r for r in fused_regions if getattr(r, "evidence_strength", None) == "STRONG"] if fused_regions else []
     mod_regions = [r for r in fused_regions if getattr(r, "evidence_strength", None) == "MODERATE"] if fused_regions else []
-    high_regions = [r for r in fused_regions if getattr(r, "severity", None) == "HIGH"] if fused_regions else []
 
     score = 0.0
 
-    # 1. Direct positive attack indicators
+    # 1. Direct positive attack indicators (Active forgery evidence)
     if cm_score >= 40:
         score = max(score, 72.0 + 0.26 * cm_score)
     if splicing_score >= 50:
         score = max(score, 68.0 + 0.28 * splicing_score)
     if alt_score >= 50:
         score = max(score, 68.0 + 0.28 * alt_score)
-    if ela_score >= 45 and noise_score >= 60:
-        score = max(score, 0.55 * noise_score + 0.45 * ela_score)
+    if stamp_score >= 70:
+        score = max(score, 68.0 + 0.28 * stamp_score)
     if len(strong_regions) > 0:
         score = max(score, 75.0 + 10.0 * min(len(strong_regions), 2))
-    if len(mod_regions) > 0 and len(high_regions) > 0 and (stamp_score >= 40 or ela_score >= 35 or noise_score >= 80 or alt_score >= 40):
-        top_sig = max(noise_score, ela_score, stamp_score, splicing_score, cm_score, alt_score)
-        score = max(score, 60.0 + 0.20 * top_sig)
+    if len(mod_regions) >= 2 and (ela_score >= 45 and noise_score >= 60):
+        score = max(score, 65.0 + 0.20 * max(ela_score, noise_score))
 
     if score == 0.0:
-        # Baseline clean document score
-        detector_keys = ["ela", "noise", "content_alteration", "stamp", "metadata"]
-        total_w = sum(weights.get(k, 0.15) for k in detector_keys if normalised_scores.get(k) is not None)
-        w_sum = sum(weights.get(k, 0.15) * (normalised_scores.get(k) or 0) for k in detector_keys if normalised_scores.get(k) is not None)
+        # Baseline clean / uncorroborated document score
+        # Weighted average of passive/contextual detectors (ELA, Noise, Stamp, Metadata)
+        detector_keys = ["ela", "noise", "stamp", "metadata"]
+        avail_keys = [k for k in detector_keys if normalised_scores.get(k) is not None]
+        total_w = sum(weights.get(k, 0.15) for k in avail_keys)
+        w_sum = sum(weights.get(k, 0.15) * (normalised_scores.get(k) or 0) for k in avail_keys)
         w_avg = w_sum / total_w if total_w > 0 else 0.0
-        score = min(w_avg * 0.70, 25.0)
+        
+        # Region bonus addition if moderate regions exist without direct attack
+        if len(mod_regions) > 0:
+            score = min(w_avg * 0.40 + 8.0 * len(mod_regions), 35.0)
+        else:
+            score = min(w_avg * 0.35, 25.0)
 
     final_score = int(min(max(score, 0.0), 100.0))
     return final_score

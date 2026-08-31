@@ -222,6 +222,49 @@ def analyze_stamps(
             deduped_regions.append(r)
     regions = deduped_regions
 
+    # 6b. Pairwise Duplicate Cloned Stamp / Seal Cross-Correlation Check
+    large_stamps = [r for r in regions if r.width >= 65 and r.height >= 65]
+    for i in range(len(large_stamps)):
+        for j in range(i + 1, len(large_stamps)):
+            r1 = large_stamps[i]
+            r2 = large_stamps[j]
+            if coordinate_mapper:
+                w_x1, w_y1, w_w1, w_h1 = coordinate_mapper.box_to_working(r1.x, r1.y, r1.width, r1.height)
+                w_x2, w_y2, w_w2, w_h2 = coordinate_mapper.box_to_working(r2.x, r2.y, r2.width, r2.height)
+                w_x1, w_y1, w_w1, w_h1 = int(round(w_x1)), int(round(w_y1)), int(round(w_w1)), int(round(w_h1))
+                w_x2, w_y2, w_w2, w_h2 = int(round(w_x2)), int(round(w_y2)), int(round(w_w2)), int(round(w_h2))
+            else:
+                w_x1, w_y1, w_w1, w_h1 = r1.x, r1.y, r1.width, r1.height
+                w_x2, w_y2, w_w2, w_h2 = r2.x, r2.y, r2.width, r2.height
+
+            crop1 = grayscale[max(0, w_y1):min(h_limit, w_y1 + w_h1), max(0, w_x1):min(w_limit, w_x1 + w_w1)]
+            crop2 = grayscale[max(0, w_y2):min(h_limit, w_y2 + w_h2), max(0, w_x2):min(w_limit, w_x2 + w_w2)]
+
+            if crop1.size > 400 and crop2.size > 400:
+                if crop2.shape != crop1.shape:
+                    crop2_res = cv2.resize(crop2, (crop1.shape[1], crop1.shape[0]))
+                else:
+                    crop2_res = crop2
+
+                res = cv2.matchTemplate(crop1, crop2_res, cv2.TM_CCOEFF_NORMED)
+                sim = float(res[0][0])
+                if sim >= 0.70:
+                    r1.score = max(r1.score, 0.85)
+                    r1.severity = "HIGH"
+                    r1.reason = f"Duplicate cloned official seal detected (visual correlation: {sim:.2f})"
+                    r1.target_x = r2.x
+                    r1.target_y = r2.y
+                    r1.target_width = r2.width
+                    r1.target_height = r2.height
+
+                    r2.score = max(r2.score, 0.85)
+                    r2.severity = "HIGH"
+                    r2.reason = f"Duplicate cloned official seal detected (visual correlation: {sim:.2f})"
+                    r2.target_x = r1.x
+                    r2.target_y = r1.y
+                    r2.target_width = r1.width
+                    r2.target_height = r1.height
+
     # 7. Document-Wide Score & Statistics
     anomaly_score = 0.0
     if regions:

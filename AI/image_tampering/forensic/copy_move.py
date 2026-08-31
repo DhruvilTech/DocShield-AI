@@ -60,15 +60,15 @@ def analyze_copy_move(
     coordinate_mapper: Optional[CoordinateMapper] = None,
     save_debug: bool = False,
     debug_dir: Optional[str] = None,
-    ratio: float = 0.60,
+    ratio: float = 0.68,
     min_dist_ratio: float = 0.05,
-    min_inliers: int = 8
+    min_inliers: int = 6
 ) -> ForensicSignal:
     """
     Performs Copy-Move duplicate tampering detection.
     
     Algorithm:
-    1. Extracts SIFT features (keypoints and descriptors) capped at 1,000 for CPU performance.
+    1. Extracts SIFT features (keypoints and descriptors) capped at 1,500 for CPU performance.
     2. Performs internal descriptor matching using Brute-Force k-NN matching (k=3).
     3. Filters out self-matches and enforces queryIdx < trainIdx to prevent duplicates.
     4. Filters out close-proximity matches below a spatial distance threshold 
@@ -86,8 +86,8 @@ def analyze_copy_move(
     gray = cv2.cvtColor(working_image_rgb, cv2.COLOR_RGB2GRAY)
     h_limit, w_limit = working_image_rgb.shape[:2]
 
-    # 2. SIFT Feature Detection & Descriptor Extraction (Cap at 1,000 keypoints)
-    sift = cv2.SIFT_create(nfeatures=1000)
+    # 2. SIFT Feature Detection & Descriptor Extraction (Cap at 1,500 keypoints)
+    sift = cv2.SIFT_create(nfeatures=1500, contrastThreshold=0.02, edgeThreshold=15)
     kp, des = sift.detectAndCompute(gray, None)
 
     # If no features or too few features are detected, return clean signal
@@ -253,15 +253,15 @@ def analyze_copy_move(
             orig_dst_x, orig_dst_y, orig_dst_w, orig_dst_h = dst_x, dst_y, dst_w, dst_h
 
         # Regional score is based on cluster match size (confidence is high for large clusters)
-        if len(cluster) >= 8:
-            cluster_score = float(0.4 + 0.6 * (min(len(cluster), 20) - 8) / 12.0)
-            # Boost severity to HIGH if visual matching is extremely clean (high NCC) and has solid count
-            if len(cluster) >= 10 and cluster_ncc >= 0.85:
+        if len(cluster) >= 6:
+            cluster_score = float(0.45 + 0.55 * (min(len(cluster), 18) - 6) / 12.0)
+            # Boost severity to HIGH if visual matching is clean (high NCC) and has solid count
+            if len(cluster) >= 8 and cluster_ncc >= 0.75:
                 severity = "HIGH"
             else:
                 severity = "HIGH" if cluster_score > 0.7 else ("MEDIUM" if cluster_score > 0.4 else "LOW")
         else:
-            cluster_score = float(0.05 * len(cluster))
+            cluster_score = float(0.08 * len(cluster))
             severity = "LOW"
 
         regions.append(SuspiciousRegion(
@@ -284,10 +284,10 @@ def analyze_copy_move(
 
     # 7. Document-wide Anomaly Score (0.0 to 1.0)
     largest_cluster_size = max(len(c[0]) for c in clusters) if clusters else 0
-    if largest_cluster_size >= 8:
-        base_score = 0.4 + 0.6 * (min(largest_cluster_size, 20) - 8) / 12.0
+    if largest_cluster_size >= 6:
+        base_score = 0.45 + 0.55 * (min(largest_cluster_size, 18) - 6) / 12.0
     else:
-        base_score = 0.05 * largest_cluster_size
+        base_score = 0.08 * largest_cluster_size
 
     # Boost score slightly if multiple independent duplicate clusters are verified
     score = base_score + 0.15 * (len(clusters) - 1 if len(clusters) > 0 else 0)
