@@ -8,6 +8,7 @@ import { tamperingController } from '../controllers/tampering.controller.js';
 import { faceVerificationController } from '../controllers/faceVerification.controller.js';
 import { riskController } from '../controllers/risk.controller.js';
 import { screeningController } from '../controllers/screening.controller.js';
+import { verificationController } from '../controllers/verification.controller.js';
 import { requireAuth } from '../middleware/auth.middleware.js';
 import { resolveOrganization, requireOrgPermission } from '../middleware/organization.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
@@ -263,6 +264,15 @@ router.get(
   resolveOrganization,
   requireOrgPermission(SYSTEM_PERMISSIONS.SCREENING_READ),
   screeningController.getScreening
+);
+
+// Sequential Verification Pipeline Route
+router.post(
+  '/:id/verify-pipeline',
+  requireAuth,
+  resolveOrganization,
+  requireOrgPermission(SYSTEM_PERMISSIONS.SCREENING_RUN),
+  verificationController.runVerificationPipeline
 );
 
 export default router;

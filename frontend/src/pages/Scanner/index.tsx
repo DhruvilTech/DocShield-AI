@@ -189,56 +189,70 @@ export const ScannerPage: React.FC = () => {
       setCreatedDocId(uploadedDoc.id);
       addLog(`[ENCLAVE] Document ingested with SHA-256 Checksum: ${uploadedDoc.checksum?.substring(0, 16)}...`);
 
-      // 2. Trigger Extraction
+      // 2. Trigger sequential backend pipeline execution
       setPhase('extracting');
-      addLog(`[MODULE 1] Extracting OCR fields, Machine Readable Zone (MRZ), and visual text...`);
-      await processingApi.triggerProcessing(uploadedDoc.id, { priority: 'HIGH' });
+      addLog(`[PIPELINE] Starting sequential multi-stage verification...`);
+      addLog(`[STAGE 1] Running Document Detection AI...`);
 
-      // Poll extraction
-      let extData: DocumentExtraction | null = null;
-      for (let i = 0; i < 5; i++) {
-        await new Promise((r) => setTimeout(r, 600));
-        try {
-          extData = await processingApi.getExtraction(uploadedDoc.id);
-          if (extData) break;
-        } catch {
-          // retry
-        }
-      }
-      setExtraction(extData);
-      addLog(`[MODULE 1] Extraction complete. Confidence: ${((extData?.confidence_score || 0.95) * 100).toFixed(0)}%`);
-
-      // 3. Module 2 & 3: Official Document Validation & Tampering Forensics
-      setPhase('validating');
-      addLog(`[MODULE 2] Validating ICAO 9303 check digits, 6-month travel validity & querying Interpol SLTD database...`);
-      await new Promise((r) => setTimeout(r, 700));
-
-      setPhase('forensics');
-      addLog(`[MODULE 3] Running Forensic Tampering Detectors (Photo boundary, Text baseline, Stamp forgery, Metadata EXIF)...`);
-      const tampRes = await tamperingApi.analyzeDocument(uploadedDoc.id);
-      setTampering(tampRes);
-      addLog(`[MODULE 3] Tampering Forensics complete. Alteration Score: ${tampRes.overall_tampering_score}`);
-
-      // 4. Module 4: Biometric Face Verification
-      setPhase('biometrics');
-      addLog(`[MODULE 4] Performing Biometric Face Comparison against presented subject...`);
-      const faceRes = await faceVerificationApi.verifyFace(uploadedDoc.id, {
+      const pipelineResult = await documentApi.verifyPipeline(uploadedDoc.id, {
         referenceFaceBase64: facePreview || undefined,
         simulateMismatch: !facePreview && (fileToUpload.name.includes('forged') || fileToUpload.name.includes('stolen')),
       });
-      setFaceVerification(faceRes);
-      addLog(`[MODULE 4] Face verification status: ${faceRes.status} (Similarity: ${(faceRes.similarity_score * 100).toFixed(1)}%)`);
 
-      // 5. Unified Screening & Multi-Factor Risk Score
-      addLog(`[DECISION] Calculating multi-factor risk score & evaluating Border Clearance Verdict...`);
-      const screeningRes = await screeningApi.runScreening(uploadedDoc.id);
-      setScreening(screeningRes);
+      // Process Stage 1: Document Detection
+      const docStage = pipelineResult.stages?.document_detection;
+      if (docStage && docStage.status === 'passed') {
+        setExtraction(docStage.result);
+        addLog(`✓ Document Detection Passed. Confidence: ${((docStage.result?.confidence_score || 0.95) * 100).toFixed(0)}%`);
+      } else {
+        addLog(`✗ Document Detection Failed: ${docStage?.reason || 'Invalid document'}`);
+        addLog(`Tampering Analysis: Skipped`);
+        addLog(`Face Verification: Skipped`);
+        setPhase('idle');
+        setError(docStage?.reason || 'Document screening failed validation standards.');
+        setScreening(pipelineResult.screening);
+        setRiskScore(pipelineResult.riskScore);
+        return;
+      }
 
-      const riskRes = await riskApi.getRiskScore(uploadedDoc.id);
-      setRiskScore(riskRes);
+      // Process Stage 2: Tampering
+      setPhase('forensics');
+      addLog(`→ Running Tampering Analysis...`);
+      await new Promise((r) => setTimeout(r, 600));
 
+      const tampStage = pipelineResult.stages?.tampering;
+      if (tampStage && tampStage.status === 'passed') {
+        setTampering(tampStage.result);
+        addLog(`✓ Tampering Analysis Passed. Score: ${tampStage.result?.overall_tampering_score || 0}`);
+      } else {
+        setTampering(tampStage?.result || null);
+        addLog(`✗ Tampering Analysis Failed: ${tampStage?.reason || 'Tampering detected'}`);
+        addLog(`Face Verification: Skipped`);
+        setPhase('idle');
+        setError(tampStage?.reason || 'Forensic tampering verification failed.');
+        setScreening(pipelineResult.screening);
+        setRiskScore(pipelineResult.riskScore);
+        return;
+      }
+
+      // Process Stage 3: Face Verification
+      setPhase('biometrics');
+      addLog(`→ Running Face Verification...`);
+      await new Promise((r) => setTimeout(r, 600));
+
+      const faceStage = pipelineResult.stages?.face_verification;
+      setFaceVerification(faceStage?.result || null);
+      if (faceStage && faceStage.status === 'passed') {
+        addLog(`✓ Face Verification Completed: MATCH (Similarity: ${(faceStage.result?.similarity_score * 100).toFixed(1)}%)`);
+      } else {
+        addLog(`✗ Face Verification Failed: ${faceStage?.reason || 'No match'}`);
+      }
+
+      // Set final verdicts
+      setScreening(pipelineResult.screening);
+      setRiskScore(pipelineResult.riskScore);
       setPhase('complete');
-      addLog(`[VERDICT] Clearance Verdict: ${screeningRes.verdict} (Risk: ${screeningRes.overall_risk_score}/100)`);
+      addLog(`[VERDICT] Clearance Verdict: ${pipelineResult.screening?.verdict} (Risk: ${pipelineResult.screening?.overall_risk_score}/100)`);
     } catch (err: any) {
       console.error('Screening failed', err);
       setError(err.message || 'Screening pipeline encountered an error');
