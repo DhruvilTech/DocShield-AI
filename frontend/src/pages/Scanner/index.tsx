@@ -392,6 +392,60 @@ export const ScannerPage: React.FC = () => {
     return { label: 'VALID', variant: 'safe' as const };
   };
 
+  const getWatchlistStatus = () => {
+    if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
+    const factors = pipelineResult.screening?.factors || [];
+    const watchlistHit = factors.some((f: any) => f.title.includes('Watchlist') || f.title.includes('Interpol'));
+    return watchlistHit
+      ? { label: 'ALERT / HIT', variant: 'threat' as const }
+      : { label: 'CLEAR', variant: 'safe' as const };
+  };
+
+  const getVerhoeffStatus = () => {
+    if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
+    const factors = pipelineResult.screening?.factors || [];
+    const verhoeffFail = factors.some((f: any) => f.rule === 'VERHOEFF_CHECKSUM_FAILURE' || f.title.includes('Verhoeff'));
+    return verhoeffFail
+      ? { label: 'INVALID CHECKSUM', variant: 'threat' as const }
+      : { label: 'VALID', variant: 'safe' as const };
+  };
+
+  const getIdFormatStatus = () => {
+    if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
+    const factors = pipelineResult.screening?.factors || [];
+    const formatFail = factors.some((f: any) => f.rule === 'NATIONAL_ID_FORMAT_MISMATCH' || f.title.includes('National ID Syntax'));
+    return formatFail
+      ? { label: 'INVALID FORMAT', variant: 'threat' as const }
+      : { label: 'VALID', variant: 'safe' as const };
+  };
+
+  const getDocTypeDetectedStatus = (expectedType: string) => {
+    if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
+    const docStage = pipelineResult.stages?.document_detection;
+    const isPassed = docStage && docStage.status === 'passed';
+    return isPassed
+      ? { label: 'DETECTED', variant: 'safe' as const }
+      : { label: 'FAILED / MISMATCH', variant: 'threat' as const };
+  };
+
+  const getGeneralExpiryStatus = () => {
+    if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
+    const factors = pipelineResult.screening?.factors || [];
+    const expired = factors.some((f: any) => f.title.includes('Expired'));
+    return expired
+      ? { label: 'EXPIRED', variant: 'threat' as const }
+      : { label: 'ACTIVE', variant: 'safe' as const };
+  };
+
+  const getGeneralFormatStatus = (ruleName: string) => {
+    if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
+    const factors = pipelineResult.screening?.factors || [];
+    const formatFail = factors.some((f: any) => f.rule === ruleName || f.title.includes('Format') || f.title.includes('Syntax'));
+    return formatFail
+      ? { label: 'INVALID FORMAT', variant: 'threat' as const }
+      : { label: 'VALID', variant: 'safe' as const };
+  };
+
   const verdict = screening?.verdict || (riskScore && riskScore.risk_score >= 50 ? 'REJECTED' : 'PASSED');
   const risk = screening?.overall_risk_score ?? (riskScore?.risk_score ?? 0);
   const verdictColor = verdict === 'PASSED' ? 'var(--safe)' : verdict === 'REVIEW_REQUIRED' ? 'var(--warning)' : 'var(--threat)';
@@ -798,125 +852,408 @@ export const ScannerPage: React.FC = () => {
                     </span>
 
                     <div className="space-y-2 text-xs font-mono">
-                      <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
-                        <div>
-                          <span className="font-bold text-[var(--text-1)] block">Passport Document Detected</span>
-                          <span className="text-[11px] text-[var(--text-3)]">
-                            Checks if the uploaded document contains passport credentials
-                          </span>
-                        </div>
-                        {(() => {
-                          const status = getDocDetectedStatus();
-                          const icon = status.variant === 'safe' ? '✓' : '✗';
-                          const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
-                          return (
-                            <div className="flex items-center gap-2">
-                              <span className={cn('font-bold font-mono', color)}>{icon}</span>
-                              <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                      {/* PASSPORT Checklist */}
+                      {docType === 'PASSPORT' && (
+                        <>
+                          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-[var(--text-1)] block">Passport Document Detected</span>
+                              <span className="text-[11px] text-[var(--text-3)]">Checks if the uploaded document contains passport credentials</span>
                             </div>
-                          );
-                        })()}
-                      </div>
+                            {(() => {
+                              const status = getDocTypeDetectedStatus('PASSPORT');
+                              const icon = status.variant === 'safe' ? '✓' : '✗';
+                              const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                                  <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                                </div>
+                              );
+                            })()}
+                          </div>
 
-                      <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
-                        <div>
-                          <span className="font-bold text-[var(--text-1)] block">ICAO Doc 9303 Checksum Validation</span>
-                          <span className="text-[11px] text-[var(--text-3)]">
-                            Weights 7-3-1 check digits across Document Number, DOB & Expiry
-                          </span>
-                        </div>
-                        {(() => {
-                          const status = getMrzStatus();
-                          const icon = status.variant === 'safe' ? '✓' : '✗';
-                          const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
-                          return (
-                            <div className="flex items-center gap-2">
-                              <span className={cn('font-bold font-mono', color)}>{icon}</span>
-                              <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-[var(--text-1)] block">ICAO Doc 9303 Checksum Validation</span>
+                              <span className="text-[11px] text-[var(--text-3)]">Weights 7-3-1 check digits across Document Number, DOB & Expiry</span>
                             </div>
-                          );
-                        })()}
-                      </div>
+                            {(() => {
+                              const status = getMrzStatus();
+                              const icon = status.variant === 'safe' ? '✓' : '✗';
+                              const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                                  <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                                </div>
+                              );
+                            })()}
+                          </div>
 
-                      <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
-                        <div>
-                          <span className="font-bold text-[var(--text-1)] block">MRZ Data Matches Visual Data</span>
-                          <span className="text-[11px] text-[var(--text-3)]">
-                            Cross-checks MRZ extracted strings against Visual Inspection Zone
-                          </span>
-                        </div>
-                        {(() => {
-                          const status = getCrossValidationStatus();
-                          const icon = status.variant === 'safe' ? '✓' : '✗';
-                          const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
-                          return (
-                            <div className="flex items-center gap-2">
-                              <span className={cn('font-bold font-mono', color)}>{icon}</span>
-                              <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-[var(--text-1)] block">MRZ Data Matches Visual Data</span>
+                              <span className="text-[11px] text-[var(--text-3)]">Cross-checks MRZ extracted strings against Visual Inspection Zone</span>
                             </div>
-                          );
-                        })()}
-                      </div>
+                            {(() => {
+                              const status = getCrossValidationStatus();
+                              const icon = status.variant === 'safe' ? '✓' : '✗';
+                              const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                                  <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                                </div>
+                              );
+                            })()}
+                          </div>
 
-                      <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
-                        <div>
-                          <span className="font-bold text-[var(--text-1)] block">Passport Expiry Status</span>
-                          <span className="text-[11px] text-[var(--text-3)]">
-                            Checks if the passport credential has passed its expiration date
-                          </span>
-                        </div>
-                        {(() => {
-                          const status = getExpiryStatusCheck();
-                          const icon = status.variant === 'safe' ? '✓' : '✗';
-                          const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
-                          return (
-                            <div className="flex items-center gap-2">
-                              <span className={cn('font-bold font-mono', color)}>{icon}</span>
-                              <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-[var(--text-1)] block">Passport Expiry Status</span>
+                              <span className="text-[11px] text-[var(--text-3)]">Checks if the passport credential has passed its expiration date</span>
                             </div>
-                          );
-                        })()}
-                      </div>
+                            {(() => {
+                              const status = getExpiryStatusCheck();
+                              const icon = status.variant === 'safe' ? '✓' : '✗';
+                              const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                                  <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                                </div>
+                              );
+                            })()}
+                          </div>
 
-                      <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
-                        <div>
-                          <span className="font-bold text-[var(--text-1)] block">International 6-Month Expiry Rule</span>
-                          <span className="text-[11px] text-[var(--text-3)]">
-                            Ensures document has at least 6 months remaining validity
-                          </span>
-                        </div>
-                        {(() => {
-                          const status = getSixMonthStatus();
-                          const icon = status.variant === 'safe' ? '✓' : '✗';
-                          const color = status.variant === 'safe' ? 'text-[var(--safe)]' : status.variant === 'warning' ? 'text-[var(--warning)]' : 'text-[var(--threat)]';
-                          return (
-                            <div className="flex items-center gap-2">
-                              <span className={cn('font-bold font-mono', color)}>{icon}</span>
-                              <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-[var(--text-1)] block">International 6-Month Expiry Rule</span>
+                              <span className="text-[11px] text-[var(--text-3)]">Ensures document has at least 6 months remaining validity</span>
                             </div>
-                          );
-                        })()}
-                      </div>
+                            {(() => {
+                              const status = getSixMonthStatus();
+                              const icon = status.variant === 'safe' ? '✓' : '✗';
+                              const color = status.variant === 'safe' ? 'text-[var(--safe)]' : status.variant === 'warning' ? 'text-[var(--warning)]' : 'text-[var(--threat)]';
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                                  <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                                </div>
+                              );
+                            })()}
+                          </div>
 
-                      <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
-                        <div>
-                          <span className="font-bold text-[var(--text-1)] block">Nationality Extraction Check</span>
-                          <span className="text-[11px] text-[var(--text-3)]">
-                            Validates that extracted nationality value is clean of OCR noise
-                          </span>
-                        </div>
-                        {(() => {
-                          const status = getNationalityStatus();
-                          const icon = status.variant === 'safe' ? '✓' : '✗';
-                          const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
-                          return (
-                            <div className="flex items-center gap-2">
-                              <span className={cn('font-bold font-mono', color)}>{icon}</span>
-                              <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-[var(--text-1)] block">Nationality Extraction Check</span>
+                              <span className="text-[11px] text-[var(--text-3)]">Validates that extracted nationality value is clean of OCR noise</span>
                             </div>
-                          );
-                        })()}
-                      </div>
+                            {(() => {
+                              const status = getNationalityStatus();
+                              const icon = status.variant === 'safe' ? '✓' : '✗';
+                              const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                                  <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </>
+                      )}
+
+                      {/* NATIONAL_ID Checklist */}
+                      {docType === 'NATIONAL_ID' && (
+                        <>
+                          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-[var(--text-1)] block">National ID Detected</span>
+                              <span className="text-[11px] text-[var(--text-3)]">Checks if the uploaded document matches National ID structure</span>
+                            </div>
+                            {(() => {
+                              const status = getDocTypeDetectedStatus('NATIONAL_ID');
+                              const icon = status.variant === 'safe' ? '✓' : '✗';
+                              const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                                  <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-[var(--text-1)] block">Verhoeff Mathematical Checksum</span>
+                              <span className="text-[11px] text-[var(--text-3)]">Verifies Aadhaar digits against official UIDAI Verhoeff D5 algorithm</span>
+                            </div>
+                            {(() => {
+                              const status = getVerhoeffStatus();
+                              const icon = status.variant === 'safe' ? '✓' : '✗';
+                              const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                                  <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-[var(--text-1)] block">ID Format Validation</span>
+                              <span className="text-[11px] text-[var(--text-3)]">Ensures ID meets 12-digit standard sequence requirements</span>
+                            </div>
+                            {(() => {
+                              const status = getIdFormatStatus();
+                              const icon = status.variant === 'safe' ? '✓' : '✗';
+                              const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                                  <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-[var(--text-1)] block">Traveler Identity Watchlist Check</span>
+                              <span className="text-[11px] text-[var(--text-3)]">Cross-references national ID information against enforcements database</span>
+                            </div>
+                            {(() => {
+                              const status = getWatchlistStatus();
+                              const icon = status.variant === 'safe' ? '✓' : '✗';
+                              const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                                  <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </>
+                      )}
+
+                      {/* VISA Checklist */}
+                      {docType === 'VISA' && (
+                        <>
+                          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-[var(--text-1)] block">Visa Document Detected</span>
+                              <span className="text-[11px] text-[var(--text-3)]">Checks if the uploaded document matches Visa layouts</span>
+                            </div>
+                            {(() => {
+                              const status = getDocTypeDetectedStatus('VISA');
+                              const icon = status.variant === 'safe' ? '✓' : '✗';
+                              const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                                  <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-[var(--text-1)] block">Visa Format Validation</span>
+                              <span className="text-[11px] text-[var(--text-3)]">Ensures visa identifier aligns with standard regulatory regex</span>
+                            </div>
+                            {(() => {
+                              const status = getGeneralFormatStatus('VISA_FORMAT_MISMATCH');
+                              const icon = status.variant === 'safe' ? '✓' : '✗';
+                              const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                                  <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-[var(--text-1)] block">Visa Validity & Expiry</span>
+                              <span className="text-[11px] text-[var(--text-3)]">Checks if the visa document stays active and within expiry bounds</span>
+                            </div>
+                            {(() => {
+                              const status = getGeneralExpiryStatus();
+                              const icon = status.variant === 'safe' ? '✓' : '✗';
+                              const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                                  <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-[var(--text-1)] block">Traveler Identity Watchlist Check</span>
+                              <span className="text-[11px] text-[var(--text-3)]">Cross-references visa details against law enforcement watchlists</span>
+                            </div>
+                            {(() => {
+                              const status = getWatchlistStatus();
+                              const icon = status.variant === 'safe' ? '✓' : '✗';
+                              const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                                  <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </>
+                      )}
+
+                      {/* DRIVING_LICENSE Checklist */}
+                      {docType === 'DRIVING_LICENSE' && (
+                        <>
+                          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-[var(--text-1)] block">Driving License Detected</span>
+                              <span className="text-[11px] text-[var(--text-3)]">Checks if the uploaded document matches driving license formats</span>
+                            </div>
+                            {(() => {
+                              const status = getDocTypeDetectedStatus('DRIVING_LICENSE');
+                              const icon = status.variant === 'safe' ? '✓' : '✗';
+                              const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                                  <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-[var(--text-1)] block">License Format Validation</span>
+                              <span className="text-[11px] text-[var(--text-3)]">Ensures license code aligns with standard regional registration format</span>
+                            </div>
+                            {(() => {
+                              const status = getGeneralFormatStatus('DL_FORMAT_MISMATCH');
+                              const icon = status.variant === 'safe' ? '✓' : '✗';
+                              const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                                  <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-[var(--text-1)] block">License Expiry Status</span>
+                              <span className="text-[11px] text-[var(--text-3)]">Checks if the driving license has passed its expiration date</span>
+                            </div>
+                            {(() => {
+                              const status = getGeneralExpiryStatus();
+                              const icon = status.variant === 'safe' ? '✓' : '✗';
+                              const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                                  <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </>
+                      )}
+
+                      {/* PERMIT Checklist */}
+                      {docType === 'PERMIT' && (
+                        <>
+                          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-[var(--text-1)] block">Permit Detected</span>
+                              <span className="text-[11px] text-[var(--text-3)]">Checks if the uploaded document is a valid registered transit permit</span>
+                            </div>
+                            {(() => {
+                              const status = getDocTypeDetectedStatus('PERMIT');
+                              const icon = status.variant === 'safe' ? '✓' : '✗';
+                              const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                                  <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-[var(--text-1)] block">Permit Format Validation</span>
+                              <span className="text-[11px] text-[var(--text-3)]">Ensures permit identifier matches regulatory syntax limits</span>
+                            </div>
+                            {(() => {
+                              const status = getGeneralFormatStatus('PERMIT_FORMAT_MISMATCH');
+                              const icon = status.variant === 'safe' ? '✓' : '✗';
+                              const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                                  <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-[var(--text-1)] block">Vehicle Registration Check</span>
+                              <span className="text-[11px] text-[var(--text-3)]">Validates registration formatting of linked vehicle ID code</span>
+                            </div>
+                            {(() => {
+                              const status = getGeneralFormatStatus('VEHICLE_NO_FORMAT_MISMATCH');
+                              const icon = status.variant === 'safe' ? '✓' : '✗';
+                              const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                                  <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-[var(--text-1)] block">Permit Expiry Status</span>
+                              <span className="text-[11px] text-[var(--text-3)]">Checks if transit permit remains within active validity bounds</span>
+                            </div>
+                            {(() => {
+                              const status = getGeneralExpiryStatus();
+                              const icon = status.variant === 'safe' ? '✓' : '✗';
+                              const color = status.variant === 'safe' ? 'text-[var(--safe)]' : 'text-[var(--threat)]';
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <span className={cn('font-bold font-mono', color)}>{icon}</span>
+                                  <Badge variant={status.variant} size="sm">{status.label}</Badge>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </>
+                      )}
                     </div>
                   </Card>
                 )}
