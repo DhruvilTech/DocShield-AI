@@ -28,6 +28,9 @@ export class PythonBridgeService {
     if (process.env.IMAGE_TAMPERING_PYTHON && fs.existsSync(process.env.IMAGE_TAMPERING_PYTHON)) {
       return process.env.IMAGE_TAMPERING_PYTHON;
     }
+    if (process.env.PYTHON_PATH && fs.existsSync(process.env.PYTHON_PATH)) {
+      return process.env.PYTHON_PATH;
+    }
 
     // 2. Project virtualenv paths (Windows / Unix)
     const isWindows = process.platform === 'win32';
@@ -65,7 +68,7 @@ export class PythonBridgeService {
     const pythonExe = this.resolvePythonExecutable();
     if (!fs.existsSync(this.cliScriptPath)) {
       logger.error(`Python forensic CLI script not found at ${this.cliScriptPath}`);
-      throw AppError.internalServerError('Forensic detection bridge script is missing');
+      throw AppError.internal('Forensic detection bridge script is missing');
     }
 
     // Determine extension safely
@@ -136,7 +139,7 @@ export class PythonBridgeService {
         proc.on('error', (err) => {
           clearTimeout(timer);
           logger.error(`[ForensicBridge] Subprocess spawn error: ${err.message}`);
-          reject(AppError.internalServerError(`Failed to start forensic engine: ${err.message}`));
+          reject(AppError.internal(`Failed to start forensic engine: ${err.message}`));
         });
 
         proc.on('close', (code) => {
@@ -165,7 +168,7 @@ export class PythonBridgeService {
               // Not JSON
             }
 
-            return reject(AppError.internalServerError(
+            return reject(AppError.internal(
               `Forensic analysis could not be completed (code ${code}).`
             ));
           }
@@ -176,7 +179,7 @@ export class PythonBridgeService {
             resolve(parsed);
           } catch (parseErr) {
             logger.error(`[ForensicBridge] JSON parse failed: ${parseErr.message}\nRaw stdout: ${stdoutData.slice(0, 500)}`);
-            reject(AppError.internalServerError('Failed to parse forensic engine output.'));
+            reject(AppError.internal('Failed to parse forensic engine output.'));
           }
         });
       });

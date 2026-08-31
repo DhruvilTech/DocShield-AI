@@ -337,7 +337,14 @@ class NationalIDFieldExtractor(BaseFieldExtractor):
 
     def extract(self, ocr_result: OCRResult) -> dict[str, ExtractedField]:
         raw = ocr_result.raw_text
-        regions = list(ocr_result.regions)
+        
+        # Sort regions vertically (top-to-bottom) using bounding box y-coordinates
+        def get_y_coord(r: TextRegion) -> float:
+            if r.bounding_box and r.bounding_box.points:
+                return min(p[1] for p in r.bounding_box.points)
+            return 0.0
+
+        regions = sorted(ocr_result.regions, key=get_y_coord)
         fields: dict[str, ExtractedField] = {}
 
         # Aadhaar number (concatenate groups to get clean 12-digit string)
@@ -370,8 +377,15 @@ class NationalIDFieldExtractor(BaseFieldExtractor):
             # Names do not contain numbers
             if any(c.isdigit() for c in s_clean):
                 return False
-            # Name must not be extremely short or contain too many symbols
+            # Name must not be extremely short
             if len(s_clean) < 3:
+                return False
+            # Names on Aadhaar cards should not contain commas or slashes
+            if "," in s_clean or "\\" in s_clean or "/" in s_clean:
+                return False
+            # Name should primarily contain alphabetic characters and spaces
+            letters_and_spaces = sum(c.isalpha() or c.isspace() or c == '.' for c in s_clean)
+            if letters_and_spaces < len(s_clean) * 0.85:
                 return False
             return True
 
