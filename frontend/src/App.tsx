@@ -8,6 +8,7 @@ import { SceneProvider, useScene } from './context/SceneContext';
 import { AuthProvider } from './context/AuthContext';
 import { OrganizationProvider } from './context/OrganizationContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { ThemeProvider } from './context/ThemeContext';
 import { useTheme } from './hooks/useTheme';
 import { variantFromPath } from './lib/scene';
 import { pageTransitionVariants } from './lib/animations';
@@ -169,7 +170,7 @@ const AppRoutes: React.FC<{ theme: 'dark' | 'light'; onToggle: () => void }> = (
   );
 };
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
   const { theme, toggle } = useTheme();
 
   return (
@@ -184,6 +185,14 @@ const App: React.FC = () => {
         </OrganizationProvider>
       </AuthProvider>
     </BrowserRouter>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 };
 

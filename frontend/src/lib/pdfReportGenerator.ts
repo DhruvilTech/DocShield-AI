@@ -111,10 +111,22 @@ export function generateDocShieldPdfReport(options: GenerateReportOptions): void
     cleanDocs,
     flaggedDocs,
     docTypeCounts,
-    theme = document.documentElement.classList.contains('light') ? 'light' : 'dark',
+    theme,
   } = options;
 
-  const colors = getThemePalette(theme);
+  // Determine active theme with robust fallback
+  let resolvedTheme: 'dark' | 'light' = 'dark';
+  if (theme === 'light' || theme === 'dark') {
+    resolvedTheme = theme;
+  } else if (typeof document !== 'undefined') {
+    if (document.documentElement.classList.contains('light')) {
+      resolvedTheme = 'light';
+    } else if (localStorage.getItem('docshield-theme') === 'light') {
+      resolvedTheme = 'light';
+    }
+  }
+
+  const colors = getThemePalette(resolvedTheme);
 
   const doc = new jsPDF({
     orientation: 'portrait',
