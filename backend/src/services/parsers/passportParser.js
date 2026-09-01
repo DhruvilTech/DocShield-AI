@@ -165,17 +165,23 @@ export class PassportParser {
 
       // Surname
       if (!fields.surname.value) {
-        const match = line.match(/(?:surname|nom|last\s*name)[:\s]+([A-Za-z\s\.\-]{2,40})/i);
-        if (match && !/passport|number|republic|identity|department|country/i.test(match[1])) {
-          fields.surname = { value: match[1].trim(), confidence: 0.90 };
+        const match = line.match(/(?:surname\s*(?:\/\s*nom)?|last\s*name)[:\s]+([A-Za-z\s\.\-]{2,40})/i);
+        if (match) {
+          const clean = match[1].replace(/\([^)]*\)/g, '').replace(/^[/:\s.\-]+/, '').trim();
+          if (clean && !/^(nom|surname|passport|number|republic|identity|department|country)$/i.test(clean)) {
+            fields.surname = { value: clean, confidence: 0.90 };
+          }
         }
       }
 
       // Given Names
       if (!fields.givenNames.value) {
-        const match = line.match(/(?:given\s*names?|pr[eé]noms?|first\s*name)[:\s]+([A-Za-z\s\.\-]{2,40})/i);
-        if (match && !/passport|number|republic|identity|department/i.test(match[1])) {
-          fields.givenNames = { value: match[1].trim(), confidence: 0.90 };
+        const match = line.match(/(?:given\s*names?\s*(?:\(s\))?\s*(?:\/\s*pr[eé]noms?)?|first\s*name)[:\s]+([A-Za-z\s\.\-]{2,40})/i);
+        if (match) {
+          const clean = match[1].replace(/\([^)]*\)/g, '').replace(/^[/:\s.\-]+/, '').trim();
+          if (clean && !/^(pr[eé]noms?|given|name|passport|number|republic|identity|department|\(s\)|s)$/i.test(clean)) {
+            fields.givenNames = { value: clean, confidence: 0.90 };
+          }
         }
       }
 
@@ -185,17 +191,32 @@ export class PassportParser {
           fields.fullName = { value: `${fields.givenNames.value} ${fields.surname.value}`, confidence: 0.92 };
         } else {
           const match = line.match(/(?:name|full\s*name|holder)[:\s]+([A-Za-z\s\.\-]{3,40})/i);
-          if (match && !/passport|number|republic|identity|department|given|surname/i.test(match[1])) {
-            fields.fullName = { value: match[1].trim(), confidence: 0.88 };
+          if (match) {
+            const clean = match[1].replace(/\([^)]*\)/g, '').replace(/^[/:\s.\-]+/, '').trim();
+            if (clean && !/^(passport|number|republic|identity|department|given|surname|\(s\)|s)$/i.test(clean)) {
+              fields.fullName = { value: clean, confidence: 0.88 };
+            }
           }
         }
       }
 
       // Nationality
       if (!fields.nationality.value) {
-        const match = line.match(/(?:nationality|citizenship|nationalit[eé])[:\s]+([A-Za-z\s]{3,30})/i);
+        const match = line.match(/(?:nationality\s*(?:\/\s*nationalit[eé])?|citizenship)[:\s]+([A-Za-z\s]{3,30})/i);
         if (match) {
-          fields.nationality = { value: match[1].trim(), confidence: 0.89 };
+          const clean = match[1].replace(/\([^)]*\)/g, '').replace(/^[/:\s.\-]+/, '').trim();
+          if (clean && !/^(nationalit[eé]|nationality|type|code|passport|p)$/i.test(clean)) {
+            fields.nationality = { value: clean, confidence: 0.89 };
+          }
+        }
+      }
+
+      // Gender
+      if (!fields.gender.value) {
+        const match = line.match(/(?:sex\s*(?:\/\s*sexe)?|gender)[:\s]+(MALE|FEMALE|HOMME|FEMME|[MFX])\b/i);
+        if (match) {
+          const g = match[1].toUpperCase();
+          fields.gender = { value: (g.startsWith('M') || g === 'HOMME') ? 'M' : (g.startsWith('F') || g === 'FEMME') ? 'F' : 'X', confidence: 0.90 };
         }
       }
 

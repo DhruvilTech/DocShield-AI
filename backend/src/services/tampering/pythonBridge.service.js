@@ -32,9 +32,19 @@ export class PythonBridgeService {
       return process.env.PYTHON_PATH;
     }
 
-    // 2. Project virtualenv paths (Windows / Unix)
+    // 2. Conda docShield environment & project virtualenvs
     const isWindows = process.platform === 'win32';
+    const home = os.homedir();
     const candidatePaths = [
+      // Conda docShield paths
+      path.join(home, 'anaconda3', 'envs', 'docShield', isWindows ? 'python.exe' : 'bin/python'),
+      path.join(home, 'miniconda3', 'envs', 'docShield', isWindows ? 'python.exe' : 'bin/python'),
+      path.join(home, '.conda', 'envs', 'docShield', isWindows ? 'python.exe' : 'bin/python'),
+      path.join(home, 'AppData', 'Local', 'anaconda3', 'envs', 'docShield', isWindows ? 'python.exe' : 'bin/python'),
+      path.join(home, 'AppData', 'Local', 'miniconda3', 'envs', 'docShield', isWindows ? 'python.exe' : 'bin/python'),
+      path.join(home, 'AppData', 'Local', 'Programs', 'Python', 'Python311', isWindows ? 'python.exe' : 'bin/python'),
+      'C:\\ProgramData\\anaconda3\\envs\\docShield\\python.exe',
+      'C:\\ProgramData\\miniconda3\\envs\\docShield\\python.exe',
       // Virtualenv inside image_tampering
       path.resolve(__dirname, `../../../../AI/image_tampering/venv/${isWindows ? 'Scripts/python.exe' : 'bin/python'}`),
       // Virtualenv inside AI root
@@ -44,6 +54,7 @@ export class PythonBridgeService {
 
     for (const candidate of candidatePaths) {
       if (fs.existsSync(candidate)) {
+        logger.info(`[ForensicBridge] Using detected Python environment at: ${candidate}`);
         return candidate;
       }
     }

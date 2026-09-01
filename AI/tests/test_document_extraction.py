@@ -175,3 +175,40 @@ def test_old_format_indian_passport_visual_layout_extraction():
     assert "MAULIKKUMAR" in fields["name"].value
     assert "PATHAK" in fields["name"].value
 
+
+def test_bilingual_french_indian_passport_extraction():
+    # Test OCR scenario with bilingual English/French labels and separate value boxes
+    texts = [
+        "Type / Type: P  Code / Code: IND  Passport No. / No du passeport: AT983807",
+        "Nationality / Nationalité: INDIAN",
+        "Surname / Nom",
+        "PATHAK",
+        "Given Name(s) / Prénoms",
+        "PARTH",
+        "Sex / Sexe: M",
+        "Date of Birth / Date de naissance: 26/08/2006",
+        "Place of Birth / Lieu de naissance: VADODARA , GUJARAT",
+        "Place of Issue / Lieu de délivrance: AHMEDABAD",
+        "Date of Issue / Date de délivrance: 30/06/2026",
+        "Date of Expiry / Date d'expiration: 29/06/2036",
+        "P<INDPATHAK<<PARTH<<<<<<<<<<<<<<<<<<<<<<<<<<<",
+        "AT983807<0IND0608266M36062963067652860226<36",
+    ]
+    ocr = make_ocr(texts)
+    fields = PassportFieldExtractor().extract(ocr)
+    assert fields["passport_number"].value == "AT983807"
+    assert fields["nationality"].value == "IND"
+    assert fields["visual_nationality"].value == "INDIAN"
+    assert fields["gender"].value == "M"
+    assert fields["visual_gender"].value == "M"
+    assert fields["date_of_birth"].value == "060826"
+    assert fields["visual_date_of_birth"].value == "26/08/2006"
+    assert fields["date_of_expiry"].value == "360629"
+    assert fields["visual_date_of_expiry"].value == "29/06/2036"
+    assert fields["surname"].value == "PATHAK"
+    assert fields["given_name"].value == "PARTH"
+    assert fields["name"].value == "PATHAK PARTH"
+    assert fields["visual_name"].value == "PARTH PATHAK"
+    assert fields["visual_place_of_birth"].value == "VADODARA , GUJARAT"
+
+

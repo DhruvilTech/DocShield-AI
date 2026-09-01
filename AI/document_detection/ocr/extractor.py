@@ -65,6 +65,28 @@ def _empty(name: str) -> ExtractedField:
     return ExtractedField(name=name, value=None, confidence=None)
 
 
+def _is_bilingual_noise(text: str) -> bool:
+    if not text:
+        return True
+    s = text.strip().upper()
+    s_cleaned = re.sub(r"\([^)]*\)", "", s)  # removes (s), (S), (es)
+    s_cleaned = re.sub(r"^[/:\s.\-]+", "", s_cleaned).strip()
+    if not s_cleaned:
+        return True
+    noise_tokens = {
+        "NOM", "PRÉNOMS", "PRENOMS", "SEXE", "NATIONALITÉ", "NATIONALITE",
+        "DATE DE NAISSANCE", "LIEU DE NAISSANCE", "LIEU DE DELIVRANCE",
+        "LIEU DE DÉLIVRANCE", "DATE DE DELIVRANCE", "DATE DE DÉLIVRANCE",
+        "DATE D'EXPIRATION", "DATE D'EMISSION", "NO DU PASSEPORT",
+        "PASSEPORT", "TYPE", "CODE", "SURNAME", "GIVEN NAME", "GIVEN NAMES",
+        "FIRST NAME", "LAST NAME", "SEX", "GENDER", "DOB", "DATE OF BIRTH",
+        "DATE OF ISSUE", "DATE OF EXPIRY", "PLACE OF BIRTH", "PLACE OF ISSUE",
+        "PASSPORT NO", "PASSPORT NUMBER", "HOLDER", "SIGNATURE", "(S)", "S",
+        "P", "IND"
+    }
+    return s_cleaned in noise_tokens
+
+
 def _find_label_value(
     regions: list[TextRegion],
     labels: list[str],
@@ -76,13 +98,20 @@ def _find_label_value(
             if label in upper:
                 idx = upper.find(label)
                 after_label = region.text[idx + len(label):]
-                # Strip leading punctuation/whitespace
                 after_clean = after_label.lstrip(" :.-")
-                if after_clean:
-                    return after_clean, region.confidence, region.text
-                if i + 1 < len(regions):
-                    nxt = regions[i + 1]
-                    return nxt.text.strip(), nxt.confidence, nxt.text
+
+                # Strip parentheticals like (s), bilingual French prefixes like / Nom, / Nationalité, and colons
+                real_val = re.sub(r"^\s*(?:\([^)]*\)|/[^:]*|[:/.\-\s])+\s*", "", after_clean).strip()
+                if real_val and not _is_bilingual_noise(real_val):
+                    return real_val, region.confidence, region.text
+
+                # If nothing on same line, look forward in subsequent regions
+                for step in (1, 2, 3):
+                    if i + step < len(regions):
+                        nxt = regions[i + step]
+                        nxt_clean = re.sub(r"^\s*(?:\([^)]*\)|/[^:]*|[:/.\-\s])+\s*", "", nxt.text).strip()
+                        if nxt_clean and not _is_bilingual_noise(nxt_clean):
+                            return nxt_clean, nxt.confidence, nxt.text
     return None, None, None
 
 
@@ -127,7 +156,7 @@ class PassportFieldExtractor(BaseFieldExtractor):
     """
 
     _PASSPORT_NO_RE = re.compile(r"\b([A-Z]{1,2}[0-9]{6,7})\b")
-    _GENDER_RE = re.compile(r"\b(M|F|X|MALE|FEMALE)\b", re.IGNORECASE)
+    _GENDER_RE = re.compile(r"\b(MALE|FEMALE|HOMME|FEMME|[MFX])\b")
     _MRZ_RE = re.compile(r"^[A-Z0-9<]{40,50}$")
 
     def extract(self, ocr_result: OCRResult) -> dict[str, ExtractedField]:
@@ -161,31 +190,26 @@ class PassportFieldExtractor(BaseFieldExtractor):
         )
 
         # 2. gender / sex
-        gender_val, gender_conf, gender_src = _find_label_value(regions, ["SEX", "SEXE", "GENDER"])
-        if gender_val:
-            gm = self._GENDER_RE.search(gender_val)
-            if gm:
-                gender_val = "M" if gm.group(0).upper().startswith("M") else "F" if gm.group(0).upper().startswith("F") else "X"
-            else:
-                gender_val = None
+        gender_val, gender_conf, gender_src = None, None, None
+        for r in regions:
+            m_sex = re.search(r"\b(?:SEX|SEXE|GENDER)\b\s*[:/]*\s*(?:SEXE\s*[:/]*)?\s*\b(MALE|FEMALE|HOMME|FEMME|[MFX])\b", r.text, re.IGNORECASE)
+            if m_sex:
+                raw_g = m_sex.group(1).upper()
+                gender_val = "M" if raw_g.startswith("M") or raw_g == "HOMME" else "F" if raw_g.startswith("F") or raw_g == "FEMME" else "X"
+                gender_conf = r.confidence
+                gender_src = r.text
+                break
 
         if not gender_val:
-            for region in regions:
-                gm = self._GENDER_RE.search(region.text)
-                if gm:
-                    raw_g = gm.group(0).upper()
-                    gender_val = "M" if raw_g.startswith("M") else "F" if raw_g.startswith("F") else "X"
-                    gender_conf = region.confidence
-                    gender_src = region.text
-                    break
-
-        if not gender_val:
-            gm = self._GENDER_RE.search(raw)
-            if gm:
-                raw_g = gm.group(0).upper()
-                gender_val = "M" if raw_g.startswith("M") else "F" if raw_g.startswith("F") else "X"
-                gender_conf = _get_confidence_for_match(gm.group(0), regions)
-                gender_src = gm.group(0)
+            val, conf, src = _find_label_value(regions, ["SEX", "SEXE", "GENDER"])
+            if val:
+                val_clean = re.sub(r"^[/\s]*SEXE\s*[:\s]*", "", val, flags=re.IGNORECASE).strip().upper()
+                m_g = re.search(r"\b(MALE|FEMALE|HOMME|FEMME|[MFX])\b", val_clean)
+                if m_g:
+                    raw_g = m_g.group(1)
+                    gender_val = "M" if raw_g.startswith("M") or raw_g == "HOMME" else "F" if raw_g.startswith("F") or raw_g == "FEMME" else "X"
+                    gender_conf = conf
+                    gender_src = src
 
         fields["gender"] = ExtractedField(name="gender", value=gender_val, confidence=gender_conf, source_text=gender_src)
 
@@ -193,9 +217,16 @@ class PassportFieldExtractor(BaseFieldExtractor):
         def is_clean_name(val_str: str | None) -> bool:
             if not val_str:
                 return False
-            clean = val_str.strip().upper()
-            noise = ["/", "NOM", "GIVEN", "SURNAME", "PRÉNOMS", "PRENOMS", "NAME", "PASSPORT", "REPUBLIC", "INDIA", "INDIAN", "NATIONALITY", "SEX", "DATE", "BIRTH", "EXPIRY", "ISSUE", "TYPE", "CODE"]
-            if any(clean == n or clean.startswith(n + " ") or clean.endswith(" " + n) for n in noise):
+            clean = re.sub(r"\([^)]*\)", "", val_str)  # strip (s), (S)
+            clean = re.sub(r"/.*$", "", clean)  # strip / Nom
+            clean = clean.strip().upper()
+            noise = [
+                "/", "NOM", "GIVEN", "SURNAME", "PRÉNOMS", "PRENOMS", "NAME",
+                "PASSPORT", "REPUBLIC", "INDIA", "INDIAN", "NATIONALITY",
+                "SEX", "SEXE", "DATE", "BIRTH", "EXPIRY", "ISSUE", "TYPE", "CODE",
+                "HOLDER", "SIGNATURE", "(S)", "S", "P", "IND"
+            ]
+            if not clean or any(clean == n or clean.startswith(n + " ") or clean.endswith(" " + n) for n in noise):
                 return False
             if any(c.isdigit() for c in clean):
                 return False
@@ -205,25 +236,27 @@ class PassportFieldExtractor(BaseFieldExtractor):
         if sur_val and not is_clean_name(sur_val):
             sur_val = None
         if sur_val:
-            fields["surname"] = ExtractedField(name="surname", value=sur_val.strip().upper(), confidence=sur_conf, source_text=sur_src)
+            sur_val = re.sub(r"\([^)]*\)", "", sur_val).replace("/", "").strip().upper()
+            fields["surname"] = ExtractedField(name="surname", value=sur_val, confidence=sur_conf, source_text=sur_src)
 
         given_val, given_conf, given_src = _find_label_value(regions, ["GIVEN NAME", "GIVEN NAMES", "PRÉNOMS", "PRENOMS", "FIRST NAME"])
         if given_val and not is_clean_name(given_val):
             given_val = None
         if given_val:
-            fields["given_name"] = ExtractedField(name="given_name", value=given_val.strip().upper(), confidence=given_conf, source_text=given_src)
+            given_val = re.sub(r"\([^)]*\)", "", given_val).replace("/", "").strip().upper()
+            fields["given_name"] = ExtractedField(name="given_name", value=given_val, confidence=given_conf, source_text=given_src)
 
         # Composite full name
         if sur_val and given_val:
-            full_name_val = f"{given_val.strip().upper()} {sur_val.strip().upper()}".strip()
+            full_name_val = f"{given_val} {sur_val}".strip()
             name_conf = min(sur_conf or 0.9, given_conf or 0.9)
             name_src = f"{sur_val} / {given_val}"
         elif given_val:
-            full_name_val = given_val.strip().upper()
+            full_name_val = given_val
             name_conf = given_conf
             name_src = given_src
         elif sur_val:
-            full_name_val = sur_val.strip().upper()
+            full_name_val = sur_val
             name_conf = sur_conf
             name_src = sur_src
         else:
@@ -241,23 +274,25 @@ class PassportFieldExtractor(BaseFieldExtractor):
         nat_val, nat_conf, nat_src = _find_label_value(regions, ["NATIONALITY", "NATIONALITÉ", "NATIONALITE", "CITIZENSHIP", "NATIONAL"])
         if nat_val:
             clean_nat = re.split(r"\b(?:SEX|GENDER|DOB|DATE|BIRTH|EXPIRY|ISSUE|SURNAME|GIVEN|NAME)\b", nat_val, flags=re.IGNORECASE)[0].strip().upper()
-            if any(noise in clean_nat for noise in ["/", "SURNAME", "GIVEN", "NAME", "NOM", "PASSPORT", "CODE"]):
+            if any(noise in clean_nat for noise in ["/", "SURNAME", "GIVEN", "NAME", "NOM", "PASSPORT", "CODE"]) or clean_nat in ["P", "TYPE"]:
                 nat_val = None
+            elif clean_nat in ["IND", "INDIAN", "INDIA"]:
+                nat_val = "INDIAN"
             else:
-                nat_val = clean_nat if clean_nat else None
+                nat_val = clean_nat if len(clean_nat) >= 2 else None
 
         if not nat_val:
             raw_upper = raw.upper()
             if "INDIAN" in raw_upper:
-                nat_val, nat_conf, nat_src = "INDIAN", 0.85, "Fallback raw search"
+                nat_val, nat_conf, nat_src = "INDIAN", 0.95, "Fallback raw search"
             elif "IND" in raw_upper:
-                nat_val, nat_conf, nat_src = "IND", 0.80, "Fallback raw search"
+                nat_val, nat_conf, nat_src = "IND", 0.90, "Fallback raw search"
             elif "USA" in raw_upper or "UNITED STATES" in raw_upper:
-                nat_val, nat_conf, nat_src = "USA", 0.80, "Fallback raw search"
+                nat_val, nat_conf, nat_src = "USA", 0.85, "Fallback raw search"
             elif "CAN" in raw_upper or "CANADA" in raw_upper or "CANADIAN" in raw_upper:
-                nat_val, nat_conf, nat_src = "CAN", 0.80, "Fallback raw search"
+                nat_val, nat_conf, nat_src = "CAN", 0.85, "Fallback raw search"
             elif "GBR" in raw_upper or "BRITISH" in raw_upper or "UNITED KINGDOM" in raw_upper:
-                nat_val, nat_conf, nat_src = "GBR", 0.80, "Fallback raw search"
+                nat_val, nat_conf, nat_src = "GBR", 0.85, "Fallback raw search"
 
         fields["nationality"] = ExtractedField(name="nationality", value=nat_val, confidence=nat_conf, source_text=nat_src)
 
@@ -315,7 +350,7 @@ class PassportFieldExtractor(BaseFieldExtractor):
                 except Exception:
                     pass
             parsed_dates = sorted(list(set(parsed_dates)), key=lambda x: x[0])
-            
+
             if len(parsed_dates) >= 3:
                 # 3 dates on Indian Passports: DOB (earliest), Issue Date (middle), Expiry Date (latest)
                 if not fields.get("date_of_birth") or not fields["date_of_birth"].value or not is_valid_date_format(fields["date_of_birth"].value):
@@ -354,16 +389,35 @@ class PassportFieldExtractor(BaseFieldExtractor):
                 )
 
         # MRZ override (highest priority)
-        mrz_lines = []
+        mrz_candidates = []
         for r in regions:
             cleaned = r.text.replace(" ", "").upper()
-            cleaned = cleaned.replace("(", "<").replace(")", "<").replace("[", "<").replace("]", "<").replace("{", "<").replace("}", "<")
+            cleaned = cleaned.replace("(", "<").replace(")", "<").replace("[", "<").replace("]", "<").replace("{", "<").replace("}", "<").replace("«", "<").replace("—", "<").replace("_", "<")
             filtered = "".join([c for c in cleaned if c.isalnum() or c == "<"])
-            if len(filtered) >= 44 and (filtered.startswith("P") or len(mrz_lines) > 0 or re.match(r"^[A-Z0-9<]{44}$", filtered)):
-                mrz_lines.append(filtered[:44])
+            if len(filtered) >= 25 and ("<" in filtered or filtered.startswith("P")):
+                mrz_candidates.append(filtered)
 
-        if len(mrz_lines) >= 2:
-            self._apply_mrz(mrz_lines[:2], fields)
+        for line in raw.split("\n"):
+            cleaned = line.replace(" ", "").upper()
+            cleaned = cleaned.replace("(", "<").replace(")", "<").replace("[", "<").replace("]", "<").replace("{", "<").replace("}", "<").replace("«", "<").replace("—", "<").replace("_", "<")
+            filtered = "".join([c for c in cleaned if c.isalnum() or c == "<"])
+            if len(filtered) >= 25 and ("<" in filtered or filtered.startswith("P")):
+                if filtered not in mrz_candidates:
+                    mrz_candidates.append(filtered)
+
+        line1_cand = None
+        line2_cand = None
+        for cand in mrz_candidates:
+            if not line1_cand and (cand.startswith("P<") or (cand.startswith("P") and "<" in cand)):
+                line1_cand = cand
+            elif not line2_cand and cand != line1_cand:
+                if re.search(r"[0-9]{6}", cand) or re.search(r"IND", cand) or re.search(r"[0-9]{7}", cand):
+                    line2_cand = cand
+
+        if line1_cand and line2_cand:
+            line1_cand = line1_cand.ljust(44, "<")[:44]
+            line2_cand = line2_cand.ljust(44, "<")[:44]
+            self._apply_mrz([line1_cand, line2_cand], fields)
 
         for key in PASSPORT_FIELDS:
             if key not in fields:
