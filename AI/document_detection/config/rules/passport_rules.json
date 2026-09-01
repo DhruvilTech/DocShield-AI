@@ -4,7 +4,8 @@
     "name",
     "nationality",
     "date_of_birth",
-    "date_of_expiry"
+    "date_of_expiry",
+    "mrz_lines"
   ],
   "patterns": {
     "passport_number": "^(?:[A-Z][0-9]{7}|[A-Z]{2}[0-9]{6,7})$",

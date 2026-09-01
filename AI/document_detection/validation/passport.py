@@ -204,6 +204,61 @@ class PassportValidator(BaseDocumentValidator):
                     message=f"Mismatched name: visual '{visual_name_field.value}' does not match MRZ '{mrz_name_field.value}'",
                 ))
 
+        # Phase 3.8: MRZ presence and mathematical 7-3-1 checksum validation
+        mrz_lines_field = fields.get("mrz_lines")
+        if mrz_lines_field and mrz_lines_field.value:
+            lines = [l.strip() for l in mrz_lines_field.value.split("\n") if l.strip()]
+            if len(lines) >= 2:
+                l1, l2 = lines[0], lines[1]
+                if l2.startswith("P") and not l1.startswith("P"):
+                    l1, l2 = l2, l1
+                if len(l2) >= 28:
+                    def calc_check(s: str) -> int:
+                        weights = [7, 3, 1]
+                        tot = 0
+                        for i, ch in enumerate(s):
+                            w = weights[i % 3]
+                            if ch == "<":
+                                v = 0
+                            elif ch.isdigit():
+                                v = int(ch)
+                            elif "A" <= ch <= "Z":
+                                v = ord(ch) - 55
+                            else:
+                                v = 0
+                            tot += v * w
+                        return tot % 10
+
+                    doc_num = l2[0:9]
+                    doc_check = l2[9]
+                    dob_str = l2[13:19]
+                    dob_check = l2[19]
+                    exp_str = l2[21:27]
+                    exp_check = l2[27]
+
+                    is_doc_valid = doc_check.isdigit() and int(doc_check) == calc_check(doc_num)
+                    is_dob_valid = dob_check.isdigit() and int(dob_check) == calc_check(dob_str)
+                    is_exp_valid = exp_check.isdigit() and int(exp_check) == calc_check(exp_str)
+
+                    if not (is_doc_valid and is_dob_valid and is_exp_valid):
+                        checks = [
+                            FieldCheck(
+                                field="mrz_lines",
+                                status=CheckStatus.INVALID,
+                                message=f"ICAO 9303 MRZ Checksum failed: Doc# valid={is_doc_valid}, DOB valid={is_dob_valid}, Expiry valid={is_exp_valid}",
+                            ) if c.field == "mrz_lines" else c
+                            for c in checks
+                        ]
+                else:
+                    checks = [
+                        FieldCheck(
+                            field="mrz_lines",
+                            status=CheckStatus.INVALID,
+                            message=f"MRZ line length ({len(l2)}) is insufficient for ICAO standard verification.",
+                        ) if c.field == "mrz_lines" else c
+                        for c in checks
+                    ]
+
         # Phase 4: confidence warnings
         for fname, f in fields.items():
             if f.confidence is not None and f.confidence < settings.OCR_CONFIDENCE_THRESHOLD:

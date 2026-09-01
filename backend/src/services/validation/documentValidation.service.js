@@ -302,47 +302,89 @@ export class DocumentValidationService {
     }
 
     // --- 1. MRZ Standard Check (ICAO Doc 9303) ---
-    const mrzLines = extractedFields.mrzLines?.value || extractedFields.mrz_lines?.value || extractedFields.mrzLines || extractedFields.mrz_lines;
-    if (Array.isArray(mrzLines) && mrzLines.length >= 2) {
-      const line1 = mrzLines[0];
-      const line2 = mrzLines[1];
+    if (normalizedType === 'PASSPORT') {
+      const rawMrz = extractedFields.mrzLines?.value || extractedFields.mrz_lines?.value || extractedFields.mrzLines || extractedFields.mrz_lines;
+      let mrzLines = [];
+      if (Array.isArray(rawMrz)) {
+        mrzLines = rawMrz.map((l) => String(l).trim()).filter(Boolean);
+      } else if (typeof rawMrz === 'string') {
+        mrzLines = rawMrz.split('\n').map((l) => l.trim()).filter(Boolean);
+      }
 
-      if (line2.length >= 28) {
-        const rawPassNum = line2.substring(0, 9);
-        const passNumCheckDigit = line2.charAt(9);
-        const dob = line2.substring(13, 19);
-        const dobCheckDigit = line2.charAt(19);
-        const expiry = line2.substring(21, 27);
-        const expiryCheckDigit = line2.charAt(27);
+      if (mrzLines.length >= 2) {
+        let line1 = mrzLines[0];
+        let line2 = mrzLines[1];
+        if (line2.startsWith('P') && !line1.startsWith('P')) {
+          line1 = mrzLines[1];
+          line2 = mrzLines[0];
+        }
 
-        const calcPassCheck = PassportParser.computeIcaoCheckDigit(rawPassNum);
-        const calcDobCheck = PassportParser.computeIcaoCheckDigit(dob);
-        const calcExpiryCheck = PassportParser.computeIcaoCheckDigit(expiry);
+        if (line2.length >= 28) {
+          const rawPassNum = line2.substring(0, 9);
+          const passNumCheckDigit = line2.charAt(9);
+          const dob = line2.substring(13, 19);
+          const dobCheckDigit = line2.charAt(19);
+          const expiry = line2.substring(21, 27);
+          const expiryCheckDigit = line2.charAt(27);
 
-        // Strict validation: check digits must match computed checksums exactly
-        const passValid = /^\d$/.test(passNumCheckDigit) && parseInt(passNumCheckDigit, 10) === calcPassCheck;
-        const dobValid = /^\d$/.test(dobCheckDigit) && parseInt(dobCheckDigit, 10) === calcDobCheck;
-        const expValid = /^\d$/.test(expiryCheckDigit) && parseInt(expiryCheckDigit, 10) === calcExpiryCheck;
+          const calcPassCheck = PassportParser.computeIcaoCheckDigit(rawPassNum);
+          const calcDobCheck = PassportParser.computeIcaoCheckDigit(dob);
+          const calcExpiryCheck = PassportParser.computeIcaoCheckDigit(expiry);
 
-        if (passValid && dobValid && expValid) {
-          checks.mrzCheck = {
-            status: 'PASSED',
-            details: 'ICAO Doc 9303 Type 3 MRZ check digits verified valid (Document Number, DOB, Expiry).',
-          };
+          // Strict validation: check digits must match computed checksums exactly
+          const passValid = /^\d$/.test(passNumCheckDigit) && parseInt(passNumCheckDigit, 10) === calcPassCheck;
+          const dobValid = /^\d$/.test(dobCheckDigit) && parseInt(dobCheckDigit, 10) === calcDobCheck;
+          const expValid = /^\d$/.test(expiryCheckDigit) && parseInt(expiryCheckDigit, 10) === calcExpiryCheck;
+
+          const mrzValObj = extractedFields.mrzValidation?.value || extractedFields.mrzValidation;
+          const isExplicitlyInvalid = mrzValObj && mrzValObj.isValid === false;
+
+          if (passValid && dobValid && expValid && !isExplicitlyInvalid) {
+            checks.mrzCheck = {
+              status: 'PASSED',
+              details: 'ICAO Doc 9303 Type 3 MRZ check digits verified valid (Document Number, DOB, Expiry).',
+            };
+          } else {
+            checks.mrzCheck = {
+              status: 'FAILED',
+              details: `MRZ Check Digit Mismatch: Doc# valid=${passValid}, DOB valid=${dobValid}, Expiry valid=${expValid}`,
+            };
+            findings.push({
+              rule: 'ICAO_9303_CHECKSUM_FAILURE',
+              severity: 'CRITICAL',
+              title: 'MRZ Check Digit Calculation Mismatch',
+              description: 'The Machine Readable Zone checksum does not match official ICAO 9303 algorithm standards. This indicates forged passport details or tampered characters.',
+              evidence: checks.mrzCheck.details,
+            });
+            totalRiskImpact += 40;
+          }
         } else {
           checks.mrzCheck = {
             status: 'FAILED',
-            details: `MRZ Check Digit Mismatch: Doc# valid=${passValid}, DOB valid=${dobValid}, Expiry valid=${expValid}`,
+            details: 'MRZ Line 2 is truncated, corrupted, or covered by tampering.',
           };
           findings.push({
             rule: 'ICAO_9303_CHECKSUM_FAILURE',
-            severity: 'HIGH',
-            title: 'MRZ Check Digit Calculation Mismatch',
-            description: 'The Machine Readable Zone checksum does not match official ICAO 9303 algorithm standards.',
-            evidence: checks.mrzCheck.details,
+            severity: 'CRITICAL',
+            title: 'Corrupted or Incomplete MRZ Block',
+            description: 'MRZ line length is insufficient for ICAO Type 3 standard verification.',
+            evidence: `MRZ Line 2 length: ${line2.length}`,
           });
-          totalRiskImpact += 25;
+          totalRiskImpact += 40;
         }
+      } else {
+        checks.mrzCheck = {
+          status: 'FAILED',
+          details: 'Mandatory ICAO Doc 9303 Machine Readable Zone (MRZ) could not be detected or is obscured by tampering/white-out.',
+        };
+        findings.push({
+          rule: 'MISSING_MRZ_LINES',
+          severity: 'CRITICAL',
+          title: 'Missing or Obscured Machine Readable Zone (MRZ)',
+          description: 'The passport Machine Readable Zone (MRZ) could not be extracted. On official passports, MRZ presence is legally mandatory. Absence indicates document tampering, white paint overprint, or a non-standard document.',
+          evidence: 'MRZ Lines: Not Found / Obscured',
+        });
+        totalRiskImpact += 45;
       }
     }
 

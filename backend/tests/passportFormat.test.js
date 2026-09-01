@@ -130,6 +130,59 @@ E7251023<2IND8101246M13111303<<<<<<<<<<<<<<2
     assert.strictEqual(result.checks.mrzCheck.status, 'PASSED');
   });
 
+  test('DocumentValidationService correctly fails passport with white paint / missing MRZ', async () => {
+    const extractedFields = {
+      passport_number: { value: 'AT983807' },
+      name: { value: 'PARTH PATHAK' },
+      nationality: { value: 'INDIAN' },
+      date_of_birth: { value: '2006-08-26' },
+      date_of_expiry: { value: '2036-06-29' },
+      gender: { value: 'M' },
+      visual_passport_number: { value: 'AT983807' },
+      visual_name: { value: 'PARTH PATHAK' },
+      visual_nationality: { value: 'INDIAN' },
+      visual_date_of_birth: { value: '26/08/2006' },
+      visual_date_of_expiry: { value: '29/06/2036' },
+      visual_gender: { value: 'M' },
+      mrzLines: { value: [] }, // Obscured / painted over
+    };
+
+    const result = await validationService.validateDocument(extractedFields, 'PASSPORT');
+    assert.strictEqual(result.isValid, false);
+    assert.strictEqual(result.checks.mrzCheck.status, 'FAILED');
+    const hasMissingMrzFactor = result.findings.some(f => f.rule === 'MISSING_MRZ_LINES');
+    assert.strictEqual(hasMissingMrzFactor, true);
+  });
+
+  test('DocumentValidationService correctly fails passport with tampered MRZ checksum', async () => {
+    const extractedFields = {
+      passport_number: { value: 'AT983807' },
+      name: { value: 'PATHAK PARTH' },
+      nationality: { value: 'IND' },
+      date_of_birth: { value: '2006-08-26' },
+      date_of_expiry: { value: '2036-06-29' },
+      gender: { value: 'M' },
+      visual_passport_number: { value: 'AT983807' },
+      visual_name: { value: 'PARTH PATHAK' },
+      visual_nationality: { value: 'INDIAN' },
+      visual_date_of_birth: { value: '26/08/2006' },
+      visual_date_of_expiry: { value: '29/06/2036' },
+      visual_gender: { value: 'M' },
+      mrzLines: {
+        value: [
+          'P<INDPATHAK<<PARTH<<<<<<<<<<<<<<<<<<<<<<<<<<<',
+          'AT983807<9IND0608266M36062963067652860226<36', // Tampered check digit '9' instead of '0'
+        ],
+      },
+    };
+
+    const result = await validationService.validateDocument(extractedFields, 'PASSPORT');
+    assert.strictEqual(result.isValid, false);
+    assert.strictEqual(result.checks.mrzCheck.status, 'FAILED');
+    const hasChecksumFactor = result.findings.some(f => f.rule === 'ICAO_9303_CHECKSUM_FAILURE');
+    assert.strictEqual(hasChecksumFactor, true);
+  });
+
   test('DocumentValidationService validates Old Format Indian Passport without false mismatch', async () => {
     const extractedFields = {
       passport_number: { value: 'E7251023' },

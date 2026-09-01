@@ -366,14 +366,39 @@ export const ScannerPage: React.FC = () => {
   const getMrzStatus = () => {
     if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
     if (isDocTypeMismatch()) return { label: 'INVALID / FAILED', variant: 'threat' as const };
+    
     const factors = pipelineResult.screening?.factors || [];
-    const hasMrzFailure = factors.some((f: any) => f.rule === 'ICAO_9303_CHECKSUM_FAILURE' || (f.title?.includes('MRZ') && f.title?.includes('Checksum')));
-    const isMissing = factors.some((f: any) => f.rule === 'MISSING_MRZ_LINES' || f.title?.includes('Missing MRZ'));
-    if (isMissing) {
-      return { label: 'MISSING MRZ', variant: 'threat' as const };
+    const tamperingStage = pipelineResult.stages?.tampering?.result || pipelineResult.tampering;
+    const isTampered = tamperingStage?.has_tampering_detected || (tamperingStage?.overall_tampering_score ?? 0) >= 0.4;
+    const hasMrzTamperSignal = tamperingStage?.indicators?.some((i: any) => 
+      i.category === 'TEXT_ALTERATION' || i.category === 'CONTENT_ALTERATION' || String(i.description || '').toLowerCase().includes('mrz') || String(i.description || '').toLowerCase().includes('void')
+    );
+
+    const hasMrzFailure = factors.some((f: any) => 
+      f.rule === 'ICAO_9303_CHECKSUM_FAILURE' || 
+      f.rule === 'MRZ_TAMPERED_OR_CORRUPTED' || 
+      (f.title?.includes('MRZ') && (f.title?.includes('Checksum') || f.title?.includes('Mismatch') || f.title?.includes('Corrupt')))
+    );
+    const isMissing = factors.some((f: any) => 
+      f.rule === 'MISSING_MRZ_LINES' || 
+      f.rule === 'REQUIRED_FIELD_MISSING_MRZ_LINES' ||
+      f.title?.includes('Missing MRZ') || 
+      f.title?.includes('Missing or Obscured MRZ')
+    );
+    
+    const extracted = pipelineResult.stages?.document_detection?.result?.extracted_fields || pipelineResult.extraction?.extracted_fields || {};
+    const mrzVal = extracted.mrzValidation?.value ?? extracted.mrzValidation;
+    const mrzLinesVal = extracted.mrz_lines?.value ?? extracted.mrzLines?.value ?? extracted.mrz_lines ?? extracted.mrzLines;
+    const hasEmptyMrz = !mrzLinesVal || (Array.isArray(mrzLinesVal) && mrzLinesVal.length < 2) || (typeof mrzLinesVal === 'string' && mrzLinesVal.trim().length < 20);
+
+    if (isMissing || (docType === 'PASSPORT' && hasEmptyMrz)) {
+      return { label: 'MISSING / OBSCURED MRZ', variant: 'threat' as const };
     }
-    if (hasMrzFailure) {
+    if (hasMrzFailure || (mrzVal && mrzVal.isValid === false)) {
       return { label: 'CHECKSUM MISMATCH', variant: 'threat' as const };
+    }
+    if (hasMrzTamperSignal && isTampered) {
+      return { label: 'TAMPERED / ALTERED', variant: 'threat' as const };
     }
     return { label: 'VALID MRZ', variant: 'safe' as const };
   };
@@ -382,7 +407,21 @@ export const ScannerPage: React.FC = () => {
     if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
     if (isDocTypeMismatch()) return { label: 'INVALID / FAILED', variant: 'threat' as const };
     const factors = pipelineResult.screening?.factors || [];
-    const hasMismatch = factors.some((f: any) => f.rule?.startsWith('VISUAL_MRZ_') && f.rule?.endsWith('_MISMATCH'));
+
+    const extracted = pipelineResult.stages?.document_detection?.result?.extracted_fields || pipelineResult.extraction?.extracted_fields || {};
+    const mrzLinesVal = extracted.mrz_lines?.value ?? extracted.mrzLines?.value ?? extracted.mrz_lines ?? extracted.mrzLines;
+    const hasEmptyMrz = !mrzLinesVal || (Array.isArray(mrzLinesVal) && mrzLinesVal.length < 2) || (typeof mrzLinesVal === 'string' && mrzLinesVal.trim().length < 20);
+
+    if (docType === 'PASSPORT' && hasEmptyMrz) {
+      return { label: 'UNVERIFIED (NO MRZ)', variant: 'threat' as const };
+    }
+
+    const hasMismatch = factors.some((f: any) => 
+      (f.rule?.startsWith('VISUAL_MRZ_') && f.rule?.endsWith('_MISMATCH')) ||
+      f.rule === 'REQUIRED_FIELD_MISSING_MRZ_LINES' ||
+      f.rule === 'MISSING_MRZ_LINES' ||
+      f.title?.includes('Mismatched')
+    );
     return hasMismatch
       ? { label: 'DATA MISMATCH', variant: 'threat' as const }
       : { label: 'MATCHED', variant: 'safe' as const };
@@ -392,7 +431,7 @@ export const ScannerPage: React.FC = () => {
     if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
     if (isDocTypeMismatch()) return { label: 'INVALID / FAILED', variant: 'threat' as const };
     const factors = pipelineResult.screening?.factors || [];
-    const isExpired = factors.some((f: any) => f.rule === 'PASSPORT_EXPIRED' || f.title?.includes('Expired'));
+    const isExpired = factors.some((f: any) => f.rule === 'PASSPORT_EXPIRED' || f.rule === 'EXPIRED_DOCUMENT' || f.title?.includes('Expired'));
     if (isExpired) {
       return { label: 'EXPIRED', variant: 'threat' as const };
     }
@@ -403,11 +442,11 @@ export const ScannerPage: React.FC = () => {
     if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
     if (isDocTypeMismatch()) return { label: 'INVALID / FAILED', variant: 'threat' as const };
     const factors = pipelineResult.screening?.factors || [];
-    const isExpired = factors.some((f: any) => f.rule === 'PASSPORT_EXPIRED' || f.title?.includes('Expired'));
+    const isExpired = factors.some((f: any) => f.rule === 'PASSPORT_EXPIRED' || f.rule === 'EXPIRED_DOCUMENT' || f.title?.includes('Expired'));
     if (isExpired) {
       return { label: 'FAILED (EXPIRED)', variant: 'threat' as const };
     }
-    const isNearExpiry = factors.some((f: any) => f.rule === 'NEAR_EXPIRY_SIX_MONTHS' || f.title?.includes('Expires Within 6 Months'));
+    const isNearExpiry = factors.some((f: any) => f.rule === 'NEAR_EXPIRY_SIX_MONTHS' || f.rule === 'SIX_MONTH_EXPIRY_WARNING' || f.title?.includes('Expires Within 6 Months'));
     if (isNearExpiry) {
       return { label: 'FAILED (NEAR EXPIRY)', variant: 'warning' as const };
     }
@@ -423,6 +462,19 @@ export const ScannerPage: React.FC = () => {
       return { label: 'INVALID EXTRACTION', variant: 'threat' as const };
     }
     return { label: 'VALID', variant: 'safe' as const };
+  };
+
+  const getTamperingIntegrityStatus = () => {
+    if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
+    const tamperingStage = pipelineResult.stages?.tampering?.result || pipelineResult.tampering;
+    if (!tamperingStage) return { label: 'NOT TESTED', variant: 'warning' as const };
+    const isTampered = tamperingStage.has_tampering_detected || (tamperingStage.overall_tampering_score ?? 0) >= 0.4;
+    const scorePct = ((tamperingStage.overall_tampering_score ?? 0) * 100).toFixed(0);
+    if (isTampered) {
+      const topCat = tamperingStage.indicators?.[0]?.category?.replace(/_/g, ' ') || 'ALTERATION / OVERPAINT';
+      return { label: `TAMPERED (${topCat})`, variant: 'threat' as const };
+    }
+    return { label: `AUTHENTIC (${100 - parseInt(scorePct, 10)}% CONF)`, variant: 'safe' as const };
   };
 
   const getWatchlistStatus = () => {
@@ -476,7 +528,7 @@ export const ScannerPage: React.FC = () => {
     if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
     if (isDocTypeMismatch()) return { label: 'INVALID / FAILED', variant: 'threat' as const };
     const factors = pipelineResult.screening?.factors || [];
-    const expired = factors.some((f: any) => f.title.includes('Expired'));
+    const expired = factors.some((f: any) => f.title?.includes('Expired') || f.rule?.includes('EXPIRED'));
     return expired
       ? { label: 'EXPIRED', variant: 'threat' as const }
       : { label: 'ACTIVE', variant: 'safe' as const };
@@ -486,8 +538,8 @@ export const ScannerPage: React.FC = () => {
     if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
     if (isDocTypeMismatch()) return { label: 'INVALID / FAILED', variant: 'threat' as const };
     const factors = pipelineResult.screening?.factors || [];
-    const formatFail = factors.some((f: any) => f.rule === ruleName || f.title.includes('Format') || f.title.includes('Syntax'));
-    const isMissing = factors.some((f: any) => f.rule?.includes('MISSING_') || f.rule?.includes('REQUIRED_FIELD_MISSING') || f.title.includes('Missing'));
+    const formatFail = factors.some((f: any) => f.rule === ruleName || f.title?.includes('Format') || f.title?.includes('Syntax'));
+    const isMissing = factors.some((f: any) => f.rule?.includes('MISSING_') || f.rule?.includes('REQUIRED_FIELD_MISSING') || f.title?.includes('Missing'));
     if (isMissing) {
       return { label: 'MISSING ID', variant: 'threat' as const };
     }
@@ -512,6 +564,11 @@ export const ScannerPage: React.FC = () => {
         title: 'MRZ Data Matches Visual Data',
         description: 'Cross-checks MRZ extracted strings against Visual Inspection Zone',
         getStatus: () => getCrossValidationStatus()
+      },
+      {
+        title: 'Document Tampering & Substrate Integrity',
+        description: 'Multi-signal forensic check for white-out, text void, splicing, or overpaint',
+        getStatus: () => getTamperingIntegrityStatus()
       },
       {
         title: 'Passport Expiry Status',
@@ -546,6 +603,11 @@ export const ScannerPage: React.FC = () => {
         getStatus: () => getIdFormatStatus()
       },
       {
+        title: 'Document Tampering & Substrate Integrity',
+        description: 'Multi-signal forensic check for white-out, text void, splicing, or overpaint',
+        getStatus: () => getTamperingIntegrityStatus()
+      },
+      {
         title: 'Traveler Identity Watchlist Check',
         description: 'Cross-references national ID information against enforcements database',
         getStatus: () => getWatchlistStatus()
@@ -561,6 +623,11 @@ export const ScannerPage: React.FC = () => {
         title: 'Visa Format Validation',
         description: 'Ensures visa identifier aligns with standard regulatory regex',
         getStatus: () => getGeneralFormatStatus('VISA_FORMAT_MISMATCH')
+      },
+      {
+        title: 'Document Tampering & Substrate Integrity',
+        description: 'Multi-signal forensic check for white-out, text void, splicing, or overpaint',
+        getStatus: () => getTamperingIntegrityStatus()
       },
       {
         title: 'Visa Validity & Expiry',
@@ -580,36 +647,46 @@ export const ScannerPage: React.FC = () => {
         getStatus: () => getDocTypeDetectedStatus('DRIVING_LICENSE')
       },
       {
-        title: 'License Format Validation',
-        description: 'Ensures license code aligns with standard regional registration format',
-        getStatus: () => getGeneralFormatStatus('DL_FORMAT_MISMATCH')
+        title: 'MoRTH SARATHI Format Check',
+        description: 'Validates 15-character standard national driving license syntax',
+        getStatus: () => getGeneralFormatStatus('DRIVING_LICENSE_FORMAT_MISMATCH')
       },
       {
-        title: 'License Expiry Status',
-        description: 'Checks if the driving license has passed its expiration date',
+        title: 'Document Tampering & Substrate Integrity',
+        description: 'Multi-signal forensic check for white-out, text void, splicing, or overpaint',
+        getStatus: () => getTamperingIntegrityStatus()
+      },
+      {
+        title: 'License Validity & Expiry',
+        description: 'Checks whether the license has active motor vehicle authorization',
         getStatus: () => getGeneralExpiryStatus()
+      },
+      {
+        title: 'Traveler Identity Watchlist Check',
+        description: 'Cross-references operator identity against enforcements registries',
+        getStatus: () => getWatchlistStatus()
       }
     ],
     PERMIT: [
       {
-        title: 'Permit Detected',
-        description: 'Checks if the uploaded document is a valid registered transit permit',
+        title: 'Permit Document Detected',
+        description: 'Checks if the uploaded document matches Transport Permit layouts',
         getStatus: () => getDocTypeDetectedStatus('PERMIT')
       },
       {
-        title: 'Permit Format Validation',
-        description: 'Ensures permit identifier matches regulatory syntax limits',
-        getStatus: () => getGeneralFormatStatus('PERMIT_FORMAT_MISMATCH')
+        title: 'Document Tampering & Substrate Integrity',
+        description: 'Multi-signal forensic check for white-out, text void, splicing, or overpaint',
+        getStatus: () => getTamperingIntegrityStatus()
       },
       {
-        title: 'Vehicle Registration Check',
-        description: 'Validates registration formatting of linked vehicle ID code',
-        getStatus: () => getGeneralFormatStatus('VEHICLE_NO_FORMAT_MISMATCH')
-      },
-      {
-        title: 'Permit Expiry Status',
-        description: 'Checks if transit permit remains within active validity bounds',
+        title: 'Permit Validity Check',
+        description: 'Verifies authorization and expiration bounds for the transport permit',
         getStatus: () => getGeneralExpiryStatus()
+      },
+      {
+        title: 'Traveler Identity Watchlist Check',
+        description: 'Cross-references permit credentials against security databases',
+        getStatus: () => getWatchlistStatus()
       }
     ]
   };
