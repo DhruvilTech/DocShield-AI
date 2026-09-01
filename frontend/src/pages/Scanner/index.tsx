@@ -1164,13 +1164,17 @@ export const ScannerPage: React.FC = () => {
                           { label: 'Date of Birth', value: formatDate(getVal('date_of_birth', 'visual_date_of_birth', 'dateOfBirth')) },
                           { label: 'Date of Expiry', value: formatDate(getVal('date_of_expiry', 'visual_date_of_expiry', 'dateOfExpiry')) },
                           { label: 'Gender', value: formatGender(getVal('gender', 'visual_gender', 'visualGender')) },
+                          { label: 'Visa Number', value: getVal('visa_number', 'visual_visa_number', 'visaNumber') || '—' },
+                          { label: 'Visa Type', value: getVal('visa_type', 'visual_visa_type', 'visaType') || '—' },
+                          { label: 'Entry Validation', value: getVal('entry_validation', 'visual_entry_validation', 'entry_type', 'entryType') || '—' },
+                          { label: 'Stay Duration', value: getVal('stay_duration', 'visual_stay_duration', 'stayDuration') || '—' },
                         ];
                       } else if (docType === 'VISA') {
                         displayItems = [
                           { label: 'Name', value: full || '—' },
                           { label: 'Visa Number', value: getVal('visa_number', 'visual_visa_number', 'visaNumber') || '—' },
                           { label: 'Visa Type', value: getVal('visa_type', 'visual_visa_type', 'visaType') || '—' },
-                          { label: 'Entry Validation', value: getVal('entry_validation', 'visual_entry_validation', 'entry_type', 'entryType') || 'SINGLE' },
+                          { label: 'Entry Validation', value: getVal('entry_validation', 'visual_entry_validation', 'entry_type', 'entryType') || '—' },
                           { label: 'Stay Duration', value: getVal('stay_duration', 'visual_stay_duration', 'stayDuration') || '—' },
                         ];
                       } else if (docType === 'NATIONAL_ID') {
