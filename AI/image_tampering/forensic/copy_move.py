@@ -60,19 +60,19 @@ def analyze_copy_move(
     coordinate_mapper: Optional[CoordinateMapper] = None,
     save_debug: bool = False,
     debug_dir: Optional[str] = None,
-    ratio: float = 0.68,
-    min_dist_ratio: float = 0.05,
+    ratio: float = 0.74,
+    min_dist_ratio: float = 0.04,
     min_inliers: int = 6
 ) -> ForensicSignal:
     """
     Performs Copy-Move duplicate tampering detection.
     
     Algorithm:
-    1. Extracts SIFT features (keypoints and descriptors) capped at 1,500 for CPU performance.
+    1. Extracts SIFT features (keypoints and descriptors) capped at 2,500 for CPU performance.
     2. Performs internal descriptor matching using Brute-Force k-NN matching (k=3).
     3. Filters out self-matches and enforces queryIdx < trainIdx to prevent duplicates.
     4. Filters out close-proximity matches below a spatial distance threshold 
-       (default 5% of maximum image dimension) to avoid matching adjacent characters.
+       (default 4% of maximum image dimension) to avoid matching adjacent characters.
     5. Applies Lowe's ratio test comparing the 2nd nearest (other) to 3rd nearest descriptor.
     6. Groups matched points using iterative RANSAC homography estimation.
     7. Extracts source and target bounding boxes for each cluster and maps them to 
@@ -86,14 +86,14 @@ def analyze_copy_move(
     gray = cv2.cvtColor(working_image_rgb, cv2.COLOR_RGB2GRAY)
     h_limit, w_limit = working_image_rgb.shape[:2]
 
-    # 2. SIFT Feature Detection & Descriptor Extraction (Cap at 1,500 keypoints)
-    sift = cv2.SIFT_create(nfeatures=1500, contrastThreshold=0.02, edgeThreshold=15)
+    # 2. SIFT Feature Detection & Descriptor Extraction (Cap at 2,500 keypoints)
+    sift = cv2.SIFT_create(nfeatures=2500, contrastThreshold=0.02, edgeThreshold=15)
     kp, des = sift.detectAndCompute(gray, None)
 
     # If no features or too few features are detected, return clean signal
     if des is None or len(kp) < 15:
         statistics = {
-            "keypoints": float(len(kp)) if kp is not None else 0.0,
+            "keypoints": float(len(kp) if kp is not None else 0),
             "candidate_matches": 0.0,
             "verified_matches": 0.0,
             "clusters": 0.0,
@@ -198,24 +198,99 @@ def analyze_copy_move(
         # Filter thin rules / borders
         is_thin_line = (sw < 12 and sh > 60) or (sh < 12 and sw > 60) or (dw < 12 and dh > 60) or (dh < 12 and dw > 60)
 
+        # Calculate geometric projection error (residual)
+        inlier_src = src_pts[inliers_mask]
+        inlier_dst = dst_pts[inliers_mask]
+        mean_residual = 0.0
+        if H is not None:
+            try:
+                warped_src = cv2.perspectiveTransform(inlier_src, H)
+                residuals = np.linalg.norm(inlier_dst - warped_src, axis=-1)
+                mean_residual = float(np.mean(residuals))
+            except Exception:
+                pass
+
+        # Check point-to-point physical shifts and displacement vector consistency
+        displacements = dst_coords_cand - src_coords_cand
+        point_dists = np.linalg.norm(displacements, axis=1)
+        min_point_dist = float(np.min(point_dists)) if len(point_dists) > 0 else 0.0
+        mean_point_dist = float(np.mean(point_dists)) if len(point_dists) > 0 else 0.0
+        dx_std = float(np.std(displacements[:, 0])) if len(displacements) > 0 else 999.0
+        dy_std = float(np.std(displacements[:, 1])) if len(displacements) > 0 else 999.0
+
         # Verify cluster using NCC with adaptive threshold based on match count
         cluster_ncc = _calculate_cluster_ncc(inlier_matches, kp, gray)
-        min_required_ncc = 0.60 if len(inlier_matches) < 12 else 0.50
+        min_required_ncc = 0.55 if len(inlier_matches) < 12 else 0.45
 
-        if iou < 0.20 and overlap_ratio < 0.25 and not is_thin_line and cluster_ncc >= min_required_ncc:
-            # Calculate geometric projection error (residual)
-            inlier_src = src_pts[inliers_mask]
-            inlier_dst = dst_pts[inliers_mask]
-            mean_residual = 0.0
-            if H is not None:
-                try:
-                    warped_src = cv2.perspectiveTransform(inlier_src, H)
-                    residuals = np.linalg.norm(inlier_dst - warped_src, axis=-1)
-                    mean_residual = float(np.mean(residuals))
-                except Exception:
-                    pass
-            clusters.append((inlier_matches, cluster_ncc, mean_residual, H))
+        # 1. Standard localized non-overlapping distinct cluster (e.g. cloned passport stamp/photo)
+        min_dim = min(sw, sh, dw, dh)
+        is_isolated_word = (min_dim < 65 or min_area < 6500)
+
+        is_standard_cluster = (
+            iou < 0.25 and overlap_ratio < 0.35 and
+            not is_thin_line and not is_isolated_word and
+            cluster_ncc >= min_required_ncc and
+            dx_std < 3.0 and dy_std < 3.0
+        )
+
+        # 2. Dense sub-cluster with rigid translation (e.g. cloned numerical value blocks)
+        is_dense_subcluster = False
+        subcluster_inliers = []
+        if not is_standard_cluster and len(inlier_matches) >= 18:
+            coords = np.array([kp[m.queryIdx].pt for m in inlier_matches])
+            n = len(inlier_matches)
+            adj = np.linalg.norm(coords[:, None, :] - coords[None, :, :], axis=2) <= 50.0
+            visited = [False] * n
+            for i in range(n):
+                if not visited[i]:
+                    cluster_idxs = []
+                    queue = [i]
+                    visited[i] = True
+                    while queue:
+                        curr = queue.pop(0)
+                        cluster_idxs.append(curr)
+                        for j in range(n):
+                            if not visited[j] and adj[curr, j]:
+                                visited[j] = True
+                                queue.append(j)
+                    sub = [inlier_matches[idx] for idx in cluster_idxs]
+                    if len(sub) >= 18:
+                        sub_sc = np.array([kp[m.queryIdx].pt for m in sub])
+                        sub_dc = np.array([kp[m.trainIdx].pt for m in sub])
+                        sub_disp = sub_dc - sub_sc
+                        sub_dx_std = float(np.std(sub_disp[:, 0]))
+                        sub_dy_std = float(np.std(sub_disp[:, 1]))
+                        raw_w = np.max(sub_sc[:, 0]) - np.min(sub_sc[:, 0])
+                        raw_h = np.max(sub_sc[:, 1]) - np.min(sub_sc[:, 1])
+                        sub_aspect = max(raw_w, raw_h) / (min(raw_w, raw_h) + 1e-5)
+                        sub_sw, sub_sh = int(raw_w) + 16, int(raw_h) + 16
+                        sub_dw, sub_dh = int(np.max(sub_dc[:, 0]) - np.min(sub_dc[:, 0])) + 16, int(np.max(sub_dc[:, 1]) - np.min(sub_dc[:, 1])) + 16
+                        c_sx, c_sy = max(0, int(np.min(sub_sc[:, 0])) - 8), max(0, int(np.min(sub_sc[:, 1])) - 8)
+                        c_dx, c_dy = max(0, int(np.min(sub_dc[:, 0])) - 8), max(0, int(np.min(sub_dc[:, 1])) - 8)
+                        gh, gw = gray.shape
+                        if c_sy+sub_sh <= gh and c_sx+sub_sw <= gw and c_dy+sub_dh <= gh and c_dx+sub_dw <= gw:
+                            c1 = gray[c_sy:c_sy+sub_sh, c_sx:c_sx+sub_sw]
+                            c2 = gray[c_dy:c_dy+sub_dh, c_dx:c_dx+sub_dw]
+                            if c1.shape != c2.shape:
+                                c2 = cv2.resize(c2, (c1.shape[1], c1.shape[0]))
+                            res = cv2.matchTemplate(c1, c2, cv2.TM_CCOEFF_NORMED)
+                            sub_ncc = float(res[0][0])
+                            if (sub_ncc >= 0.85 and len(sub) >= 12 and
+                                sub_dx_std < 1.0 and sub_dy_std < 1.0 and
+                                min(raw_w, raw_h) >= 14.0 and sub_aspect <= 6.0):
+                                is_dense_subcluster = True
+                                subcluster_inliers = sub
+                                cluster_ncc = sub_ncc
+                                break
+
+        if is_standard_cluster and not is_thin_line:
+            effective_ncc = max(cluster_ncc, 0.50)
+            clusters.append((inlier_matches, effective_ncc, mean_residual, H))
             verified_matches.extend(inlier_matches)
+        elif is_dense_subcluster:
+            effective_ncc = max(cluster_ncc, 0.95)
+            clusters.append((subcluster_inliers, effective_ncc, mean_residual, H))
+            verified_matches.extend(subcluster_inliers)
         
         # Remove RANSAC inliers to search for other independent copy-move clusters
         remaining_matches = [m for i, m in enumerate(remaining_matches) if not inliers_mask[i]]

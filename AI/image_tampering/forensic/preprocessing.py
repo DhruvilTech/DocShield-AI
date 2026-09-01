@@ -128,7 +128,7 @@ def load_and_preprocess_pdf(
     pdf_bytes: bytes,
     filename: str = "document.pdf",
     max_working_dim: int = 1920,
-    scale: float = 2.0
+    scale: float | None = None
 ) -> list[tuple[np.ndarray, np.ndarray, CoordinateMapper, int]]:
     """
     Loads and renders all pages of a PDF document from bytes into RGB images,
@@ -169,18 +169,22 @@ def load_and_preprocess_pdf(
         try:
             page = pdf[page_idx]
             page_w_pt, page_h_pt = page.get_size()
+            rotation = page.get_rotation()
             max_pt = max(page_w_pt, page_h_pt) if (page_w_pt > 0 and page_h_pt > 0) else 800.0
-            
-            # Compute optimal rendering scale without excessive upsampling or downscaling
+
+            # Compute optimal rendering scale:
+            # - For image-wrapped or high-resolution PDFs (where points >= 900), preserve native 1:1 pixel scale (scale=1.0).
+            # - For standard 72-pt document pages (e.g. A4/Letter ~600-850 pt), render at high quality (~200 DPI, scale ~2.0-2.5).
+            # - Bounded to avoid excessive memory usage.
             if scale is not None and scale > 0:
                 render_scale = float(scale)
-                if max_pt * render_scale > max_working_dim * 1.5:
-                    render_scale = max(float(max_working_dim) / max_pt, 1.0)
+            elif max_pt >= 900.0:
+                render_scale = min(1.0, float(max_working_dim) / max_pt)
             else:
                 target_dim = 1600.0
                 render_scale = min(max(target_dim / max_pt, 1.0), 2.5)
 
-            bitmap = page.render(scale=render_scale, fill_color=(255, 255, 255, 255))
+            bitmap = page.render(scale=render_scale, rotation=rotation, fill_color=(255, 255, 255, 255))
             pil_img = bitmap.to_pil().convert("RGB")
 
         except Exception as e:

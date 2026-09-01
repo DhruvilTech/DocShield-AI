@@ -100,11 +100,15 @@ def compute_overall_score(
         score = max(score, 68.0 + 0.28 * text_score)
     if stamp_score >= 70:
         score = max(score, 68.0 + 0.28 * stamp_score)
+    if ela_score >= 50:
+        score = max(score, 68.0 + 0.28 * ela_score)
+    if (ela_score >= 45 and noise_score >= 45):
+        score = max(score, 70.0 + 0.25 * max(ela_score, noise_score))
     if metadata_score >= 50:
-        score = max(score, 52.0 + 0.35 * (metadata_score - 50))
+        score = max(score, min(55.0, 50.0 + 0.10 * (metadata_score - 50)))
     if len(strong_regions) > 0:
         score = max(score, 75.0 + 10.0 * min(len(strong_regions), 2))
-    if len(mod_regions) >= 2 and (ela_score >= 45 and noise_score >= 60):
+    if len(mod_regions) >= 2 and (ela_score >= 40 and noise_score >= 40):
         score = max(score, 65.0 + 0.20 * max(ela_score, noise_score))
 
     if score == 0.0:

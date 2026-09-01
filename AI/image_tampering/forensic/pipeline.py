@@ -39,11 +39,6 @@ from image_tampering.forensic.content_alteration import analyze_content_alterati
 from image_tampering.forensic.text_tampering import analyze_text_tampering
 from image_tampering.forensic.fusion import fuse_signals, fuse_signals_full
 from image_tampering.forensic.localization import localize_suspicious_regions
-from image_tampering.forensic.pdf_forensics import (
-    analyze_pdf_copy_move,
-    analyze_pdf_ela,
-    analyze_pdf_noise,
-)
 
 DEFAULT_DEBUG_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "output")
@@ -56,7 +51,8 @@ def _run_forensic_pipeline_pdf(
     debug_dir: Optional[str] = None
 ) -> ForensicResult:
     """
-    Executes forensic tampering analysis on a PDF document across all its pages.
+    Executes forensic tampering analysis on a PDF document across all its pages
+    using the existing standard image forensic pipeline for each rendered page.
     """
     if not debug_dir:
         debug_dir = DEFAULT_DEBUG_DIR
@@ -64,8 +60,7 @@ def _run_forensic_pipeline_pdf(
     pages_data = load_and_preprocess_pdf(
         pdf_bytes=pdf_bytes,
         filename=filename,
-        max_working_dim=1920,
-        scale=2.0
+        max_working_dim=1920
     )
 
     pdf_debug_base = os.path.join(debug_dir, "pdf_debug") if save_debug else None
@@ -88,32 +83,32 @@ def _run_forensic_pipeline_pdf(
         if save_debug:
             os.makedirs(page_dir, exist_ok=True)
 
-        # Representations
+        # Representations (identical to image pipeline)
         reps = generate_representations(work_rgb)
         grayscale = reps["grayscale"]
         hsv = reps["hsv"]
         lab = reps["lab"]
         noise_residual = reps["noise_residual"]
 
-        # Quality
+        # Quality (identical to image pipeline)
         quality_data = calculate_quality_metrics(grayscale)
 
-        # Detectors with PDF artifact normalization
-        ela_sig = analyze_pdf_ela(
+        # Execute standard locked image forensic detectors
+        ela_sig = analyze_ela(
             working_image_rgb=work_rgb,
             quality=95,
             coordinate_mapper=mapper,
             save_debug=save_debug,
             debug_dir=page_dir
         )
-        noise_sig = analyze_pdf_noise(
+        noise_sig = analyze_noise(
             working_image_rgb=work_rgb,
             noise_residual=noise_residual,
             coordinate_mapper=mapper,
             save_debug=save_debug,
             debug_dir=page_dir
         )
-        copymove_sig = analyze_pdf_copy_move(
+        copymove_sig = analyze_copy_move(
             working_image_rgb=work_rgb,
             coordinate_mapper=mapper,
             save_debug=save_debug,

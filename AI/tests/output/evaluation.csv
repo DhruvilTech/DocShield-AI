@@ -2,4 +2,3 @@ document,live,similarity,label
 A,A,0.7784,genuine
 A,B,0.0890,imposter
 B,B,0.6328,genuine
-B,A,0.1129,imposter

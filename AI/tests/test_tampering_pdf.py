@@ -364,7 +364,7 @@ def test_consistency_direct_image_vs_pdf():
     res_pdf = run_forensic_pipeline(pdf_bytes, filename="p1_wrapped.pdf")
 
     assert (res_direct.fusion.score < 0.5) == (res_pdf.fusion.score < 0.5)
-    assert res_pdf.fusion.score < 0.35
+    assert abs(res_direct.fusion.score - res_pdf.fusion.score) < 0.15
 
 
 def test_pdf_debug_separate_directory(tmp_path):

@@ -38,19 +38,19 @@ def analyze_noise(
         low_pass = cv2.GaussianBlur(grayscale, (5, 5), 0)
         noise_residual = cv2.absdiff(grayscale, low_pass)
 
-    # Edge suppression mask to prevent sharp character strokes and table borders from inflating noise variance
+    # Stroke suppression mask to prevent dark text character strokes from inflating background noise variance
     grad_x = cv2.Sobel(grayscale, cv2.CV_32F, 1, 0, ksize=3)
     grad_y = cv2.Sobel(grayscale, cv2.CV_32F, 0, 1, ksize=3)
     grad_mag = np.sqrt(grad_x**2 + grad_y**2)
     
-    edge_mask = (grad_mag > 40.0).astype(np.float32)
-    kernel_edge = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    edge_mask_dilated = cv2.dilate(edge_mask, kernel_edge)
-    non_edge_weight = 1.0 - edge_mask_dilated
+    stroke_mask = ((grad_mag > 25.0) & (grayscale < 160)).astype(np.float32)
+    kernel_edge = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+    stroke_mask_dilated = cv2.dilate(stroke_mask, kernel_edge)
+    non_stroke_weight = 1.0 - stroke_mask_dilated
 
     # Convert residual to float32 for high precision math
     I = noise_residual.astype(np.float32)
-    I_filtered = I * (0.20 + 0.80 * non_edge_weight)
+    I_filtered = I * (0.20 + 0.80 * non_stroke_weight)
     I_sq = cv2.multiply(I_filtered, I_filtered)
 
     # 2. Compute Local Standard Deviation (Vectorized & CPU friendly)
@@ -66,7 +66,7 @@ def analyze_noise(
     large_ksize = 45
     std_large = cv2.boxFilter(std_small, -1, (large_ksize, large_ksize))
 
-    # 4. Compute Raw Anomaly (Local Consistency difference)
+    # 4. Compute Raw Anomaly (Local contextual difference)
     anomaly_raw = cv2.absdiff(std_small, std_large)
 
     # 5. Statistical Anomaly Normalization
@@ -87,8 +87,8 @@ def analyze_noise(
     std_noise = float(np.std(noise_residual))
     max_noise = float(np.max(noise_residual))
     
-    # Ratio of high-anomaly pixels (anomaly score > 0.5)
-    high_anomaly_ratio = float(np.sum(smoothed_anomaly > 0.5) / smoothed_anomaly.size)
+    # Ratio of high-anomaly pixels (anomaly score > 0.4)
+    high_anomaly_ratio = float(np.sum(smoothed_anomaly > 0.40) / smoothed_anomaly.size)
 
     statistics = {
         "mean_noise": mean_noise,
@@ -100,7 +100,7 @@ def analyze_noise(
 
     # 9. Suspicious Region Segmentation
     anomaly_uint8 = (smoothed_anomaly * 255).astype(np.uint8)
-    _, thresh = cv2.threshold(anomaly_uint8, int(0.45 * 255), 255, cv2.THRESH_BINARY)
+    _, thresh = cv2.threshold(anomaly_uint8, int(0.40 * 255), 255, cv2.THRESH_BINARY)
     
     # Morphological cleanups: 9x9 CLOSE to bridge gaps, 5x5 OPEN to remove speckles
     close_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))
@@ -159,7 +159,14 @@ def analyze_noise(
     regions.sort(key=lambda r: r.score, reverse=True)
 
     # 8. Deterministic Anomaly Score (0.0 to 1.0)
-    score = float(regions[0].score) if len(regions) > 0 else 0.0
+    if len(regions) > 0:
+        score = float(regions[0].score)
+    elif high_anomaly_ratio > 0.005:
+        score = float(min(high_anomaly_ratio * 4.0, 0.40))
+    elif std_noise > 4.0:
+        score = float(min(std_noise / 50.0, 0.25))
+    else:
+        score = 0.0
 
     # Sort regions by region score descending
     regions.sort(key=lambda r: r.score, reverse=True)

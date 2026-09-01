@@ -91,16 +91,16 @@ def analyze_content_alteration(
         b = working_image_rgb[:, :, 2].astype(np.float32)
 
         # ── 4. Candidate Anomaly Extraction ──────────────────────────────────────
-        # A. Pure Synthetic Digital Brush Strokes (Blue, Green, Magenta, Red pens)
-        is_digital_blue = ((b - r > 28) & (b - g > 15) & (val > 35))
-        is_digital_green = ((g - r > 35) & (g - b > 35) & (sat > 100) & (val > 35))
-        is_digital_magenta = ((r > 110) & (b > 110) & (r - g > 35) & (b - g > 35) & (sat > 100) & (val > 35))
-        is_digital_red = ((r > 160) & (r - g > 70) & (r - b > 70) & (sat > 140) & (val > 40))
+        # A. Pure Synthetic Digital Brush Strokes (Blue, Green, Magenta, Red pens / highlighters)
+        is_digital_blue = ((b - r > 45) & (b - g > 25) & (sat > 110) & (val > 40))
+        is_digital_green = ((g - r > 45) & (g - b > 45) & (sat > 110) & (val > 40))
+        is_digital_magenta = ((r > 120) & (b > 120) & (r - g > 45) & (b - g > 45) & (sat > 110) & (val > 40))
+        is_digital_red = ((r > 160) & (r - g > 75) & (r - b > 75) & (sat > 140) & (val > 40))
 
-        # B. Foreign Hue Discontinuity on Tinted / Colored Substrates (e.g. Yellow passport)
+        # B. Foreign Hue Discontinuity on Tinted / Colored Substrates (e.g. Yellow passport substrate)
         colored_mask = (sat > 35.0) & (val > 30.0)
         is_foreign_hue = np.zeros((img_h, img_w), dtype=bool)
-        if np.sum(colored_mask) > 0.15 * total_pixels:
+        if np.sum(colored_mask) > 0.25 * total_pixels:
             dom_hue = float(np.median(hue[colored_mask]))
             hue_diff = np.abs(hue - dom_hue)
             hue_diff = np.minimum(hue_diff, 180.0 - hue_diff)
@@ -130,7 +130,7 @@ def analyze_content_alteration(
             area = int(stats[lbl, cv2.CC_STAT_AREA])
 
             # Filter out tiny noise and full-document bounds
-            if area < 500 or area > 0.40 * total_pixels:
+            if area < 350 or area > 0.40 * total_pixels:
                 continue
 
             # Filter standard 1D rules and full banners

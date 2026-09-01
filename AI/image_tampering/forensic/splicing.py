@@ -64,99 +64,134 @@ def analyze_splicing(
     total_area = h_img * w_img
     gray = cv2.cvtColor(working_image_rgb, cv2.COLOR_RGB2GRAY)
     
-    # ── 1. ELA Error Map ──────────────────────────────────────────────────────
+    # ── 1. ELA Error Map & Document Substrate Noise ───────────────────────────
     _, enc = cv2.imencode('.jpg', working_image_rgb, [cv2.IMWRITE_JPEG_QUALITY, 90])
     recomp = cv2.imdecode(enc, cv2.IMREAD_COLOR)
     ela_diff = cv2.absdiff(working_image_rgb, recomp)
     ela_gray = cv2.cvtColor(ela_diff, cv2.COLOR_RGB2GRAY).astype(float)
     bg_ela_mean = float(np.mean(ela_gray))
     bg_ela_std = float(np.std(ela_gray) + 1e-4)
-    
+
+    denoised = cv2.fastNlMeansDenoising(gray, h=10)
+    noise_residual = cv2.absdiff(gray, denoised)
+
+    _, doc_stroke = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    k_dilate = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+    doc_dilated_stroke = cv2.dilate(doc_stroke, k_dilate)
+    doc_bg_mask = (gray > 180) & (doc_dilated_stroke == 0)
+
+    if np.sum(doc_bg_mask) > 500:
+        doc_bg_noise_std = float(np.std(noise_residual[doc_bg_mask]))
+    else:
+        doc_bg_noise_std = float(np.std(noise_residual))
+
     # ── 2. Structural Contour Hierarchy Analysis ──────────────────────────────
     edges = cv2.Canny(gray, 50, 150)
     contours, hierarchy = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    
+
     detected_regions: List[SuspiciousRegion] = []
-    
+
     if hierarchy is not None and len(contours) > 0:
         h_tree = hierarchy[0]
-        
+
         for i, c in enumerate(contours):
             bx, by, bw, bh = cv2.boundingRect(c)
             area = bw * bh
             aspect = bh / float(bw) if bw > 0 else 0
-            
+
             # Container size criteria: rectangular boxes (photo box, signature container, text field)
             if 35 <= bw <= 450 and 35 <= bh <= 450 and 0.6 <= aspect <= 2.2 and 1200 <= area <= 0.28 * total_area:
                 roi_rgb = working_image_rgb[by:by+bh, bx:bx+bw]
-                
+
                 # Skip QR codes / 2D barcodes
                 if _is_qr_or_barcode(roi_rgb):
                     continue
-                    
+
                 # Check circularity vs rectangularity (True circle has circularity > 0.85 and extent ~ pi/4)
                 peri = cv2.arcLength(c, True)
                 cnt_area = cv2.contourArea(c)
                 circularity = (4 * np.pi * cnt_area) / (peri**2 + 1e-5)
                 extent = cnt_area / (bw * bh + 1e-5)
-                # A rectangle has extent >= 0.85; a round seal has circularity > 0.85 and extent ~ 0.78
-                is_round_seal = circularity > 0.85 and extent < 0.82
                 
-                # Inspect child contours in hierarchy
-                child_idx = h_tree[i][2]
-                while child_idx != -1:
+                # Check for official colored ink seal (blue, purple, red)
+                roi_hsv = cv2.cvtColor(roi_rgb, cv2.COLOR_RGB2HSV)
+                roi_sat = roi_hsv[:, :, 1]
+                is_colored_seal = float(np.mean(roi_sat)) > 50.0 and float(np.max(roi_sat)) > 120.0 and float(np.std(roi_hsv[:, :, 0])) < 30.0
+                is_round_seal = (circularity > 0.80 and extent < 0.82) or (is_colored_seal and extent < 0.88)
+
+                # Inspect child and grandchild contours in hierarchy
+                child_indices = []
+                ch_idx = h_tree[i][2]
+                while ch_idx != -1:
+                    child_indices.append(ch_idx)
+                    gc_idx = h_tree[ch_idx][2]
+                    while gc_idx != -1:
+                        child_indices.append(gc_idx)
+                        gc_idx = h_tree[gc_idx][0]
+                    ch_idx = h_tree[ch_idx][0]
+
+                for child_idx in child_indices:
                     cc = contours[child_idx]
                     cx, cy, cw, ch = cv2.boundingRect(cc)
-                    
+
                     margin_x = cx - bx
                     margin_y = cy - by
                     gap_right = (bx + bw) - (cx + cw)
                     gap_bot = (by + bh) - (cy + ch)
-                    
+
                     # Splicing double border signature:
                     # Tight, non-zero margin on all 4 sides (2px to 25px) covering > 70% of parent container
                     if 2 <= margin_x <= 25 and 2 <= margin_y <= 25 and 2 <= gap_right <= 25 and 2 <= gap_bot <= 25:
                         if cw >= 0.70 * bw and ch >= 0.70 * bh:
                             roi_ela = ela_gray[by:by+bh, bx:bx+bw]
                             roi_gray = gray[by:by+bh, bx:bx+bw]
-                            
+                            roi_noise = noise_residual[by:by+bh, bx:bx+bw]
+                            roi_noise_std = float(np.std(roi_noise))
+
                             # Check for embedded corner timestamp (e.g. '34.50')
                             bot_crop = roi_gray[int(bh*0.70):bh, 0:int(bw*0.55)]
                             bot_canny = cv2.Canny(bot_crop, 50, 150)
                             num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats((bot_canny > 0).astype(np.uint8))
                             char_count = sum(1 for s in stats[1:] if 2 <= s[cv2.CC_STAT_WIDTH] <= 15 and 4 <= s[cv2.CC_STAT_HEIGHT] <= 18)
-                            has_timestamp = char_count >= 3
-                            
+                            has_timestamp = char_count >= 3 and area >= 5000 and (bh / float(bw) >= 1.0)
+
                             ela_deviation = (float(np.mean(roi_ela)) - bg_ela_mean) / bg_ela_std
-                            
+
                             reasons = []
                             score = 0.0
-                            
+
                             margin_asym = max(abs(margin_x - gap_right), abs(margin_y - gap_bot), abs(margin_x - margin_y))
 
-                            if has_timestamp and not is_round_seal and (margin_asym >= 3 or ela_deviation > 0.8):
+                            roi_lap = np.abs(cv2.Laplacian(roi_gray, cv2.CV_32F))
+                            lap_energy = float(np.mean(roi_lap))
+                            roi_gray_std = float(np.std(roi_gray))
+
+                            # 1. Spliced photo on synthetic / zero-noise canvas or high texture disparity
+                            if ((doc_bg_noise_std < 0.65 and roi_noise_std > 1.80 and area >= 3000 and not is_round_seal) or
+                                (roi_noise_std >= 3.0 * doc_bg_noise_std and roi_noise_std > 2.5 and area >= 3000 and not is_round_seal) or
+                                (lap_energy >= 20.0 and roi_gray_std >= 15.0 and area >= 3000 and not is_round_seal and doc_bg_noise_std < 1.0)):
+                                score = 0.85
+                                reasons = [f"spliced photo element with texture/noise disparity (std: {roi_gray_std:.1f}, noise: {roi_noise_std:.2f})", f"crop boundary (margins: {margin_x}x{margin_y}px)"]
+                            elif has_timestamp and not is_round_seal and (margin_asym >= 3 or ela_deviation > 0.8):
                                 score = 0.85
                                 reasons = ["concentric crop border", "embedded studio timestamp marking"]
                             elif not is_round_seal and margin_asym >= 4 and ela_deviation > 0.7:
                                 score = 0.75
                                 reasons = [f"asymmetric crop boundary (margins: {margin_x}x{margin_y}px, gaps: {gap_right}x{gap_bot}px)", f"compression delta ({ela_deviation:.1f} std)"]
-                            elif not is_round_seal and ela_deviation > 1.2:
+                            elif not is_round_seal and ela_deviation > 1.2 and margin_asym >= 3:
                                 score = 0.70
                                 reasons = [f"concentric crop border (margins: {margin_x}x{margin_y}px)", f"compression delta ({ela_deviation:.1f} std)"]
-                            elif not is_round_seal and margin_asym >= 8 and area >= 3000:
-                                score = 0.60
-                                reasons = [f"severe asymmetric crop boundary (offset {margin_asym}px)"]
                             else:
                                 score = 0.15
                                 reasons = ["symmetric official document container / frame"]
-                                
+
                             if score >= 0.50:
                                 if coordinate_mapper:
                                     ox, oy, ow, oh = coordinate_mapper.box_to_original(bx, by, bw, bh)
                                     ox, oy, ow, oh = int(round(ox)), int(round(oy)), int(round(ow)), int(round(oh))
                                 else:
                                     ox, oy, ow, oh = bx, by, bw, bh
-                                    
+
                                 reason_str = f"Spliced/inserted element detected ({', '.join(reasons)})"
                                 detected_regions.append(SuspiciousRegion(
                                     x=ox,
@@ -168,8 +203,7 @@ def analyze_splicing(
                                     source="splicing",
                                     reason=reason_str
                                 ))
-                                
-                    child_idx = h_tree[child_idx][0]
+                                break
 
     # ── 3. Deduplicate Nested/Overlapping Regions ─────────────────────────────
     deduped_regions: List[SuspiciousRegion] = []
