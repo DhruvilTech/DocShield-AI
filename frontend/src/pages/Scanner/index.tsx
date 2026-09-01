@@ -1158,28 +1158,20 @@ export const ScannerPage: React.FC = () => {
 
                       if (docType === 'PASSPORT') {
                         displayItems = [
-                          { label: 'Full Name', value: full || '—' },
-                          { label: 'Surname', value: sur || '—' },
-                          { label: 'Given Name', value: giv || '—' },
+                          { label: 'Name', value: full || '—' },
                           { label: 'Passport Number', value: getVal('passport_number', 'visual_passport_number', 'passportNumber') || '—' },
-                          { label: 'Document Format', value: fields.passportFormat?.value === 'OLD_FORMAT' ? 'Old Format (TD3-Legacy / Pre-2021)' : 'New Format (TD3-2021+ Modern)' },
                           { label: 'Nationality', value: (getVal('nationality', 'visual_nationality', 'visualNationality') || '—').replace(/^IND$/, 'INDIAN') },
                           { label: 'Date of Birth', value: formatDate(getVal('date_of_birth', 'visual_date_of_birth', 'dateOfBirth')) },
-                          { label: 'Gender', value: formatGender(getVal('gender', 'visual_gender', 'visualGender')) },
-                          { label: 'Place of Birth', value: getVal('place_of_birth', 'visual_place_of_birth', 'placeOfBirth') || '—' },
-                          { label: 'Place of Issue', value: getVal('place_of_issue', 'visual_place_of_issue', 'placeOfIssue') || '—' },
-                          { label: 'Date of Issue', value: formatDate(getVal('date_of_issue', 'visual_date_of_issue', 'dateOfIssue')) },
                           { label: 'Date of Expiry', value: formatDate(getVal('date_of_expiry', 'visual_date_of_expiry', 'dateOfExpiry')) },
+                          { label: 'Gender', value: formatGender(getVal('gender', 'visual_gender', 'visualGender')) },
                         ];
                       } else if (docType === 'VISA') {
                         displayItems = [
-                          { label: 'Full Name', value: full || '—' },
+                          { label: 'Name', value: full || '—' },
                           { label: 'Visa Number', value: getVal('visa_number', 'visual_visa_number', 'visaNumber') || '—' },
                           { label: 'Visa Type', value: getVal('visa_type', 'visual_visa_type', 'visaType') || '—' },
-                          { label: 'Entry Type', value: getVal('entry_type', 'visual_entry_type', 'entryType') || 'SINGLE' },
+                          { label: 'Entry Validation', value: getVal('entry_validation', 'visual_entry_validation', 'entry_type', 'entryType') || 'SINGLE' },
                           { label: 'Stay Duration', value: getVal('stay_duration', 'visual_stay_duration', 'stayDuration') || '—' },
-                          { label: 'Date of Issue', value: formatDate(getVal('date_of_issue', 'visual_date_of_issue', 'dateOfIssue')) },
-                          { label: 'Date of Expiry', value: formatDate(getVal('date_of_expiry', 'visual_date_of_expiry', 'dateOfExpiry')) },
                         ];
                       } else if (docType === 'NATIONAL_ID') {
                         displayItems = [

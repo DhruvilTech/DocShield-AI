@@ -68,11 +68,46 @@ class PaddleOCREngine(BaseOCREngine):
                     raw = [[[item[0], (item[1], float(item[2]))] for item in res]]
                 else:
                     raw = []
+                
+                # Multi-pass enhancement if extraction is sparse
+                if not res or len(res) < 10:
+                    try:
+                        import cv2
+                        lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+                        l, a, b = cv2.split(lab)
+                        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+                        cl = clahe.apply(l)
+                        enhanced = cv2.cvtColor(cv2.merge((cl, a, b)), cv2.COLOR_LAB2BGR)
+                        res_enh, _ = self._ocr(enhanced)
+                        if res_enh and len(res_enh) > (len(res) if res else 0):
+                            raw = [[[item[0], (item[1], float(item[2]))] for item in res_enh]]
+                    except Exception:
+                        pass
             else:
                 try:
                     raw = self._ocr.ocr(image, cls=True)
                 except TypeError:
                     raw = self._ocr.ocr(image)
+
+                # Multi-pass enhancement if extraction is sparse
+                items_count = len(raw[0]) if (raw and isinstance(raw, list) and len(raw) > 0 and raw[0] is not None) else 0
+                if items_count < 10:
+                    try:
+                        import cv2
+                        lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+                        l, a, b = cv2.split(lab)
+                        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+                        cl = clahe.apply(l)
+                        enhanced = cv2.cvtColor(cv2.merge((cl, a, b)), cv2.COLOR_LAB2BGR)
+                        try:
+                            raw_enh = self._ocr.ocr(enhanced, cls=True)
+                        except TypeError:
+                            raw_enh = self._ocr.ocr(enhanced)
+                        enh_count = len(raw_enh[0]) if (raw_enh and isinstance(raw_enh, list) and len(raw_enh) > 0 and raw_enh[0] is not None) else 0
+                        if enh_count > items_count:
+                            raw = raw_enh
+                    except Exception:
+                        pass
         except Exception as exc:
             raise OCRFailureError(f"OCR inference failed: {exc}") from exc
         return self._normalizer.normalize(raw)
