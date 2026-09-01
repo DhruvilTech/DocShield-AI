@@ -41,6 +41,7 @@ import { organizationApi } from '../../lib/api/organization.api';
 import { watchlistApi } from '../../lib/api/watchlist.api';
 import { auditApi } from '../../lib/api/audit.api';
 import { User, Organization, WatchlistEntry, AuditLog } from '../../types';
+import { formatDateTime, formatTime, formatDate } from '../../lib/date';
 
 export const MissionCommandPage: React.FC = () => {
   const { user } = useAuth();
@@ -500,9 +501,9 @@ export const MissionCommandPage: React.FC = () => {
                           key={i}
                           className="p-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] text-xs font-mono"
                         >
-                          <div className="flex items-center justify-between text-[10px] text-[var(--text-3)] mb-1">
+                          <div className="flex items-center justify-between text-xs font-mono text-[var(--text-2)] mb-1">
                             <span className="text-[var(--accent)] font-bold">{log.action}</span>
-                            <span>{new Date(log.created_at).toLocaleTimeString()}</span>
+                            <span className="text-[var(--text-1)] font-medium bg-[var(--surface)] px-1.5 py-0.5 rounded border border-[var(--border)]">{formatTime(log.created_at)}</span>
                           </div>
                           <p className="text-[11px] text-[var(--text-2)] truncate">{log.description}</p>
                           <span className="text-[9px] text-[var(--text-3)] block mt-1">By: {log.user_email || 'System Super Admin'}</span>
@@ -566,7 +567,7 @@ export const MissionCommandPage: React.FC = () => {
                               {u.status}
                             </Badge>
                           </td>
-                          <td className="p-3 text-[var(--text-3)]">{new Date(u.createdAt || (u as any).created_at || Date.now()).toLocaleDateString()}</td>
+                          <td className="p-3 text-xs font-mono text-[var(--text-2)]">{formatDate(u.createdAt || (u as any).created_at)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -686,9 +687,9 @@ export const MissionCommandPage: React.FC = () => {
                         <span className="font-bold text-[var(--accent)]">{a.action}</span>
                         <p className="text-[11px] text-[var(--text-2)] mt-0.5">{a.description}</p>
                       </div>
-                      <div className="text-right text-[10px] text-[var(--text-3)] flex-shrink-0">
-                        <div>{new Date(a.created_at).toLocaleString()}</div>
-                        <div>IP: {a.ip_address || '127.0.0.1'}</div>
+                      <div className="text-right text-xs font-mono text-[var(--text-2)] flex-shrink-0">
+                        <div className="font-semibold text-[var(--text-1)]">{formatDateTime(a.created_at)}</div>
+                        <div className="text-[10px] text-[var(--text-3)]">IP: {a.ip_address || '127.0.0.1'}</div>
                       </div>
                     </div>
                   ))}

@@ -34,6 +34,7 @@ import {
   DocumentAnalysis,
   AnalysisFinding,
 } from '../../types';
+import { formatDateTime } from '../../lib/date';
 
 type ForensicLayer = 'tampering' | 'mrz' | 'metadata' | 'hex' | 'findings';
 type VisualFilter = 'normal' | 'ela' | 'contrast' | 'invert';
@@ -850,8 +851,8 @@ export const AnalysisPage: React.FC = () => {
                       </div>
                       <div className="flex justify-between py-1.5 border-b border-white/5">
                         <span className="text-[var(--text-3)]">Ingested Timestamp:</span>
-                        <span className="text-[var(--text-1)]">
-                          {selectedDoc?.created_at ? new Date(selectedDoc.created_at).toUTCString() : '—'}
+                        <span className="text-[var(--text-1)] font-mono font-medium">
+                          {selectedDoc?.created_at ? formatDateTime(selectedDoc.created_at) : '—'}
                         </span>
                       </div>
                       <div className="flex justify-between py-1.5">

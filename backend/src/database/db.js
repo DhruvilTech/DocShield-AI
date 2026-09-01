@@ -20,7 +20,7 @@ class Database {
         queueLimit: 0,
         enableKeepAlive: true,
         keepAliveInitialDelay: 0,
-        timezone: 'Z',
+        dateStrings: true,
       });
     }
     return this.pool;

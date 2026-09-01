@@ -25,6 +25,7 @@ import {
   RiskScore,
   DocumentScreening,
 } from '../../types';
+import { formatDate } from '../../lib/date';
 
 const STATUS_META = {
   ACTIVE:   { label: 'Active Enclave', variant: 'safe'   as const },
@@ -561,12 +562,12 @@ export const VaultPage: React.FC = () => {
                             <Badge variant={procMeta.variant} size="sm">{procMeta.label}</Badge>
                             <Badge variant="accent" size="sm">v{doc.current_version}</Badge>
                           </div>
-                          <div className="flex flex-wrap gap-2 text-[10px] font-mono text-[var(--text-3)]">
+                          <div className="flex flex-wrap gap-2 text-xs font-mono text-[var(--text-2)]">
                             <span>{formatFileSize(doc.file_size || 0)}</span>
                             <span>·</span>
                             <span>{doc.document_type.replace(/_/g, ' ')}</span>
                             <span>·</span>
-                            <span>{new Date(doc.created_at).toLocaleDateString()}</span>
+                            <span>{formatDate(doc.created_at)}</span>
                           </div>
                         </div>
 

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Badge, Card, Button, SectionHeader, Input, cn } from '../../components/ui';
 import { watchlistApi, CreateWatchlistParams } from '../../lib/api/watchlist.api';
 import { WatchlistEntry, RiskLevel } from '../../types';
+import { formatDate } from '../../lib/date';
 
 const RISK_BADGES: Record<RiskLevel, 'threat' | 'warning' | 'info' | 'safe'> = {
   CRITICAL: 'threat',
@@ -191,9 +192,9 @@ export const WatchlistManagementPage: React.FC = () => {
                           {item.risk_level}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3.5 text-[11px] text-[var(--text-3)]">{item.listed_by}</td>
-                      <td className="px-4 py-3.5 text-[10px] text-[var(--text-3)]">
-                        {new Date(item.created_at).toLocaleDateString()}
+                      <td className="px-4 py-3.5 text-xs text-[var(--text-2)]">{item.listed_by}</td>
+                      <td className="px-4 py-3.5 text-xs text-[var(--text-1)] font-mono">
+                        {formatDate(item.created_at)}
                       </td>
                       <td className="px-4 py-3.5 text-right">
                         <Button

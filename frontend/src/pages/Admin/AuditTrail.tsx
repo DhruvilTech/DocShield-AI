@@ -3,6 +3,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { auditApi } from '../../lib/api/audit.api';
 import { AuditLog } from '../../types';
 import { Button, Card, Badge, SectionHeader } from '../../components/ui';
+import { formatDateTime } from '../../lib/date';
 
 export const AuditTrailPage: React.FC = () => {
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -124,10 +125,8 @@ export const AuditTrailPage: React.FC = () => {
               <tbody className="divide-y divide-[var(--border)] text-[var(--text-1)]">
                 {logs.map((log) => (
                   <tr key={log.id} className="hover:bg-[var(--surface-raised)]/40 transition-colors">
-                    <td className="px-6 py-3.5 text-[var(--text-3)]">
-                      {log.created_at || log.createdAt
-                        ? new Date(log.created_at || log.createdAt!).toISOString().replace('T', ' ').substring(0, 19)
-                        : '—'}
+                    <td className="px-6 py-3.5 text-xs font-mono text-[var(--text-1)]">
+                      {formatDateTime(log.created_at || log.createdAt)}
                     </td>
                     <td className="px-6 py-3.5">
                       <Badge variant={getActionBadgeVariant(log.action)} size="sm">

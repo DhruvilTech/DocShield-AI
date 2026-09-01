@@ -17,11 +17,15 @@ import {
 import { Badge, Card, Button, SectionHeader, cn, Reveal } from '../../components/ui';
 import { SecurityRing, VerificationAnimation } from '../../components/security';
 import { useOrganization } from '../../context/OrganizationContext';
+import { useTheme } from '../../hooks/useTheme';
 import { documentApi } from '../../lib/api/document.api';
 import { VaultDocument } from '../../types';
+import { formatTime, formatDateTime } from '../../lib/date';
+import { generateDocShieldPdfReport } from '../../lib/pdfReportGenerator';
 
 export const ReportsPage: React.FC = () => {
   const navigate = useNavigate();
+  const { theme } = useTheme();
   const { activeOrganization } = useOrganization();
   const [documents, setDocuments] = useState<VaultDocument[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,50 +75,68 @@ export const ReportsPage: React.FC = () => {
     docTypeCounts[type] = (docTypeCounts[type] || 0) + 1;
   });
 
-  const handleDownload = () => {
+  const handleDownloadPdf = () => {
     setDownloading(true);
     setTimeout(() => {
-      setDownloading(false);
-      const reportContent = {
-        dossierType: 'DOCSHIELD_EXECUTIVE_BORDER_COMPLIANCE_REPORT',
-        organization: activeOrganization?.name || 'DocShield Global Security Operations',
-        organizationSlug: activeOrganization?.slug || 'global-security',
-        generatedAt: new Date().toISOString(),
-        totalDocumentsScreened: totalDocs,
-        cleanDocuments: cleanDocs,
-        flaggedThreats: flaggedDocs,
-        averageRiskScore: avgRisk,
-        documentBreakdown: docTypeCounts,
-        complianceCertifications: [
-          'ICAO Doc 9303 Compliant Checksum Engine',
-          'SOC 2 Type II Multi-Tenant Data Isolation',
-          'Interpol SLTD Real-time Watchlist Engine',
-          'FIPS 140-2 Encrypted AES-256-GCM Storage Vault',
-        ],
-        cryptographicProof: {
-          merkleDAGRoot: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-          teeEnclaveSignature: 'Intel-SGX-DocShield-TEE-SecCore-v2.4-0x9FA',
-          timestampUtc: new Date().toISOString(),
-        },
-        recentAuditRecords: documents.slice(0, 10).map((d) => ({
-          documentId: d.id,
-          name: d.name,
-          category: d.document_type,
-          checksum: d.current_checksum || d.checksum,
-          riskScore: d.risk_score || 0,
-          verdict: d.screening_verdict || (d.has_tampering ? 'REJECTED' : 'PASSED'),
-          tamperingDetected: Boolean(d.has_tampering),
-          createdAt: d.created_at,
-        })),
-      };
-      const blob = new Blob([JSON.stringify(reportContent, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `DocShield_Border_Audit_Report_${new Date().toISOString().substring(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }, 600);
+      try {
+        generateDocShieldPdfReport({
+          organization: activeOrganization,
+          documents,
+          avgRisk,
+          totalDocs,
+          cleanDocs,
+          flaggedDocs,
+          docTypeCounts,
+          theme,
+        });
+      } catch (err) {
+        console.error('Failed to generate PDF report', err);
+      } finally {
+        setDownloading(false);
+      }
+    }, 400);
+  };
+
+  const handleDownloadJson = () => {
+    const reportContent = {
+      dossierType: 'DOCSHIELD_EXECUTIVE_BORDER_COMPLIANCE_REPORT',
+      organization: activeOrganization?.name || 'DocShield Global Security Operations',
+      organizationSlug: activeOrganization?.slug || 'global-security',
+      generatedAt: new Date().toISOString(),
+      totalDocumentsScreened: totalDocs,
+      cleanDocuments: cleanDocs,
+      flaggedThreats: flaggedDocs,
+      averageRiskScore: avgRisk,
+      documentBreakdown: docTypeCounts,
+      complianceCertifications: [
+        'ICAO Doc 9303 Compliant Checksum Engine',
+        'SOC 2 Type II Multi-Tenant Data Isolation',
+        'Interpol SLTD Real-time Watchlist Engine',
+        'FIPS 140-2 Encrypted AES-256-GCM Storage Vault',
+      ],
+      cryptographicProof: {
+        merkleDAGRoot: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
+        teeEnclaveSignature: 'Intel-SGX-DocShield-TEE-SecCore-v2.4-0x9FA',
+        timestampUtc: new Date().toISOString(),
+      },
+      recentAuditRecords: documents.slice(0, 10).map((d) => ({
+        documentId: d.id,
+        name: d.name,
+        category: d.document_type,
+        checksum: d.current_checksum || d.checksum,
+        riskScore: d.risk_score || 0,
+        verdict: d.screening_verdict || (d.has_tampering ? 'REJECTED' : 'PASSED'),
+        tamperingDetected: Boolean(d.has_tampering),
+        createdAt: d.created_at,
+      })),
+    };
+    const blob = new Blob([JSON.stringify(reportContent, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `DocShield_Border_Audit_Report_${new Date().toISOString().substring(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -129,7 +151,7 @@ export const ReportsPage: React.FC = () => {
             className="mb-0"
           />
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
             <Button
               variant="outline"
               size="sm"
@@ -138,9 +160,23 @@ export const ReportsPage: React.FC = () => {
             >
               Sync Telemetry
             </Button>
-            <Button variant="primary" size="sm" loading={downloading} onClick={handleDownload}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleDownloadJson}
+              className="text-xs"
+            >
+              Export JSON
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              loading={downloading}
+              onClick={handleDownloadPdf}
+              className="shadow-[0_0_15px_rgba(45,212,191,0.25)] font-bold"
+            >
               <Download className="w-4 h-4 mr-1.5" />
-              Export Security Dossier (JSON)
+              Download PDF Report
             </Button>
           </div>
         </div>
@@ -330,19 +366,20 @@ export const ReportsPage: React.FC = () => {
                       <span className="font-bold text-[var(--text-1)] truncate block max-w-[220px]">
                         {d.name}
                       </span>
-                      <span className="text-[10px] text-[var(--text-3)]">
+                      <span className="text-[11px] text-[var(--text-2)] font-mono">
                         {d.document_type} · SHA-256: {(d.current_checksum || d.checksum || '0x49f2b1a8').substring(0, 14)}...
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2.5">
                     <Badge variant={hasThreat ? 'threat' : 'safe'} size="sm">
                       {d.screening_verdict || (hasThreat ? 'FLAGGED' : 'PASSED')}
                     </Badge>
-                    <span className="text-[10px] text-[var(--text-3)]">
-                      {new Date(d.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+                    <div className="flex items-center gap-1.5 text-xs font-mono font-medium text-[var(--text-1)] bg-[var(--surface)] px-2.5 py-1 rounded-md border border-[var(--border-strong)] shadow-sm">
+                      <Clock className="w-3 h-3 text-[var(--accent)]" />
+                      <span>{formatTime(d.created_at)}</span>
+                    </div>
                   </div>
                 </div>
               );

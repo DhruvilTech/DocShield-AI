@@ -13,12 +13,14 @@ import {
   Lock,
   Eye,
   CheckCircle,
+  Clock,
 } from 'lucide-react';
 import { Badge, Card, Button, SectionHeader, cn, Reveal } from '../../components/ui';
 import { useOrganization } from '../../context/OrganizationContext';
 import { documentApi } from '../../lib/api/document.api';
 import { screeningApi } from '../../lib/api/screening.api';
 import { VaultDocument } from '../../types';
+import { formatDateTime } from '../../lib/date';
 
 export const ThreatsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -320,9 +322,10 @@ export const ThreatsPage: React.FC = () => {
                           </Badge>
                         )}
                       </div>
-                      <span className="text-[10px] text-[var(--text-3)] font-mono">
-                        {new Date(doc.created_at).toLocaleString()}
-                      </span>
+                      <div className="flex items-center gap-1.5 text-xs font-mono font-medium text-[var(--text-1)] bg-[var(--surface-raised)]/90 px-2.5 py-1 rounded-md border border-[var(--border-strong)] shadow-sm">
+                        <Clock className="w-3.5 h-3.5 text-[var(--accent)]" />
+                        <span>{formatDateTime(doc.created_at)}</span>
+                      </div>
                     </div>
 
                     {/* Threat Details Grid */}
