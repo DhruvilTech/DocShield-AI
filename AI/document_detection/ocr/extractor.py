@@ -321,17 +321,31 @@ class PassportFieldExtractor(BaseFieldExtractor):
         fields["date_of_expiry"] = ExtractedField(name="date_of_expiry", value=exp_val, confidence=exp_conf, source_text=exp_src)
 
         # 6. place of birth & place of issue
-        pob_val, pob_conf, pob_src = _find_label_value(regions, ["PLACE OF BIRTH", "LIEU DE NAISSANCE", "BIRTH PLACE"])
+        pob_val, pob_conf, pob_src = _find_label_value(
+            regions, ["PLACE OF BIRTH", "LIEU DE NAISSANCE", "BIRTH PLACE", "PLACE OF BIRT"]
+        )
         if pob_val:
             pob_val = re.split(r"\b(?:PLACE|ISSUE|DATE|EXPIRY|SEX|DOB)\b", pob_val, flags=re.IGNORECASE)[0].strip()
         if pob_val and is_clean_name(pob_val):
             fields["place_of_birth"] = ExtractedField(name="place_of_birth", value=pob_val.strip().upper(), confidence=pob_conf, source_text=pob_src)
 
-        poi_val, poi_conf, poi_src = _find_label_value(regions, ["PLACE OF ISSUE", "LIEU DE DELIVRANCE", "ISSUE PLACE"])
+        poi_val, poi_conf, poi_src = _find_label_value(
+            regions, [
+                "PLACE OF ISSUE", "LIEU DE DELIVRANCE", "LIEU DE DÉLIVRANCE", "LIEU DE D'ELIVRANCE",
+                "LIEU DE DLIVRANCE", "ISSUE PLACE", "ISSUED AT", "PLACE OF ISSUANCE", "PLACE OF ISUE"
+            ]
+        )
         if poi_val:
             poi_val = re.split(r"\b(?:PLACE|BIRTH|DATE|EXPIRY|SEX|DOB)\b", poi_val, flags=re.IGNORECASE)[0].strip()
         if poi_val and is_clean_name(poi_val):
             fields["place_of_issue"] = ExtractedField(name="place_of_issue", value=poi_val.strip().upper(), confidence=poi_conf, source_text=poi_src)
+
+        if not fields.get("place_of_issue") or not fields["place_of_issue"].value:
+            m_poi = re.search(r"(?:PLACE\s*OF\s*ISSUE|LIEU\s*DE\s*D[EÉ']?LIVRANCE|ISSUE\s*PLACE|ISSUED\s*AT)[:\s/]*([A-Z\s,.\-]{2,40})", raw, re.IGNORECASE)
+            if m_poi:
+                clean_m = re.split(r"\b(?:DATE|EXPIRY|BIRTH|ISSUE|SEX|DOB|PASSPORT)\b", m_poi.group(1), flags=re.IGNORECASE)[0].strip()
+                if clean_m and is_clean_name(clean_m):
+                    fields["place_of_issue"] = ExtractedField(name="place_of_issue", value=clean_m.upper(), confidence=0.88, source_text=m_poi.group(0))
 
         # Helper to check if a value looks like a valid date format
         def is_valid_date_format(date_val: str | None) -> bool:

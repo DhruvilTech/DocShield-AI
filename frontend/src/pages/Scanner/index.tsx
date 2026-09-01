@@ -1062,10 +1062,10 @@ export const ScannerPage: React.FC = () => {
                       const sur = getVal('surname', 'visual_surname', 'visualSurname');
                       const giv = getVal('given_name', 'visual_given_name', 'givenNames');
                       let full = getVal('name', 'visual_name', 'fullName');
-                      if (full && sur && full === sur && giv) {
+                      if (sur && giv) {
                         full = `${giv} ${sur}`;
-                      } else if (!full && sur && giv) {
-                        full = `${giv} ${sur}`;
+                      } else if (full && sur && !full.includes(sur)) {
+                        full = `${full} ${sur}`;
                       }
 
                       let displayItems: Array<{ label: string; value: string }> = [];

@@ -165,7 +165,9 @@ export class PassportParser {
     }
 
     // 2. Regular Expression & Keyword Extraction (Visual Inspection Zone Fallback)
-    for (const line of lines) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
       // Passport Number (Support 1 letter + 7 digits e.g. E7251023 or 2 letters + 6 digits e.g. AT983807)
       if (!fields.passportNumber.value) {
         const match = line.match(/(?:passport\s*(?:no|number|#)?|no\s*du\s*passeport)[:\s]+([A-Z0-9]{7,10})/i) ||
@@ -258,17 +260,33 @@ export class PassportParser {
 
       // Place of Birth
       if (!fields.placeOfBirth.value) {
-        const match = line.match(/(?:place\s*of\s*birth|lieu\s*de\s*naissance|birth\s*place)[:\s]+([A-Za-z\s\.\-]{2,40})/i);
-        if (match && !/passport|issue|date|republic|state/i.test(match[1])) {
-          fields.placeOfBirth = { value: match[1].trim(), confidence: 0.88 };
+        const pobRegex = /(?:place\s*of\s*birth|lieu\s*de\s*naissance|birth\s*place)/i;
+        if (pobRegex.test(line)) {
+          const lineVal = line.replace(pobRegex, '').replace(/\([^)]*\)/g, '').replace(/^[/:\s.\-]+/, '').trim();
+          if (lineVal && !/^(lieu|de|naissance|passport|issue|date|republic|state)$/i.test(lineVal)) {
+            fields.placeOfBirth = { value: lineVal, confidence: 0.88 };
+          } else if (i + 1 < lines.length) {
+            const nextLine = lines[i + 1].replace(/\([^)]*\)/g, '').replace(/^[/:\s.\-]+/, '').trim();
+            if (nextLine && !pobRegex.test(nextLine) && !/(?:date|issue|expiry|passport|surname|given)/i.test(nextLine)) {
+              fields.placeOfBirth = { value: nextLine, confidence: 0.88 };
+            }
+          }
         }
       }
 
       // Place of Issue
       if (!fields.placeOfIssue.value) {
-        const match = line.match(/(?:place\s*of\s*issue|lieu\s*de\s*d[eé]livrance|issue\s*place)[:\s]+([A-Za-z\s\.\-]{2,40})/i);
-        if (match && !/passport|birth|date|republic|state/i.test(match[1])) {
-          fields.placeOfIssue = { value: match[1].trim(), confidence: 0.88 };
+        const poiRegex = /(?:place\s*of\s*(?:issue|issuance|isue)|lieu\s*de\s*d[eé']?livrance|issued\s*at|issue\s*place)/i;
+        if (poiRegex.test(line)) {
+          const lineVal = line.replace(poiRegex, '').replace(/\([^)]*\)/g, '').replace(/^[/:\s.\-]+/, '').trim();
+          if (lineVal && !/^(lieu|de|d[eé']?livrance|passport|birth|date|republic|state|issue)$/i.test(lineVal)) {
+            fields.placeOfIssue = { value: lineVal, confidence: 0.88 };
+          } else if (i + 1 < lines.length) {
+            const nextLine = lines[i + 1].replace(/\([^)]*\)/g, '').replace(/^[/:\s.\-]+/, '').trim();
+            if (nextLine && !poiRegex.test(nextLine) && !/(?:date|birth|expiry|passport|surname|given)/i.test(nextLine)) {
+              fields.placeOfIssue = { value: nextLine, confidence: 0.88 };
+            }
+          }
         }
       }
 
@@ -278,6 +296,17 @@ export class PassportParser {
         if (match) {
           const val = match[1].toUpperCase().startsWith('M') ? 'M' : match[1].toUpperCase().startsWith('F') ? 'F' : 'X';
           fields.gender = { value: val, confidence: 0.92 };
+        }
+      }
+    }
+
+    // Fallback for place of issue from whole text
+    if (!fields.placeOfIssue.value) {
+      const matchPoi = text.match(/(?:place\s*of\s*(?:issue|issuance)|lieu\s*de\s*d[eé']?livrance|issue\s*place)[:\s/]*([A-Za-z\s,.\-]{2,40})/i);
+      if (matchPoi) {
+        const cleanVal = matchPoi[1].split(/(?:date|expiry|birth|issue|sex|passport)/i)[0].replace(/\([^)]*\)/g, '').replace(/^[/:\s.\-]+/, '').trim();
+        if (cleanVal && cleanVal.length >= 2 && !/^(lieu|de|d[eé']?livrance)$/i.test(cleanVal)) {
+          fields.placeOfIssue = { value: cleanVal, confidence: 0.85 };
         }
       }
     }
