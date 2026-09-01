@@ -45,12 +45,12 @@ class PassportValidator(BaseDocumentValidator):
         # Phase 2: passport number format
         pp_field = fields.get("passport_number")
         if pp_field and pp_field.value:
-            raw_val = pp_field.value.strip().upper().replace(" ", "")
-            # India MEA formats: traditional A1234567 (letter+7 digits)
-            # or newer AB123456 (2 letters+6 digits)
+            raw_val = pp_field.value.strip().upper().replace(" ", "").replace("<", "")
+            # India MEA formats: traditional E7251023 (1 letter + 7 digits)
+            # or newer AT983807 / AB123456 (2 letters + 6 or 7 digits)
             pattern = rules.patterns.get(
                 "passport_number",
-                r"^(?:[A-Z][0-9]{7}|[A-Z]{2}[0-9]{6})$",
+                r"^(?:[A-Z][0-9]{7}|[A-Z]{2}[0-9]{6,7})$",
             )
             if not re.fullmatch(pattern, raw_val):
                 checks = [
@@ -59,17 +59,33 @@ class PassportValidator(BaseDocumentValidator):
                         status=CheckStatus.INVALID,
                         message=(
                             f"Passport number '{pp_field.value.strip()}' is invalid. "
-                            "Indian passport format: 1 letter + 7 digits (e.g. K1234567) "
-                            "or 2 letters + 6 digits (e.g. AB123456)."
+                            "Indian passport format: 1 letter + 7 digits (e.g. E7251023, K1234567) "
+                            "or 2 letters + 6 digits (e.g. AT983807, AB123456)."
                         ),
                         confidence=pp_field.confidence,
                     ) if c.field == "passport_number" else c
                     for c in checks
                 ]
 
+        # Phase 2.5: nationality format
+        nat_field = fields.get("nationality")
+        if nat_field and nat_field.value and "nationality" in rules.patterns:
+            raw_nat = nat_field.value.strip().upper().replace("<", "")
+            nat_pattern = rules.patterns.get("nationality")
+            if not re.fullmatch(nat_pattern, raw_nat):
+                checks = [
+                    FieldCheck(
+                        field="nationality",
+                        status=CheckStatus.INVALID,
+                        message=f"Nationality '{nat_field.value.strip()}' is invalid. Expected IND or INDIAN.",
+                        confidence=nat_field.confidence,
+                    ) if c.field == "nationality" else c
+                    for c in checks
+                ]
+
         # Phase 3: date logic
-        dob = self._parse_date(fields.get("date_of_birth"))
-        exp = self._parse_date(fields.get("date_of_expiry"))
+        dob = self._parse_date(fields.get("date_of_birth"), is_expiry=False)
+        exp = self._parse_date(fields.get("date_of_expiry"), is_expiry=True)
 
         dob_field = fields.get("date_of_birth")
         if dob_field and dob_field.value and dob is None:
@@ -107,7 +123,7 @@ class PassportValidator(BaseDocumentValidator):
             ))
 
         # Phase 3.5: Visual vs MRZ cross-check validation
-        for field_name in ["passport_number", "date_of_birth", "date_of_expiry", "gender"]:
+        for field_name in ["passport_number", "date_of_birth", "date_of_expiry", "gender", "nationality"]:
             mrz_field = fields.get(field_name)
             visual_field = fields.get(f"visual_{field_name}")
             
@@ -116,8 +132,8 @@ class PassportValidator(BaseDocumentValidator):
                 visual_val = visual_field.value.strip()
                 
                 if field_name == "passport_number":
-                    clean_mrz = mrz_val.upper().replace(" ", "")
-                    clean_vis = visual_val.upper().replace(" ", "")
+                    clean_mrz = mrz_val.upper().replace(" ", "").replace("<", "")
+                    clean_vis = visual_val.upper().replace(" ", "").replace("<", "")
                     if clean_mrz != clean_vis:
                         checks.append(FieldCheck(
                             field="passport_number",
@@ -126,8 +142,8 @@ class PassportValidator(BaseDocumentValidator):
                         ))
                 
                 elif field_name == "date_of_birth":
-                    dob_mrz = self._parse_date(mrz_field)
-                    dob_vis = self._parse_date(visual_field)
+                    dob_mrz = self._parse_date(mrz_field, is_expiry=False)
+                    dob_vis = self._parse_date(visual_field, is_expiry=False)
                     if dob_mrz and dob_vis and dob_mrz != dob_vis:
                         checks.append(FieldCheck(
                             field="date_of_birth",
@@ -136,8 +152,8 @@ class PassportValidator(BaseDocumentValidator):
                         ))
 
                 elif field_name == "date_of_expiry":
-                    exp_mrz = self._parse_date(mrz_field)
-                    exp_vis = self._parse_date(visual_field)
+                    exp_mrz = self._parse_date(mrz_field, is_expiry=True)
+                    exp_vis = self._parse_date(visual_field, is_expiry=True)
                     if exp_mrz and exp_vis and exp_mrz != exp_vis:
                         checks.append(FieldCheck(
                             field="date_of_expiry",
@@ -155,11 +171,30 @@ class PassportValidator(BaseDocumentValidator):
                             message=f"Mismatched gender: visual '{visual_val}' does not match MRZ '{mrz_val}'",
                         ))
 
+                elif field_name == "nationality":
+                    def norm_nat(n):
+                        clean = n.upper().replace("<", "").replace(" ", "")
+                        if clean in ("IND", "INDIAN", "INDIA"):
+                            return "IND"
+                        if clean in ("USA", "UNITEDSTATES", "AMERICAN"):
+                            return "USA"
+                        if clean in ("GBR", "BRITISH", "UNITEDKINGDOM"):
+                            return "GBR"
+                        if clean in ("CAN", "CANADA", "CANADIAN"):
+                            return "CAN"
+                        return clean
+                    if norm_nat(mrz_val) != norm_nat(visual_val):
+                        checks.append(FieldCheck(
+                            field="nationality",
+                            status=CheckStatus.INVALID,
+                            message=f"Mismatched nationality: visual '{visual_val}' does not match MRZ '{mrz_val}'",
+                        ))
+
         mrz_name_field = fields.get("name")
         visual_name_field = fields.get("visual_name")
         if mrz_name_field and mrz_name_field.value and visual_name_field and visual_name_field.value:
             def get_tokens(name_str):
-                return set(re.findall(r"\w+", name_str.upper()))
+                return set(re.findall(r"[A-Z]+", name_str.upper()))
             mrz_tokens = get_tokens(mrz_name_field.value)
             vis_tokens = get_tokens(visual_name_field.value)
             if mrz_tokens and vis_tokens and not (mrz_tokens & vis_tokens):

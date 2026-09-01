@@ -62,7 +62,9 @@ export class TextNormalizer {
     // 4. MRZ YYMMDD format
     const mrzMatch = clean.match(/^(\d{2})(\d{2})(\d{2})$/);
     if (mrzMatch) {
-      const yearPrefix = parseInt(mrzMatch[1], 10) > 40 ? '19' : '20';
+      const yy = parseInt(mrzMatch[1], 10);
+      const currYy = new Date().getFullYear() % 100;
+      const yearPrefix = yy > (currYy + 30) ? '19' : '20';
       return `${yearPrefix}${mrzMatch[1]}-${mrzMatch[2]}-${mrzMatch[3]}`;
     }
 

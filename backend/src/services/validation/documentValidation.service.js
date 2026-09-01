@@ -37,7 +37,9 @@ function normDate(dateStr) {
   // 4. MRZ YYMMDD format
   const mrzMatch = clean.match(/^(\d{2})(\d{2})(\d{2})$/);
   if (mrzMatch) {
-    const yearPrefix = parseInt(mrzMatch[1], 10) > 40 ? '19' : '20';
+    const yy = parseInt(mrzMatch[1], 10);
+    const currYy = new Date().getFullYear() % 100;
+    const yearPrefix = yy > (currYy + 30) ? '19' : '20';
     return `${yearPrefix}${mrzMatch[1]}-${mrzMatch[2]}-${mrzMatch[3]}`;
   }
 
@@ -458,9 +460,11 @@ export class DocumentValidationService {
     const mrzName = getVal(extractedFields, 'name', 'fullName', 'mrz_name');
     const visName = getVal(extractedFields, 'visualName', 'visual_name', 'visName');
     if (mrzName && visName) {
-      const normMrz = mrzName.replace(/</g, ' ').replace(/[^A-Z]/g, '').toUpperCase();
-      const normVis = visName.replace(/[^A-Z]/g, '').toUpperCase();
-      if (normMrz && normVis && !normMrz.includes(normVis) && !normVis.includes(normMrz)) {
+      const getTokens = (str) => new Set((str || '').toUpperCase().replace(/[^A-Z]/g, ' ').split(/\s+/).filter((t) => t.length > 0));
+      const mrzTokens = getTokens(mrzName);
+      const visTokens = getTokens(visName);
+      const hasTokenOverlap = [...mrzTokens].some((t) => visTokens.has(t));
+      if (mrzTokens.size > 0 && visTokens.size > 0 && !hasTokenOverlap) {
         findings.push({
           rule: 'VISUAL_MRZ_NAME_MISMATCH',
           severity: 'CRITICAL',
@@ -476,8 +480,16 @@ export class DocumentValidationService {
     const mrzNation = getVal(extractedFields, 'nationality', 'mrz_nationality');
     const visNation = getVal(extractedFields, 'visualNationality', 'visual_nationality', 'visNationality');
     if (mrzNation && visNation && !isInvalidNationality(visNation)) {
-      const normMrz = mrzNation.replace(/[\s<]/g, '').toUpperCase();
-      const normVis = visNation.replace(/[\s<]/g, '').toUpperCase();
+      const normalizeNat = (n) => {
+        const clean = (n || '').replace(/[\s<]/g, '').toUpperCase();
+        if (['IND', 'INDIAN', 'INDIA'].includes(clean)) return 'IND';
+        if (['USA', 'UNITEDSTATES', 'AMERICAN'].includes(clean)) return 'USA';
+        if (['GBR', 'BRITISH', 'UNITEDKINGDOM'].includes(clean)) return 'GBR';
+        if (['CAN', 'CANADA', 'CANADIAN'].includes(clean)) return 'CAN';
+        return clean;
+      };
+      const normMrz = normalizeNat(mrzNation);
+      const normVis = normalizeNat(visNation);
       if (normMrz !== normVis) {
         findings.push({
           rule: 'VISUAL_MRZ_NATIONALITY_MISMATCH',

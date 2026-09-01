@@ -104,3 +104,74 @@ def test_permit_extractor_empty_ocr():
         assert key in fields
         assert fields[key].value is None
 
+
+def test_new_format_indian_passport_mrz_extraction():
+    line1 = "P<INDPATHAK<<PARTH<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+    line2 = "AT983807<0IND0608266M36062963067652860226<36"
+    ocr = make_ocr([line1, line2])
+    fields = PassportFieldExtractor().extract(ocr)
+    assert fields["passport_number"].value == "AT983807"
+    assert fields["name"].value == "PATHAK PARTH"
+    assert fields["nationality"].value == "IND"
+    assert fields["date_of_birth"].value == "060826"
+    assert fields["gender"].value == "M"
+    assert fields["date_of_expiry"].value == "360629"
+    assert fields.get("personal_number") is not None
+    assert fields["personal_number"].value == "3067652860226"
+
+
+def test_old_format_indian_passport_mrz_extraction():
+    line1 = "P<INDPATHAK<<MAULIKKUMAR<ARUNKUMAR<<<<<<<<<<<"
+    line2 = "E7251023<2IND8101246M13111303<<<<<<<<<<<<<<2"
+    ocr = make_ocr([line1, line2])
+    fields = PassportFieldExtractor().extract(ocr)
+    assert fields["passport_number"].value == "E7251023"
+    assert fields["name"].value == "PATHAK MAULIKKUMAR ARUNKUMAR"
+    assert fields["nationality"].value == "IND"
+    assert fields["date_of_birth"].value == "810124"
+    assert fields["gender"].value == "M"
+    assert fields["date_of_expiry"].value == "131113"
+
+
+def test_new_format_indian_passport_visual_layout_extraction():
+    texts = [
+        "type: P  Code: IND  Nationality: INDIAN  Passport No.: AT983807",
+        "Surname: PATHAK",
+        "Given Name: PARTH",
+        "Date of Birth: 26/08/2006  Sex: M",
+        "Place of Birth: AHMEDABAD",
+        "Place of Issue: AHMEDABAD",
+        "Date of Issue: 30/06/2026",
+        "Date of Expiry: 29/06/2036",
+    ]
+    ocr = make_ocr(texts)
+    fields = PassportFieldExtractor().extract(ocr)
+    assert fields["passport_number"].value == "AT983807"
+    assert fields["nationality"].value == "INDIAN"
+    assert fields["date_of_birth"].value == "26/08/2006"
+    assert fields["gender"].value == "M"
+    assert fields["date_of_expiry"].value == "29/06/2036"
+    assert "PARTH" in fields["name"].value
+    assert "PATHAK" in fields["name"].value
+
+
+def test_old_format_indian_passport_visual_layout_extraction():
+    texts = [
+        "type: P  Country Code: IND  Passport No.: E7251023",
+        "Surname: PATHAK",
+        "Given Name: MAULIKKUMAR ARUNKUMAR",
+        "Nationality: INDIAN  Sex: M  Date of Birth: 24/01/1981",
+        "Place of Birth: AHMEDABAD",
+        "Place of issue: AHMEDABAD",
+        "Date of Issue: 14/11/2003  Date of Expiry: 13/11/2013",
+    ]
+    ocr = make_ocr(texts)
+    fields = PassportFieldExtractor().extract(ocr)
+    assert fields["passport_number"].value == "E7251023"
+    assert fields["nationality"].value == "INDIAN"
+    assert fields["date_of_birth"].value == "24/01/1981"
+    assert fields["gender"].value == "M"
+    assert fields["date_of_expiry"].value == "13/11/2013"
+    assert "MAULIKKUMAR" in fields["name"].value
+    assert "PATHAK" in fields["name"].value
+

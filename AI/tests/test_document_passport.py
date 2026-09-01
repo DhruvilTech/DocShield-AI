@@ -119,3 +119,67 @@ def test_mismatched_visual_vs_mrz():
     assert result.valid is False
     check = next(c for c in result.checks if c.field == "passport_number" and "Mismatched" in c.message)
     assert check.status == CheckStatus.INVALID
+
+
+def test_new_format_indian_passport_validation():
+    # New Format: 2-letter + 6-digit passport number AT983807, 2036 expiry date, name tokens
+    new_rules = RuleSet(
+        required_fields=["name", "passport_number", "nationality", "date_of_birth", "date_of_expiry"],
+        patterns={
+            "passport_number": r"^(?:[A-Z][0-9]{7}|[A-Z]{2}[0-9]{6,7})$",
+            "nationality": r"^(?:IND|INDIAN|INDIA)$",
+        },
+        date_rules={
+            "date_of_birth": {"must_be_past": True},
+            "date_of_expiry": {"must_be_after_today": True},
+        },
+    )
+    fields = {
+        "passport_number": f("passport_number", "AT983807"),
+        "name": f("name", "PATHAK PARTH"),
+        "nationality": f("nationality", "IND"),
+        "date_of_birth": f("date_of_birth", "060826"), # 26 Aug 2006
+        "date_of_expiry": f("date_of_expiry", "360629"), # 29 Jun 2036
+        "gender": f("gender", "M"),
+        "visual_passport_number": f("visual_passport_number", "AT983807"),
+        "visual_name": f("visual_name", "PARTH PATHAK"),
+        "visual_nationality": f("visual_nationality", "INDIAN"),
+        "visual_date_of_birth": f("visual_date_of_birth", "26/08/2006"),
+        "visual_date_of_expiry": f("visual_date_of_expiry", "29/06/2036"),
+        "visual_gender": f("visual_gender", "M"),
+    }
+    result = validator.validate(fields, new_rules)
+    assert result.valid is True
+    assert result.document_type == "passport"
+
+
+def test_old_format_indian_passport_validation():
+    # Old Format: 1-letter + 7-digit passport number E7251023, name Maulikkumar Arunkumar Pathak
+    old_rules = RuleSet(
+        required_fields=["name", "passport_number", "nationality", "date_of_birth", "date_of_expiry"],
+        patterns={
+            "passport_number": r"^(?:[A-Z][0-9]{7}|[A-Z]{2}[0-9]{6,7})$",
+            "nationality": r"^(?:IND|INDIAN|INDIA)$",
+        },
+        date_rules={
+            "date_of_birth": {"must_be_past": True},
+            "date_of_expiry": {"must_be_after_today": True},
+        },
+    )
+    fields = {
+        "passport_number": f("passport_number", "E7251023"),
+        "name": f("name", "PATHAK MAULIKKUMAR ARUNKUMAR"),
+        "nationality": f("nationality", "IND"),
+        "date_of_birth": f("date_of_birth", "810124"), # 24 Jan 1981
+        "date_of_expiry": f("date_of_expiry", "2030-11-13"),
+        "gender": f("gender", "M"),
+        "visual_passport_number": f("visual_passport_number", "E7251023"),
+        "visual_name": f("visual_name", "MAULIKKUMAR ARUNKUMAR PATHAK"),
+        "visual_nationality": f("visual_nationality", "INDIAN"),
+        "visual_date_of_birth": f("visual_date_of_birth", "24/01/1981"),
+        "visual_date_of_expiry": f("visual_date_of_expiry", "13/11/2030"),
+        "visual_gender": f("visual_gender", "M"),
+    }
+    result = validator.validate(fields, old_rules)
+    assert result.valid is True
+    assert result.document_type == "passport"

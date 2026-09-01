@@ -74,10 +74,12 @@ def _find_label_value(
         upper = region.text.upper()
         for label in labels:
             if label in upper:
-                colon_split = region.text.split(":", 1)
-                if len(colon_split) == 2 and colon_split[1].strip():
-                    val = colon_split[1].strip()
-                    return val, region.confidence, region.text
+                idx = upper.find(label)
+                after_label = region.text[idx + len(label):]
+                # Strip leading punctuation/whitespace
+                after_clean = after_label.lstrip(" :.-")
+                if after_clean:
+                    return after_clean, region.confidence, region.text
                 if i + 1 < len(regions):
                     nxt = regions[i + 1]
                     return nxt.text.strip(), nxt.confidence, nxt.text
@@ -96,16 +98,36 @@ def _get_confidence_for_match(match_text: str, regions: list[TextRegion]) -> flo
 # ── Passport ───────────────────────────────────────────────────────────────────
 
 class PassportFieldExtractor(BaseFieldExtractor):
-    """Extracts Indian passport fields.
+    """Extracts Indian passport fields supporting both Old and New Passport Formats.
+
+    New Format Layout:
+      - Row 1: Type | Code | Nationality | Passport No.
+      - Row 2: Surname
+      - Row 3: Given Name
+      - Row 4: Date of Birth | Sex
+      - Row 5: Place of Birth
+      - Row 6: Place of Issue
+      - Row 7: Date of Issue
+      - Row 8: Date of Expiry
+      - MRZ (TD3 2x44)
+
+    Old Format Layout:
+      - Row 1: Type | Country Code | Passport No.
+      - Row 2: Surname
+      - Row 3: Given Name
+      - Row 4: Nationality | Sex | Date of Birth
+      - Row 5: Place of Birth
+      - Row 6: Place of Issue
+      - Row 7: Date of Issue | Date of Expiry
+      - MRZ (TD3 2x44)
 
     Passport number patterns (India MEA):
-      Traditional : 1 letter + 7 digits  (e.g. K1234567)
-      Newer       : 2 letters + 6 digits  (e.g. AB123456)
+      Traditional : 1 letter + 7 digits  (e.g. E7251023, K1234567)
+      Newer       : 2 letters + 6 digits (e.g. AT983807, AB123456) or 2 letters + 7 digits
     """
 
-    # Updated to match both Indian passport formats
     _PASSPORT_NO_RE = re.compile(r"\b([A-Z]{1,2}[0-9]{6,7})\b")
-    _GENDER_RE = re.compile(r"\b(M|F|X|MALE|FEMALE)\b")
+    _GENDER_RE = re.compile(r"\b(M|F|X|MALE|FEMALE)\b", re.IGNORECASE)
     _MRZ_RE = re.compile(r"^[A-Z0-9<]{40,50}$")
 
     def extract(self, ocr_result: OCRResult) -> dict[str, ExtractedField]:
@@ -113,78 +135,177 @@ class PassportFieldExtractor(BaseFieldExtractor):
         regions = list(ocr_result.regions)
         fields: dict[str, ExtractedField] = {}
 
-        # passport_number
-        m = self._PASSPORT_NO_RE.search(raw)
+        # 1. passport_number
+        pass_val, pass_conf, pass_src = _find_label_value(
+            regions, ["PASSPORT NO", "PASSPORT NUMBER", "NO DU PASSEPORT", "PASSPORT NO.", "PASSPORT#"]
+        )
+        if pass_val:
+            m_pass = self._PASSPORT_NO_RE.search(pass_val.upper().replace(" ", ""))
+            if m_pass:
+                pass_val = m_pass.group(1)
+            else:
+                pass_val = None
+
+        if not pass_val:
+            m = self._PASSPORT_NO_RE.search(raw)
+            if m:
+                pass_val = m.group(0)
+                pass_conf = _get_confidence_for_match(m.group(0), regions)
+                pass_src = m.group(0)
+
         fields["passport_number"] = ExtractedField(
             name="passport_number",
-            value=m.group(0) if m else None,
-            confidence=_get_confidence_for_match(m.group(0), regions) if m else None,
-            source_text=m.group(0) if m else None,
+            value=pass_val,
+            confidence=pass_conf,
+            source_text=pass_src,
         )
 
-        # gender
-        gender_val, gender_conf = None, None
-        for region in regions:
-            gm = self._GENDER_RE.search(region.text)
+        # 2. gender / sex
+        gender_val, gender_conf, gender_src = _find_label_value(regions, ["SEX", "SEXE", "GENDER"])
+        if gender_val:
+            gm = self._GENDER_RE.search(gender_val)
             if gm:
-                gender_val = gm.group(0)
-                gender_conf = region.confidence
-                break
-        if gender_val is None:
+                gender_val = "M" if gm.group(0).upper().startswith("M") else "F" if gm.group(0).upper().startswith("F") else "X"
+            else:
+                gender_val = None
+
+        if not gender_val:
+            for region in regions:
+                gm = self._GENDER_RE.search(region.text)
+                if gm:
+                    raw_g = gm.group(0).upper()
+                    gender_val = "M" if raw_g.startswith("M") else "F" if raw_g.startswith("F") else "X"
+                    gender_conf = region.confidence
+                    gender_src = region.text
+                    break
+
+        if not gender_val:
             gm = self._GENDER_RE.search(raw)
             if gm:
-                gender_val = gm.group(0)
+                raw_g = gm.group(0).upper()
+                gender_val = "M" if raw_g.startswith("M") else "F" if raw_g.startswith("F") else "X"
                 gender_conf = _get_confidence_for_match(gm.group(0), regions)
-        fields["gender"] = ExtractedField(name="gender", value=gender_val, confidence=gender_conf)
+                gender_src = gm.group(0)
 
-        # name
-        val, conf, src = _find_label_value(regions, ["SURNAME", "GIVEN NAME", "GIVEN NAMES", "NAME"])
-        if val:
-            clean_val = val.strip().upper()
-            if any(noise in clean_val for noise in ["/", "NOM", "GIVEN", "SURNAME", "PRÉNOMS"]):
-                val = None
-        fields["name"] = ExtractedField(name="name", value=val, confidence=conf, source_text=src)
+        fields["gender"] = ExtractedField(name="gender", value=gender_val, confidence=gender_conf, source_text=gender_src)
 
-        # nationality
-        val, conf, src = _find_label_value(regions, ["NATIONALITY", "NATIONAL"])
-        if val:
-            clean_val = val.strip().upper()
-            if any(noise in clean_val for noise in ["/", "SURNAME", "GIVEN", "NAME", "NOM"]):
-                val = None
-        
-        # Fallback: scan raw text for country indicators
-        if not val:
+        # 3. surname & given_name & full name
+        def is_clean_name(val_str: str | None) -> bool:
+            if not val_str:
+                return False
+            clean = val_str.strip().upper()
+            noise = ["/", "NOM", "GIVEN", "SURNAME", "PRÉNOMS", "PRENOMS", "NAME", "PASSPORT", "REPUBLIC", "INDIA", "INDIAN", "NATIONALITY", "SEX", "DATE", "BIRTH", "EXPIRY", "ISSUE", "TYPE", "CODE"]
+            if any(clean == n or clean.startswith(n + " ") or clean.endswith(" " + n) for n in noise):
+                return False
+            if any(c.isdigit() for c in clean):
+                return False
+            return len(clean) >= 2
+
+        sur_val, sur_conf, sur_src = _find_label_value(regions, ["SURNAME", "NOM", "LAST NAME", "SUR NAME"])
+        if sur_val and not is_clean_name(sur_val):
+            sur_val = None
+        if sur_val:
+            fields["surname"] = ExtractedField(name="surname", value=sur_val.strip().upper(), confidence=sur_conf, source_text=sur_src)
+
+        given_val, given_conf, given_src = _find_label_value(regions, ["GIVEN NAME", "GIVEN NAMES", "PRÉNOMS", "PRENOMS", "FIRST NAME"])
+        if given_val and not is_clean_name(given_val):
+            given_val = None
+        if given_val:
+            fields["given_name"] = ExtractedField(name="given_name", value=given_val.strip().upper(), confidence=given_conf, source_text=given_src)
+
+        # Composite full name
+        if sur_val and given_val:
+            full_name_val = f"{given_val.strip().upper()} {sur_val.strip().upper()}".strip()
+            name_conf = min(sur_conf or 0.9, given_conf or 0.9)
+            name_src = f"{sur_val} / {given_val}"
+        elif given_val:
+            full_name_val = given_val.strip().upper()
+            name_conf = given_conf
+            name_src = given_src
+        elif sur_val:
+            full_name_val = sur_val.strip().upper()
+            name_conf = sur_conf
+            name_src = sur_src
+        else:
+            val, conf, src = _find_label_value(regions, ["FULL NAME", "NAME", "HOLDER"])
+            if val and is_clean_name(val):
+                full_name_val = val.strip().upper()
+                name_conf = conf
+                name_src = src
+            else:
+                full_name_val, name_conf, name_src = None, None, None
+
+        fields["name"] = ExtractedField(name="name", value=full_name_val, confidence=name_conf, source_text=name_src)
+
+        # 4. nationality
+        nat_val, nat_conf, nat_src = _find_label_value(regions, ["NATIONALITY", "NATIONALITÉ", "NATIONALITE", "CITIZENSHIP", "NATIONAL"])
+        if nat_val:
+            clean_nat = re.split(r"\b(?:SEX|GENDER|DOB|DATE|BIRTH|EXPIRY|ISSUE|SURNAME|GIVEN|NAME)\b", nat_val, flags=re.IGNORECASE)[0].strip().upper()
+            if any(noise in clean_nat for noise in ["/", "SURNAME", "GIVEN", "NAME", "NOM", "PASSPORT", "CODE"]):
+                nat_val = None
+            else:
+                nat_val = clean_nat if clean_nat else None
+
+        if not nat_val:
             raw_upper = raw.upper()
             if "INDIAN" in raw_upper:
-                val, conf, src = "INDIAN", 0.85, "Fallback raw search"
+                nat_val, nat_conf, nat_src = "INDIAN", 0.85, "Fallback raw search"
             elif "IND" in raw_upper:
-                val, conf, src = "IND", 0.80, "Fallback raw search"
+                nat_val, nat_conf, nat_src = "IND", 0.80, "Fallback raw search"
             elif "USA" in raw_upper or "UNITED STATES" in raw_upper:
-                val, conf, src = "USA", 0.80, "Fallback raw search"
+                nat_val, nat_conf, nat_src = "USA", 0.80, "Fallback raw search"
             elif "CAN" in raw_upper or "CANADA" in raw_upper or "CANADIAN" in raw_upper:
-                val, conf, src = "CAN", 0.80, "Fallback raw search"
+                nat_val, nat_conf, nat_src = "CAN", 0.80, "Fallback raw search"
             elif "GBR" in raw_upper or "BRITISH" in raw_upper or "UNITED KINGDOM" in raw_upper:
-                val, conf, src = "GBR", 0.80, "Fallback raw search"
-        
-        fields["nationality"] = ExtractedField(name="nationality", value=val, confidence=conf, source_text=src)
+                nat_val, nat_conf, nat_src = "GBR", 0.80, "Fallback raw search"
 
-        # dates
-        val, conf, src = _find_label_value(regions, ["DOB", "DATE OF BIRTH", "BIRTH DATE", "BORN"])
-        fields["date_of_birth"] = ExtractedField(name="date_of_birth", value=val, confidence=conf, source_text=src)
+        fields["nationality"] = ExtractedField(name="nationality", value=nat_val, confidence=nat_conf, source_text=nat_src)
 
-        val, conf, src = _find_label_value(
-            regions, ["EXPIRY", "EXPIRATION", "EXP DATE", "DATE OF EXPIRY", "VALID UNTIL"]
+        # Helper to extract clean date string from label value
+        def clean_date_str(val_str: str | None) -> str | None:
+            if not val_str:
+                return None
+            m_d = re.search(r"\b\d{2}[/\-.]\d{2}[/\-.]\d{4}\b", val_str) or re.search(r"\b\d{1,2}\s+[A-Za-z]{3}\s+\d{4}\b", val_str)
+            if m_d:
+                return m_d.group(0)
+            return val_str.strip()
+
+        # 5. dates (DOB, Issue, Expiry)
+        dob_val, dob_conf, dob_src = _find_label_value(regions, ["DOB", "DATE OF BIRTH", "DATE DE NAISSANCE", "BIRTH DATE", "BORN"])
+        dob_val = clean_date_str(dob_val)
+        fields["date_of_birth"] = ExtractedField(name="date_of_birth", value=dob_val, confidence=dob_conf, source_text=dob_src)
+
+        doi_val, doi_conf, doi_src = _find_label_value(regions, ["DATE OF ISSUE", "DATE DE DELIVRANCE", "ISSUE DATE", "DATE D'EMISSION", "ISSUED ON"])
+        doi_val = clean_date_str(doi_val)
+        fields["date_of_issue"] = ExtractedField(name="date_of_issue", value=doi_val, confidence=doi_conf, source_text=doi_src)
+
+        exp_val, exp_conf, exp_src = _find_label_value(
+            regions, ["EXPIRY", "EXPIRATION", "EXP DATE", "DATE OF EXPIRY", "DATE D'EXPIRATION", "VALID UNTIL", "VALID UPTO", "EXPIRY DATE"]
         )
-        fields["date_of_expiry"] = ExtractedField(name="date_of_expiry", value=val, confidence=conf, source_text=src)
+        exp_val = clean_date_str(exp_val)
+        fields["date_of_expiry"] = ExtractedField(name="date_of_expiry", value=exp_val, confidence=exp_conf, source_text=exp_src)
+
+        # 6. place of birth & place of issue
+        pob_val, pob_conf, pob_src = _find_label_value(regions, ["PLACE OF BIRTH", "LIEU DE NAISSANCE", "BIRTH PLACE"])
+        if pob_val:
+            pob_val = re.split(r"\b(?:PLACE|ISSUE|DATE|EXPIRY|SEX|DOB)\b", pob_val, flags=re.IGNORECASE)[0].strip()
+        if pob_val and is_clean_name(pob_val):
+            fields["place_of_birth"] = ExtractedField(name="place_of_birth", value=pob_val.strip().upper(), confidence=pob_conf, source_text=pob_src)
+
+        poi_val, poi_conf, poi_src = _find_label_value(regions, ["PLACE OF ISSUE", "LIEU DE DELIVRANCE", "ISSUE PLACE"])
+        if poi_val:
+            poi_val = re.split(r"\b(?:PLACE|BIRTH|DATE|EXPIRY|SEX|DOB)\b", poi_val, flags=re.IGNORECASE)[0].strip()
+        if poi_val and is_clean_name(poi_val):
+            fields["place_of_issue"] = ExtractedField(name="place_of_issue", value=poi_val.strip().upper(), confidence=poi_conf, source_text=poi_src)
 
         # Helper to check if a value looks like a valid date format
         def is_valid_date_format(date_val: str | None) -> bool:
             if not date_val:
                 return False
-            return bool(re.search(r"\d", date_val) and re.search(r"[-/]", date_val))
+            return bool(re.search(r"\d", date_val) and re.search(r"[-/.]", date_val))
 
-        # Dates fallback: search for date patterns DD/MM/YYYY
-        all_dates = re.findall(r"\b\d{2}/\d{2}/\d{4}\b", raw)
+        # Dates fallback: search for date patterns DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY
+        all_dates = re.findall(r"\b\d{2}[/\-.]\d{2}[/\-.]\d{4}\b", raw)
         if all_dates:
             parsed_dates = []
             for d_str in all_dates:
@@ -194,7 +315,16 @@ class PassportFieldExtractor(BaseFieldExtractor):
                 except Exception:
                     pass
             parsed_dates = sorted(list(set(parsed_dates)), key=lambda x: x[0])
-            if len(parsed_dates) >= 2:
+            
+            if len(parsed_dates) >= 3:
+                # 3 dates on Indian Passports: DOB (earliest), Issue Date (middle), Expiry Date (latest)
+                if not fields.get("date_of_birth") or not fields["date_of_birth"].value or not is_valid_date_format(fields["date_of_birth"].value):
+                    fields["date_of_birth"] = ExtractedField(name="date_of_birth", value=parsed_dates[0][1], confidence=0.99, source_text=parsed_dates[0][1])
+                if not fields.get("date_of_issue") or not fields["date_of_issue"].value or not is_valid_date_format(fields["date_of_issue"].value):
+                    fields["date_of_issue"] = ExtractedField(name="date_of_issue", value=parsed_dates[1][1], confidence=0.99, source_text=parsed_dates[1][1])
+                if not fields.get("date_of_expiry") or not fields["date_of_expiry"].value or not is_valid_date_format(fields["date_of_expiry"].value):
+                    fields["date_of_expiry"] = ExtractedField(name="date_of_expiry", value=parsed_dates[-1][1], confidence=0.99, source_text=parsed_dates[-1][1])
+            elif len(parsed_dates) == 2:
                 dob_field = fields.get("date_of_birth")
                 if not dob_field or not dob_field.value or not is_valid_date_format(dob_field.value):
                     fields["date_of_birth"] = ExtractedField(name="date_of_birth", value=parsed_dates[0][1], confidence=0.99, source_text=parsed_dates[0][1])
@@ -214,8 +344,8 @@ class PassportFieldExtractor(BaseFieldExtractor):
                         fields["date_of_expiry"] = ExtractedField(name="date_of_expiry", value=d_str, confidence=0.99, source_text=d_str)
 
         # Store visual values before MRZ override for validation cross-check
-        for field_name in ["passport_number", "gender", "name", "nationality", "date_of_birth", "date_of_expiry"]:
-            if field_name in fields:
+        for field_name in ["passport_number", "gender", "name", "surname", "given_name", "nationality", "date_of_birth", "date_of_expiry", "date_of_issue", "place_of_birth", "place_of_issue"]:
+            if field_name in fields and fields[field_name].value:
                 fields[f"visual_{field_name}"] = ExtractedField(
                     name=f"visual_{field_name}",
                     value=fields[field_name].value,
@@ -229,7 +359,7 @@ class PassportFieldExtractor(BaseFieldExtractor):
             cleaned = r.text.replace(" ", "").upper()
             cleaned = cleaned.replace("(", "<").replace(")", "<").replace("[", "<").replace("]", "<").replace("{", "<").replace("}", "<")
             filtered = "".join([c for c in cleaned if c.isalnum() or c == "<"])
-            if len(filtered) >= 44 and (filtered.startswith("P") or len(mrz_lines) > 0):
+            if len(filtered) >= 44 and (filtered.startswith("P") or len(mrz_lines) > 0 or re.match(r"^[A-Z0-9<]{44}$", filtered)):
                 mrz_lines.append(filtered[:44])
 
         if len(mrz_lines) >= 2:
@@ -252,24 +382,66 @@ class PassportFieldExtractor(BaseFieldExtractor):
             else:
                 line1 = clean_l0
                 line2 = clean_l1
-            name_part = line1[5:44].replace("<", " ").strip()
-            if name_part:
-                fields["name"] = ExtractedField(name="name", value=name_part, confidence=0.99)
+
+            # Line 1: P<INDPATHAK<<PARTH<<<<<<<<<<<<<<<<<<<<<<<<<<<
+            # or P<INDPATHAK<<MAULIKKUMAR<ARUNKUMAR<<<<<<<<<<<
             nat = line1[2:5].replace("<", "")
             if nat:
                 fields["nationality"] = ExtractedField(name="nationality", value=nat, confidence=0.99)
+
+            name_raw = line1[5:44]
+            name_parts = name_raw.split("<<")
+            surname = name_parts[0].replace("<", " ").strip() if len(name_parts) > 0 else ""
+            given_names = name_parts[1].replace("<", " ").strip() if len(name_parts) > 1 else ""
+
+            if surname:
+                fields["surname"] = ExtractedField(name="surname", value=surname, confidence=0.99)
+            if given_names:
+                fields["given_name"] = ExtractedField(name="given_name", value=given_names, confidence=0.99)
+
+            if surname and given_names:
+                fields["name"] = ExtractedField(name="name", value=f"{surname} {given_names}", confidence=0.99)
+            elif surname or given_names:
+                fields["name"] = ExtractedField(name="name", value=(surname or given_names), confidence=0.99)
+            else:
+                name_part = re.sub(r"\s+", " ", name_raw.replace("<", " ")).strip()
+                if name_part:
+                    fields["name"] = ExtractedField(name="name", value=name_part, confidence=0.99)
+
+            # Line 2: AT983807<0IND0608266M36062963067652860226<36
+            # or E7251023<2IND8101246M13111303<<<<<<<<<<<<<<2
             pp_no = line2[0:9].replace("<", "")
             if pp_no:
                 fields["passport_number"] = ExtractedField(name="passport_number", value=pp_no, confidence=0.99)
+
+            # Nationality in line 2
+            if len(line2) >= 13:
+                line2_nat = line2[10:13].replace("<", "")
+                if line2_nat and not fields.get("nationality"):
+                    fields["nationality"] = ExtractedField(name="nationality", value=line2_nat, confidence=0.99)
+
+            # Date of birth (positions 13-18)
             dob_raw = line2[13:19]
             if dob_raw.isdigit():
                 fields["date_of_birth"] = ExtractedField(name="date_of_birth", value=dob_raw, confidence=0.99)
-            exp_raw = line2[21:27]
-            if exp_raw.isdigit():
-                fields["date_of_expiry"] = ExtractedField(name="date_of_expiry", value=exp_raw, confidence=0.99)
+
+            # Gender / Sex (position 20)
             sex = line2[20] if len(line2) > 20 else ""
             if sex in ("M", "F", "X"):
                 fields["gender"] = ExtractedField(name="gender", value=sex, confidence=0.99)
+
+            # Date of expiry (positions 21-26)
+            exp_raw = line2[21:27]
+            if exp_raw.isdigit():
+                fields["date_of_expiry"] = ExtractedField(name="date_of_expiry", value=exp_raw, confidence=0.99)
+
+            # Optional / Personal number data (positions 28-42)
+            if len(line2) >= 42:
+                opt_data = line2[28:42].replace("<", "")
+                if opt_data:
+                    fields["personal_number"] = ExtractedField(name="personal_number", value=opt_data, confidence=0.99)
+
+            fields["mrz_lines"] = ExtractedField(name="mrz_lines", value=f"{line1}\n{line2}", confidence=0.99)
         except Exception:
             pass
 
