@@ -13,7 +13,6 @@ const NAV_LINKS = [
   { label: 'Intelligence', path: '/intelligence' },
   { label: 'Threats', path: '/threats' },
   { label: 'Reports', path: '/reports' },
-  { label: 'Security', path: '/security' },
 ];
 
 interface NavbarProps {
