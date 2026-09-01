@@ -7,3 +7,4 @@ export * from './DocumentScanVisual';
 export * from './VerificationAnimation';
 export * from './Interactive3DScanHero';
 export * from './HeroScanner';
+export * from './ScannerStandbyView';

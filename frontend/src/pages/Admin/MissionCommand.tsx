@@ -32,8 +32,8 @@ import {
   Terminal,
   ChevronRight,
   ExternalLink,
-} from 'lucide-react';
 import { Button, Badge, Card, CountUp, cn, SectionHeader, Reveal } from '../../components/ui';
+import { DocShieldLogo } from '../../components/common/DocShieldLogo';
 import { useAuth } from '../../hooks/useAuth';
 import { adminApi, SystemTelemetry, AdminOverview } from '../../lib/api/admin.api';
 import { userApi } from '../../lib/api/user.api';
@@ -137,8 +137,9 @@ export const MissionCommandPage: React.FC = () => {
                 TEE ISOLATED (SGX)
               </Badge>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold font-mono tracking-tight text-[var(--text-1)] flex items-center gap-2">
-              DocShield AI // Super Administrator Console
+            <h1 className="text-2xl sm:text-3xl font-bold font-mono tracking-tight text-[var(--text-1)] flex items-center gap-3">
+              <DocShieldLogo size={32} animated glow />
+              <span>DocShield AI // Super Administrator Console</span>
             </h1>
             <p className="text-xs text-[var(--text-2)] font-mono mt-1 max-w-2xl leading-relaxed">
               Global multi-tenant mission command, real-time cyber telemetry, hardware enclave monitoring, user RBAC matrix, and biometric threshold policy governance.

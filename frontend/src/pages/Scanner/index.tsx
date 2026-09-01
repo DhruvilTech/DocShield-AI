@@ -16,7 +16,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { Button, Badge, Card, SectionHeader, Input, cn, CountUp, Reveal } from '../../components/ui';
-import { SecurityRing, VerificationAnimation, ScanLine } from '../../components/security';
+import { SecurityRing, VerificationAnimation, ScanLine, ScannerStandbyView } from '../../components/security';
 import { CameraCapture } from '../../components/common/CameraCapture';
 import { useOrganization } from '../../context/OrganizationContext';
 import { documentApi } from '../../lib/api/document.api';
@@ -915,15 +915,7 @@ export const ScannerPage: React.FC = () => {
           {/* Right Column: Comprehensive Screening Dossier (P8 Modules 1 to 4) */}
           <div className="lg:col-span-7">
             {phase !== 'complete' && !screening ? (
-              <Card className="p-10 text-center h-full flex flex-col items-center justify-center min-h-[420px] border-[var(--border)]">
-                <div className="w-16 h-16 rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-center mb-4 text-2xl">
-                  🛡️
-                </div>
-                <h3 className="text-sm font-bold text-[var(--text-1)] mb-1">AI Screening Enclave Standby</h3>
-                <p className="text-xs text-[var(--text-2)] max-w-md leading-relaxed font-mono">
-                  Select a document category or upload an identity credential on the left to execute full OCR extraction, official ICAO standard validation, stamp/photo forensics, and live biometric face verification.
-                </p>
-              </Card>
+              <ScannerStandbyView selectedDocType={docType} />
             ) : (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
                 {/* 1. Executive Verdict Card */}

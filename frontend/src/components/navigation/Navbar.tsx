@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button, ThemeSwitcher, cn, MagneticButton } from '../ui';
+import { DocShieldLogo } from '../common/DocShieldLogo';
 import { navEntranceVariants } from '../../lib/animations';
 import { useAuth } from '../../hooks/useAuth';
 import type { Theme } from '../../types';
@@ -64,16 +65,13 @@ export const Navbar: React.FC<NavbarProps> = ({ theme, onToggleTheme }) => {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-14">
-          {/* Logo */}
+          {/* 3D Animated Logo */}
           <Link to="/" className="flex items-center gap-2.5 group flex-shrink-0">
-            <div className="w-7 h-7 rounded-lg bg-[var(--accent)] flex items-center justify-center text-[#05070A] shadow-sm animate-logo-pulse group-hover:shadow-[var(--glow-accent)] transition-all duration-300">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                <path d="m9 12 2 2 4-4" />
-              </svg>
-            </div>
+            <DocShieldLogo size={32} animated glow />
             <div className="flex items-baseline gap-1">
-              <span className="font-bold text-sm text-[var(--text-1)] tracking-tight">DocShield</span>
+              <span className="font-bold text-sm text-[var(--text-1)] tracking-tight group-hover:text-[var(--accent)] transition-colors">
+                DocShield
+              </span>
               <span className="text-[10px] font-mono text-[var(--accent)] font-bold px-1 py-0.2 rounded bg-[var(--accent-muted)] border border-[var(--border-accent)]">
                 AI
               </span>

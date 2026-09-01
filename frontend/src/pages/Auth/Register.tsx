@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../hooks/useAuth';
 import { Button, Card } from '../../components/ui';
+import { DocShieldLogo } from '../../components/common/DocShieldLogo';
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
@@ -68,13 +69,8 @@ export const RegisterPage: React.FC = () => {
       >
         <Card className="p-8 sm:p-10 border-[var(--border-strong)] bg-[var(--surface)]/80 backdrop-blur-2xl shadow-[var(--shadow-lg)]">
           <div className="text-center mb-6">
-            <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-[var(--accent)] flex items-center justify-center text-[#05070A] shadow-md">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <line x1="19" y1="8" x2="19" y2="14" />
-                <line x1="22" y1="11" x2="16" y2="11" />
-              </svg>
+            <div className="flex justify-center mb-3">
+              <DocShieldLogo size={56} animated glow interactive />
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold text-[var(--text-1)] tracking-tight">
               Create an Account
