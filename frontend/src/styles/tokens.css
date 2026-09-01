@@ -103,11 +103,11 @@
   --border-hairline: rgba(0, 0, 0, 0.08);
 
   --text-primary: #0F172A;
-  --text-secondary: #475569;
-  --text-muted: #94A3B8;
+  --text-secondary: #334155;
+  --text-muted: #64748B;
   --text-1: #0F172A;
-  --text-2: #475569;
-  --text-3: #94A3B8;
+  --text-2: #334155;
+  --text-3: #64748B;
   --text-inv: #FFFFFF;
 
   --network-line: rgba(13, 148, 136, 0.10);

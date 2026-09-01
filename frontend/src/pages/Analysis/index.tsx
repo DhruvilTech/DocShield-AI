@@ -555,7 +555,7 @@ export const AnalysisPage: React.FC = () => {
                             {ind.description}
                           </p>
                           {ind.evidence && (
-                            <p className="text-[10px] text-[var(--text-3)] font-mono truncate bg-black/50 p-1 rounded border border-white/5">
+                            <p className="text-[10px] text-[var(--text-2)] font-mono truncate bg-[var(--surface)] p-1 rounded border border-[var(--border)]">
                               Evidence: {ind.evidence}
                             </p>
                           )}
@@ -626,7 +626,7 @@ export const AnalysisPage: React.FC = () => {
               </div>
 
               {/* Main Forensic Display Stage */}
-              <Card className="p-5 border-[var(--border)] min-h-[460px] relative overflow-hidden bg-black/60">
+              <Card className="p-5 border-[var(--border)] min-h-[460px] relative overflow-hidden bg-[var(--surface)]">
                 <ScanLine />
 
                 {/* Layer 1: Visual Tampering Heatmap & Document Inspection */}
@@ -781,14 +781,14 @@ export const AnalysisPage: React.FC = () => {
 
                     {extraction?.extracted_fields?.mrzLines?.value ? (
                       <div className="space-y-3">
-                        <div className="p-4 rounded-xl bg-black/90 border border-[var(--border)] space-y-2">
+                        <div className="p-4 rounded-xl bg-[var(--surface-raised)] border border-[var(--border)] space-y-2">
                           <span className="text-[10px] text-[var(--text-3)] uppercase block mb-1">
                             Raw Machine Readable Zone Lines (OCR-B Font)
                           </span>
                           {extraction.extracted_fields.mrzLines.value.map((line: string, i: number) => (
                             <div
                               key={i}
-                              className="p-2.5 rounded bg-white/5 text-[var(--safe)] tracking-widest overflow-x-auto text-sm font-mono border border-white/5"
+                              className="p-2.5 rounded bg-[var(--surface-alt)] text-[var(--safe)] tracking-widest overflow-x-auto text-sm font-mono border border-[var(--border)]"
                             >
                               {line}
                             </div>
@@ -830,26 +830,26 @@ export const AnalysisPage: React.FC = () => {
                       <Badge variant="safe" size="sm">Native Stream</Badge>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-black/90 border border-[var(--border)] space-y-2.5 text-[11px]">
-                      <div className="flex justify-between py-1.5 border-b border-white/5">
+                    <div className="p-4 rounded-xl bg-[var(--surface-raised)] border border-[var(--border)] space-y-2.5 text-[11px]">
+                      <div className="flex justify-between py-1.5 border-b border-[var(--border)]">
                         <span className="text-[var(--text-3)]">Original File Name:</span>
                         <span className="text-[var(--text-1)] font-bold">{selectedDoc?.name}</span>
                       </div>
-                      <div className="flex justify-between py-1.5 border-b border-white/5">
+                      <div className="flex justify-between py-1.5 border-b border-[var(--border)]">
                         <span className="text-[var(--text-3)]">SHA-256 Digest:</span>
                         <span className="text-[var(--accent)] font-mono">{selectedDoc?.checksum || '0x49f2b1a8...'}</span>
                       </div>
-                      <div className="flex justify-between py-1.5 border-b border-white/5">
+                      <div className="flex justify-between py-1.5 border-b border-[var(--border)]">
                         <span className="text-[var(--text-3)]">MIME Container:</span>
                         <span className="text-[var(--text-1)]">{selectedDoc?.mime_type || (isPdf ? 'application/pdf' : 'image/jpeg')}</span>
                       </div>
-                      <div className="flex justify-between py-1.5 border-b border-white/5">
+                      <div className="flex justify-between py-1.5 border-b border-[var(--border)]">
                         <span className="text-[var(--text-3)]">File Size:</span>
                         <span className="text-[var(--text-1)]">
                           {selectedDoc?.file_size ? `${(selectedDoc.file_size / 1024).toFixed(1)} KB` : 'N/A'}
                         </span>
                       </div>
-                      <div className="flex justify-between py-1.5 border-b border-white/5">
+                      <div className="flex justify-between py-1.5 border-b border-[var(--border)]">
                         <span className="text-[var(--text-3)]">Ingested Timestamp:</span>
                         <span className="text-[var(--text-1)] font-mono font-medium">
                           {selectedDoc?.created_at ? formatDateTime(selectedDoc.created_at) : '—'}

@@ -452,7 +452,7 @@ export const MissionCommandPage: React.FC = () => {
                       </h3>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-black/40 border border-[var(--border-accent)] space-y-2.5 text-xs font-mono mb-4">
+                    <div className="p-4 rounded-xl bg-[var(--surface-raised)] border border-[var(--border-accent)] space-y-2.5 text-xs font-mono mb-4">
                       <div className="flex justify-between">
                         <span className="text-[var(--text-3)]">Enclave Sandbox:</span>
                         <span className="text-[var(--safe)] font-bold">Intel SGX / AMD SEV-SNP</span>

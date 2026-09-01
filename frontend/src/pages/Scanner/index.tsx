@@ -1059,8 +1059,8 @@ export const ScannerPage: React.FC = () => {
 
                     {/* MRZ Lines */}
                     {extraction?.extracted_fields?.mrzLines?.value && (
-                      <div className="mt-4 p-3 rounded-lg bg-black/60 border border-[var(--border)] text-xs font-mono text-[var(--safe)]">
-                        <span className="text-[10px] text-[var(--text-3)] uppercase block mb-1">
+                      <div className="mt-4 p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] text-xs font-mono text-[var(--safe)]">
+                        <span className="text-[10px] text-[var(--text-3)] uppercase block mb-1 font-bold">
                           Machine Readable Zone (MRZ ICAO Doc 9303)
                         </span>
                         {extraction.extracted_fields.mrzLines.value.map((line: string, i: number) => (
@@ -1436,9 +1436,9 @@ export const ScannerPage: React.FC = () => {
                               1. Document Portrait
                             </span>
                             {filePreview ? (
-                              <img src={filePreview} alt="Document" className="w-24 h-28 rounded-lg object-contain bg-black/40 border border-[var(--border-accent)] shadow-sm" />
+                              <img src={filePreview} alt="Document" className="w-24 h-28 rounded-lg object-contain bg-[var(--surface-alt)] border border-[var(--border-accent)] shadow-sm" />
                             ) : (
-                              <div className="w-24 h-28 rounded-lg bg-black/40 border border-[var(--border-accent)] flex items-center justify-center text-3xl">
+                              <div className="w-24 h-28 rounded-lg bg-[var(--surface-alt)] border border-[var(--border-accent)] flex items-center justify-center text-3xl">
                                 📄
                               </div>
                             )}

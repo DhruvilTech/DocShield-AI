@@ -329,7 +329,7 @@ export const ThreatsPage: React.FC = () => {
                     </div>
 
                     {/* Threat Details Grid */}
-                    <div className="grid sm:grid-cols-4 gap-3 text-[11px] font-mono text-[var(--text-2)] py-2.5 px-3 rounded-lg bg-black/40 border border-white/5 mb-3">
+                    <div className="grid sm:grid-cols-4 gap-3 text-[11px] font-mono text-[var(--text-2)] py-2.5 px-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] mb-3">
                       <div>
                         <span className="text-[10px] text-[var(--text-3)] block uppercase">
                           Screening Verdict

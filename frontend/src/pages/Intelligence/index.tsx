@@ -120,13 +120,13 @@ export const IntelligencePage: React.FC = () => {
 
           {/* Right: Selected Engine Deep Telemetry */}
           <div className="lg:col-span-7">
-            <Card className="p-6 border-[var(--border)] relative overflow-hidden bg-black/40 min-h-[420px]">
+            <Card className="p-6 border-[var(--border)] relative overflow-hidden bg-[var(--surface)] min-h-[420px]">
               <ScanLine />
 
               <div className="flex items-center justify-between border-b border-[var(--border)] pb-3 mb-6">
                 <div>
                   <h3 className="text-base font-bold font-mono text-[var(--text-1)]">{selectedEngine.name}</h3>
-                  <span className="text-xs text-[var(--text-3)] font-mono">{selectedEngine.category}</span>
+                  <span className="text-xs text-[var(--accent)] font-mono font-semibold">{selectedEngine.category}</span>
                 </div>
                 <Badge variant="safe" size="sm">Operational · {selectedEngine.latency}</Badge>
               </div>
