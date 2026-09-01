@@ -676,8 +676,8 @@ export const ScannerPage: React.FC = () => {
                   <Badge variant="accent" size="sm">P8 Standard</Badge>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 mb-4">
-                  {(['PASSPORT', 'VISA', 'NATIONAL_ID', 'DRIVING_LICENSE', 'PERMIT'] as DocType[]).map((t) => (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                  {(['PASSPORT', 'NATIONAL_ID', 'DRIVING_LICENSE', 'PERMIT'] as DocType[]).map((t) => (
                     <button
                       key={t}
                       onClick={() => setDocType(t)}
@@ -743,7 +743,7 @@ export const ScannerPage: React.FC = () => {
                         </svg>
                       </div>
                       <p className="text-xs font-semibold text-[var(--text-1)] mb-0.5">Upload Identity Document</p>
-                      <p className="text-[10px] text-[var(--text-3)] font-mono">PDF, JPEG, PNG · Passports, Visas, IDs</p>
+                      <p className="text-[10px] text-[var(--text-3)] font-mono">PDF, JPEG, PNG · Passports, IDs, Licenses</p>
                     </div>
                   )}
                 </div>
