@@ -308,13 +308,29 @@ export const ScannerPage: React.FC = () => {
         addLog(`[ACTION REQUIRED] Document authenticated. Module 4 (Live Biometric Face Match) is now UNLOCKED.`);
         addLog(`[ACTION REQUIRED] Please open live camera to verify identity.`);
       } else {
-        const failReason = tampStage?.reason || valStage?.reason || docStage?.reason || 'Document failed verification integrity checks.';
+        const isMismatch = isDocTypeMismatch() || docStage?.status === 'failed';
+        const failReason = (isMismatch && docStage?.reason)
+          ? docStage.reason
+          : (isMismatch && valStage?.reason)
+          ? valStage.reason
+          : docStage?.status === 'failed'
+          ? (docStage?.reason || 'Document category format mismatch.')
+          : valStage?.status === 'failed'
+          ? (valStage?.reason || 'Document failed format standards.')
+          : (isTampered && tampStage?.reason)
+          ? tampStage.reason
+          : 'Document failed verification integrity checks.';
+
         setError(failReason);
         setPhase('complete');
         addLog(`=======================================================`);
         addLog(`[PIPELINE] ⛔ VERIFICATION REJECTED: Clearance Refused.`);
-        addLog(`Module 4 Biometrics: BLOCKED (Document Failed Integrity / Tampering Checks)`);
-        if (isTampered) {
+        addLog(`[REASON] ${failReason}`);
+        addLog(`Module 4 Biometrics: BLOCKED (Document Failed Integrity / Category Validation)`);
+
+        if (isMismatch || docStage?.status === 'failed' || valStage?.status === 'failed') {
+          setActiveTab('validation');
+        } else if (isTampered) {
           setActiveTab('tampering');
         }
       }
@@ -338,27 +354,23 @@ export const ScannerPage: React.FC = () => {
     setRiskScore(null);
     setScreening(null);
     setCreatedDocId(null);
+    setPipelineResult(null);
     setError(null);
     setFaceVerifyError(null);
     setLogs([]);
-    setPipelineResult(null);
-  };
-
-  const getDocDetectedStatus = () => {
-    if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
-    const docStage = pipelineResult.stages?.document_detection;
-    if (docStage && docStage.status === 'passed') {
-      return { label: 'DETECTED', variant: 'safe' as const };
-    }
-    return { label: 'FAILED / MISMATCH', variant: 'threat' as const };
   };
 
   const isDocTypeMismatch = () => {
     if (!pipelineResult) return false;
+    const docStage = pipelineResult.stages?.document_detection;
+    if (docStage && docStage.status === 'failed' && (docStage.reason?.includes('Mismatch') || docStage.reason?.includes('not valid as per selected'))) {
+      return true;
+    }
     const factors = pipelineResult.screening?.factors || [];
     const hasMismatch = factors.some((f: any) =>
       f.rule === 'DOCUMENT_TYPE_MISMATCH' ||
-      f.title?.includes('Document Type Mismatch')
+      f.title?.includes('Document Type Mismatch') ||
+      f.title?.includes('Mismatch')
     );
     return hasMismatch;
   };
