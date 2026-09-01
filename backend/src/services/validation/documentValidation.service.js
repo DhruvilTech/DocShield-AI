@@ -709,7 +709,7 @@ export class DocumentValidationService {
         warnings: aiVal.warnings || [],
       };
 
-      if (aiVal.valid === false) {
+      if (aiVal.valid === false && checks.formatCheck.status !== 'VALID') {
         findings.push({
           rule: 'AI_REGULATORY_VALIDATION_FAILURE',
           severity: 'CRITICAL',
@@ -722,37 +722,40 @@ export class DocumentValidationService {
 
       for (const chk of aiVal.checks) {
         if (chk.status === 'invalid' || chk.status === 'inconsistent') {
+          const isPrimary = ['id_number', 'passport_number', 'license_number', 'visa_number', 'permit_number', 'name', 'full_name'].includes(chk.field);
           findings.push({
             rule: `AI_VALIDATION_${chk.field?.toUpperCase() || 'RULE'}`,
-            severity: 'CRITICAL',
+            severity: isPrimary ? 'CRITICAL' : 'MEDIUM',
             title: `AI Standard Check: ${chk.field?.replace(/_/g, ' ').toUpperCase()}`,
             description: chk.message || `Validation check failed for ${chk.field}.`,
             evidence: `Field: ${chk.field} | Confidence: ${chk.confidence ?? 'N/A'}`,
           });
-          totalRiskImpact += 25;
+          if (isPrimary) totalRiskImpact += 25;
         } else if (chk.status === 'missing') {
-          const isPrimary = ['id_number', 'passport_number', 'license_number', 'visa_number', 'name', 'full_name'].includes(chk.field);
-          findings.push({
-            rule: `AI_MISSING_${chk.field?.toUpperCase() || 'FIELD'}`,
-            severity: isPrimary ? 'CRITICAL' : 'HIGH',
-            title: `Required Field Missing: ${chk.field?.replace(/_/g, ' ').toUpperCase()}`,
-            description: chk.message || `Required field ${chk.field} is missing or unreadable.`,
-            evidence: `Field: ${chk.field}`,
-          });
-          totalRiskImpact += isPrimary ? 30 : 15;
+          const isPrimary = ['id_number', 'passport_number', 'license_number', 'visa_number', 'permit_number', 'name', 'full_name'].includes(chk.field);
+          if (isPrimary) {
+            findings.push({
+              rule: `AI_MISSING_${chk.field?.toUpperCase() || 'FIELD'}`,
+              severity: 'CRITICAL',
+              title: `Required Field Missing: ${chk.field?.replace(/_/g, ' ').toUpperCase()}`,
+              description: chk.message || `Required field ${chk.field} is missing or unreadable.`,
+              evidence: `Field: ${chk.field}`,
+            });
+            totalRiskImpact += 30;
+          }
         }
       }
 
-      if (Array.isArray(aiVal.errors)) {
+      if (Array.isArray(aiVal.errors) && checks.formatCheck.status !== 'VALID') {
         for (const err of aiVal.errors) {
           findings.push({
             rule: 'AI_VALIDATION_ERROR',
-            severity: 'CRITICAL',
+            severity: 'HIGH',
             title: 'Official Document Standard Alert',
             description: err,
             evidence: 'AI Validation Ruleset',
           });
-          totalRiskImpact += 25;
+          totalRiskImpact += 20;
         }
       }
     }
