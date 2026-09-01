@@ -380,6 +380,24 @@ export const ReportsPage: React.FC = () => {
                       <Clock className="w-3 h-3 text-[var(--accent)]" />
                       <span>{formatTime(d.created_at)}</span>
                     </div>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-[10px] py-0.5 px-2 h-7"
+                        onClick={() => navigate(`/analysis?documentId=${d.id}`)}
+                      >
+                        Forensics 🔬
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="text-[10px] py-0.5 px-2 h-7"
+                        onClick={() => navigate(`/vault?documentId=${d.id}`)}
+                      >
+                        Vault 🔐
+                      </Button>
+                    </div>
                   </div>
                 </div>
               );

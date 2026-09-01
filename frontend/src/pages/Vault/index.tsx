@@ -1,6 +1,6 @@
-// src/pages/Vault/index.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSearchParams } from 'react-router-dom';
 import { Badge, Card, Button, SectionHeader, Input, cn } from '../../components/ui';
 import { ProtectionPerimeter, VerificationAnimation } from '../../components/security';
 import { useOrganization } from '../../context/OrganizationContext';
@@ -91,6 +91,10 @@ export const formatFileSize = (bytes: number): string => {
 };
 
 export const VaultPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const targetDocId = searchParams.get('documentId') || searchParams.get('id');
+  const targetTab = searchParams.get('tab');
+
   const { activeOrganization, createOrganization } = useOrganization();
   const [documents, setDocuments] = useState<VaultDocument[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<VaultDocument | null>(null);
@@ -106,7 +110,7 @@ export const VaultPage: React.FC = () => {
   // Inspector Tabs (Phase 5, 6, 7 & 8)
   const [activeTab, setActiveTab] = useState<
     'overview' | 'extraction' | 'analysis' | 'tampering' | 'face' | 'risk' | 'screening' | 'versions'
-  >('overview');
+  >((targetTab as any) || 'overview');
 
   // Extraction & AI Data
   const [extraction, setExtraction] = useState<DocumentExtraction | null>(null);
@@ -160,6 +164,10 @@ export const VaultPage: React.FC = () => {
 
       if (res.data.length > 0) {
         setSelectedDoc((prev) => {
+          if (targetDocId) {
+            const match = res.data.find((d) => d.id === targetDocId);
+            if (match) return match;
+          }
           if (!prev) return res.data[0];
           const exists = res.data.find((d) => d.id === prev.id);
           return exists || res.data[0];
@@ -176,7 +184,24 @@ export const VaultPage: React.FC = () => {
 
   useEffect(() => {
     fetchDocuments();
-  }, [activeOrganization?.id, searchQuery, selectedType]);
+  }, [activeOrganization?.id, searchQuery, selectedType, targetDocId]);
+
+  // Sync if targetDocId in URL changes dynamically
+  useEffect(() => {
+    if (targetDocId && documents.length > 0) {
+      const match = documents.find((d) => d.id === targetDocId);
+      if (match) {
+        setSelectedDoc(match);
+      }
+    }
+  }, [targetDocId, documents]);
+
+  // Sync if targetTab in URL changes dynamically
+  useEffect(() => {
+    if (targetTab) {
+      setActiveTab(targetTab as any);
+    }
+  }, [targetTab]);
 
   const loadDocumentDetails = async (docId: string) => {
     try {

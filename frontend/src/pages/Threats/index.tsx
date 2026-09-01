@@ -388,7 +388,7 @@ export const ThreatsPage: React.FC = () => {
                           size="sm"
                           variant="outline"
                           className="text-xs"
-                          onClick={() => navigate('/analysis')}
+                          onClick={() => navigate(`/analysis?documentId=${doc.id}`)}
                         >
                           Deep Forensic Studio 🔬
                         </Button>
@@ -396,7 +396,7 @@ export const ThreatsPage: React.FC = () => {
                           size="sm"
                           variant="secondary"
                           className="text-xs"
-                          onClick={() => navigate('/vault')}
+                          onClick={() => navigate(`/vault?documentId=${doc.id}&tab=tampering`)}
                         >
                           Vault Inspector 🔐
                         </Button>

@@ -901,7 +901,7 @@ export const ScannerPage: React.FC = () => {
                         variant="primary"
                         size="sm"
                         className="flex-1"
-                        onClick={() => navigate('/vault')}
+                        onClick={() => navigate(createdDocId ? `/vault?documentId=${createdDocId}` : '/vault')}
                       >
                         View in Vault
                       </Button>

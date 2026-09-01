@@ -1,7 +1,7 @@
 // src/pages/Analysis/index.tsx
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Shield,
   FileText,
@@ -43,10 +43,13 @@ type IndicatorFilter = 'ALL' | 'THREATS' | 'LOW';
 
 export const AnalysisPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const targetDocId = searchParams.get('documentId') || searchParams.get('id');
+
   const { activeOrganization } = useOrganization();
 
   const [documents, setDocuments] = useState<VaultDocument[]>([]);
-  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
+  const [selectedDocId, setSelectedDocId] = useState<string | null>(targetDocId || null);
   const [docPreviewUrl, setDocPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState(false);
@@ -78,13 +81,24 @@ export const AnalysisPage: React.FC = () => {
           const docs = res.data || [];
           setDocuments(docs);
           if (docs.length > 0) {
-            setSelectedDocId(docs[0].id);
+            if (targetDocId && docs.some((d) => d.id === targetDocId)) {
+              setSelectedDocId(targetDocId);
+            } else if (!selectedDocId) {
+              setSelectedDocId(docs[0].id);
+            }
           }
         })
         .catch((err) => console.error('Failed to load documents for forensics', err))
         .finally(() => setLoading(false));
     }
-  }, [activeOrganization]);
+  }, [activeOrganization, targetDocId]);
+
+  // Sync if targetDocId in URL changes dynamically
+  useEffect(() => {
+    if (targetDocId) {
+      setSelectedDocId(targetDocId);
+    }
+  }, [targetDocId]);
 
   // Load telemetry & preview for the selected document
   useEffect(() => {
