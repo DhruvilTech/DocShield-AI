@@ -87,6 +87,16 @@ export class VisaParser {
         }
       }
 
+      // Gender / Sex
+      if (!fields.gender) fields.gender = { value: null, confidence: 0 };
+      if (!fields.gender.value) {
+        const match = line.match(/(?:sex|gender|sexe)[:\s]+([MFX]|MALE|FEMALE)/i);
+        if (match) {
+          const g = match[1].toUpperCase();
+          fields.gender = { value: g.startsWith('M') ? 'M' : g.startsWith('F') ? 'F' : g, confidence: 0.90 };
+        }
+      }
+
       // Passport Number reference
       if (!fields.passportNumber.value) {
         const match = line.match(/(?:passport\s*(?:no|number)?|pp\s*no)[:\s]+([A-Z0-9]{7,10})/i);
@@ -95,6 +105,8 @@ export class VisaParser {
         }
       }
     }
+
+    if (!fields.gender) fields.gender = { value: null, confidence: 0 };
 
     return fields;
   }

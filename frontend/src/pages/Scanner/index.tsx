@@ -1157,6 +1157,7 @@ export const ScannerPage: React.FC = () => {
                       let displayItems: Array<{ label: string; value: string }> = [];
 
                       if (docType === 'PASSPORT') {
+                        const visaGenderRaw = getVal('visa_gender', 'visual_visa_gender', 'visaGender', 'visa_sex');
                         displayItems = [
                           { label: 'Name', value: full || '—' },
                           { label: 'Passport Number', value: getVal('passport_number', 'visual_passport_number', 'passportNumber') || '—' },
@@ -1164,6 +1165,7 @@ export const ScannerPage: React.FC = () => {
                           { label: 'Date of Birth', value: formatDate(getVal('date_of_birth', 'visual_date_of_birth', 'dateOfBirth')) },
                           { label: 'Date of Expiry', value: formatDate(getVal('date_of_expiry', 'visual_date_of_expiry', 'dateOfExpiry')) },
                           { label: 'Gender', value: formatGender(getVal('gender', 'visual_gender', 'visualGender')) },
+                          { label: 'Gender Visa', value: visaGenderRaw ? formatGender(visaGenderRaw) : '—' },
                           { label: 'Visa Number', value: getVal('visa_number', 'visual_visa_number', 'visaNumber') || '—' },
                           { label: 'Visa Type', value: getVal('visa_type', 'visual_visa_type', 'visaType') || '—' },
                           { label: 'Entry Validation', value: getVal('entry_validation', 'visual_entry_validation', 'entry_type', 'entryType') || '—' },
@@ -1172,6 +1174,7 @@ export const ScannerPage: React.FC = () => {
                       } else if (docType === 'VISA') {
                         displayItems = [
                           { label: 'Name', value: full || '—' },
+                          { label: 'Gender Visa', value: formatGender(getVal('gender', 'visual_gender', 'visualGender', 'visa_gender')) },
                           { label: 'Visa Number', value: getVal('visa_number', 'visual_visa_number', 'visaNumber') || '—' },
                           { label: 'Visa Type', value: getVal('visa_type', 'visual_visa_type', 'visaType') || '—' },
                           { label: 'Entry Validation', value: getVal('entry_validation', 'visual_entry_validation', 'entry_type', 'entryType') || '—' },

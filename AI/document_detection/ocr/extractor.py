@@ -706,6 +706,27 @@ class VisaFieldExtractor(BaseFieldExtractor):
             conf = _get_confidence_for_match(val, regions) if val else None
         fields["stay_duration"] = ExtractedField(name="stay_duration", value=val, confidence=conf, source_text=src)
 
+        # Name / Bearer
+        val, conf, src = _find_label_value(regions, ["NAME", "FULL NAME", "BEARER", "NAME OF BEARER", "HOLDER"])
+        if val and not any(k in val.lower() for k in ["visa", "passport", "republic", "consulate"]):
+            fields["name"] = ExtractedField(name="name", value=val, confidence=conf, source_text=src)
+
+        # Gender / Sex
+        val, conf, src = _find_label_value(regions, ["SEX", "GENDER", "SEXE"])
+        if val:
+            v_upper = val.strip().upper()
+            if v_upper.startswith("M"):
+                fields["gender"] = ExtractedField(name="gender", value="M", confidence=conf, source_text=src)
+            elif v_upper.startswith("F"):
+                fields["gender"] = ExtractedField(name="gender", value="F", confidence=conf, source_text=src)
+            else:
+                fields["gender"] = ExtractedField(name="gender", value=v_upper, confidence=conf, source_text=src)
+
+        # Passport Number reference
+        val, conf, src = _find_label_value(regions, ["PASSPORT NO", "PASSPORT NUMBER", "PP NO", "DOC NO"])
+        if val:
+            fields["passport_number"] = ExtractedField(name="passport_number", value=val, confidence=conf, source_text=src)
+
         for key in VISA_FIELDS:
             if key not in fields:
                 fields[key] = _empty(key)
