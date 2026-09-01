@@ -151,15 +151,30 @@ function classifyDocumentType(rawText, filename = '') {
     return 'DRIVING_LICENSE';
   }
 
-  // 2. Vehicle Permit keywords
+  // 2. Permit (Inner Line Permit / eILP / Vehicle Permit / Transit Permit) keywords
   if (
+    textPool.includes('INNER LINE PERMIT') ||
+    textPool.includes('EILP') ||
+    textPool.includes('ILP NO') ||
+    textPool.includes('EILP NO') ||
+    textPool.includes('ARUNACHAL PRADESH') ||
+    textPool.includes('NAGALAND') ||
+    textPool.includes('MIZORAM') ||
+    textPool.includes('MANIPUR') ||
+    textPool.includes('LADAKH') ||
+    textPool.includes('LAKSHADWEEP') ||
+    textPool.includes('TEMPORARY SINGLE') ||
+    textPool.includes('PERMIT TYPE') ||
+    textPool.includes('PLACE OF VISIT') ||
+    textPool.includes('CHECK GATE') ||
     textPool.includes('VEHICLE PERMIT') ||
     textPool.includes('STAGE CARRIAGE') ||
     textPool.includes('CONTRACT CARRIAGE') ||
     textPool.includes('GOODS CARRIAGE') ||
     textPool.includes('PERMIT NO') ||
     textPool.includes('FORM P.') ||
-    textPool.includes('ALL INDIA TOURIST PERMIT')
+    textPool.includes('ALL INDIA TOURIST PERMIT') ||
+    /^(?:.*[\\/])?permit[0-9_-]*/i.test(filename)
   ) {
     return 'PERMIT';
   }

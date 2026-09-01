@@ -1247,9 +1247,11 @@ export const ScannerPage: React.FC = () => {
                       } else {
                         displayItems = [
                           { label: 'Full Name', value: full || '—' },
-                          { label: 'Permit Number', value: getVal('permit_number', 'visual_permit_number', 'permitNumber') || '—' },
+                          { label: 'Permit / eILP Number', value: getVal('permit_number', 'visual_permit_number', 'permitNumber', 'id_number') || '—' },
                           { label: 'Permit Type', value: getVal('permit_type', 'visual_permit_type', 'permitType') || '—' },
-                          { label: 'Validity Date', value: formatDate(getVal('validity_date', 'visual_validity_date', 'validityDate')) },
+                          { label: 'Place of Visit / Destination', value: getVal('place_of_visit', 'placeOfVisit', 'destination') || '—' },
+                          { label: 'Check Gate / Port', value: getVal('authorized_port', 'authorizedPort', 'check_gate') || '—' },
+                          { label: 'Date of Return / Expiry', value: formatDate(getVal('date_of_expiry', 'dateOfExpiry', 'validity_date', 'visual_validity_date', 'validUntil')) },
                         ];
                       }
 

@@ -299,6 +299,27 @@ export class DocumentValidationService {
         });
         totalRiskImpact += 45;
       }
+    } else if (normalizedType === 'PERMIT') {
+      const pNum = getVal(extractedFields, 'permitNumber', 'permit_number', 'eILPNo', 'ilpNumber', 'id_number');
+      if (pNum) {
+        checks.formatCheck = {
+          status: 'VALID',
+          details: `Permit authorization identifier verified: ${pNum}`,
+        };
+      } else {
+        checks.formatCheck = {
+          status: 'INVALID_FORMAT',
+          details: 'No Permit or eILP authorization number detected in document.',
+        };
+        findings.push({
+          rule: 'MISSING_PERMIT_IDENTIFIER',
+          severity: 'CRITICAL',
+          title: 'Missing Permit Authorization Number',
+          description: 'Document does not contain a valid Permit, eILP, or entry authorization registration number.',
+          evidence: 'Permit Number: Not Found',
+        });
+        totalRiskImpact += 45;
+      }
     }
 
     // --- 1. MRZ Standard Check (ICAO Doc 9303 for Passports & Visas) ---

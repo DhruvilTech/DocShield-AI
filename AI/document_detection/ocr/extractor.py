@@ -1296,73 +1296,155 @@ class DrivingLicenseFieldExtractor(BaseFieldExtractor):
 
 
 
-# ── Vehicle Permit ─────────────────────────────────────────────────────────────
+# ── Permit (Inner Line Permit / Travel / Vehicle / Transit) ───────────────────
 
 class PermitFieldExtractor(BaseFieldExtractor):
-    """Extracts Indian vehicle permit fields per the Motor Vehicles Act.
-
-    Permit number format mirrors DL: STATE(2)+RTO(2)+YEAR(4)+SEQ(5-8)
-    Vehicle number (Bharat Series): MH01AB1234
+    """Extracts Indian Permit fields including Inner Line Permits (eILP/ILP),
+    Protected Area Permits (PAP), Border Transit Permits, and MoRTH Vehicle Permits.
     """
 
-    _PERMIT_NO_RE = re.compile(
+    _VEHICLE_PERMIT_RE = re.compile(
         r"\b([A-Z]{2}[0-9]{2}(?:19|20)[0-9]{2}[A-Z0-9]{5,8})\b",
         re.IGNORECASE,
     )
-    _VEHICLE_NO_RE = re.compile(r"\b([A-Z]{2}[0-9]{2}[A-Z]{1,2}[0-9]{4})\b", re.IGNORECASE)
-    _PERMIT_TYPE_RE = re.compile(
-        r"\b(national|state|tourist|goods|taxi|maxi[\-\s]?cab|"
-        r"contract[\-\s]?carriage|stage[\-\s]?carriage|educational[\-\s]?institution)\b",
-        re.IGNORECASE,
-    )
+    _EILP_NO_RE = re.compile(r"\b([0-9]{10,22})\b")
+    _DATE_RE = re.compile(r"\b(\d{2}[/\-.]\d{2}[/\-.]\d{4})\b")
 
     def extract(self, ocr_result: OCRResult) -> dict[str, ExtractedField]:
         raw = ocr_result.raw_text
         regions = ocr_result.regions
         fields: dict[str, ExtractedField] = {}
 
-        # Permit number
-        m = self._PERMIT_NO_RE.search(raw)
-        if m:
-            fields["permit_number"] = ExtractedField(
-                name="permit_number",
-                value=m.group(0).upper(),
-                confidence=_get_confidence_for_match(m.group(0), regions),
-                source_text=m.group(0),
-            )
-        else:
-            fields["permit_number"] = _empty("permit_number")
+        # 1. Permit / eILP Number
+        p_num, p_conf, p_src = None, None, None
 
-        # Name / holder
-        val, conf, src = _find_label_value(regions, ["NAME", "HOLDER", "OWNER"])
+        # Check for eILP / ILP / Permit labels in regions
+        for r in regions:
+            m_ilp = re.search(r"(?:eILP\s*No|ILP\s*No|Permit\s*(?:No|Number|#)?|Pass\s*No|Auth\s*No)\s*[:\s\-]*([0-9A-Z\-_/]{5,25})", r.text, re.IGNORECASE)
+            if m_ilp:
+                p_num = m_ilp.group(1).strip().upper()
+                p_conf = r.confidence
+                p_src = r.text
+                break
+
+        if not p_num:
+            val, conf, src = _find_label_value(regions, ["EILP NO", "ILP NO", "PERMIT NO", "PERMIT NUMBER", "PERMIT #", "PASS NO"])
+            if val:
+                p_num = re.sub(r"[\s]", "", val.strip().upper())
+                p_conf = conf
+                p_src = src
+
+        if not p_num:
+            m = self._VEHICLE_PERMIT_RE.search(raw)
+            if m:
+                p_num = m.group(0).upper()
+                p_conf = _get_confidence_for_match(p_num, regions)
+                p_src = m.group(0)
+
+        if not p_num:
+            m_num = self._EILP_NO_RE.search(raw)
+            if m_num:
+                p_num = m_num.group(0)
+                p_conf = _get_confidence_for_match(p_num, regions)
+                p_src = m_num.group(0)
+
+        fields["permit_number"] = ExtractedField(
+            name="permit_number",
+            value=p_num,
+            confidence=p_conf or (0.92 if p_num else None),
+            source_text=p_src,
+        )
+
+        # 2. Name / Holder Name
+        val, conf, src = None, None, None
+        for r in regions:
+            m_name = re.search(r"^(?:Name|Full\s*Name)\s*[:\s\-]+([A-Za-z\s.\-]{3,40})$", r.text.strip(), re.IGNORECASE)
+            if m_name and not any(w in m_name.group(1).upper() for w in ["PERMIT", "GOVERNMENT", "ARUNACHAL", "CHECK", "COVID"]):
+                val = m_name.group(1).strip()
+                conf = r.confidence
+                src = r.text
+                break
+
+        if not val:
+            val, conf, src = _find_label_value(regions, ["NAME", "HOLDER", "OWNER"])
+            if val and any(w in val.upper() for w in ["PERMIT", "GOVERNMENT", "ARUNACHAL", "CHECK"]):
+                val = None
+
+        if not val:
+            m_raw = re.search(r"\bName\s*[:\s\-]+([A-Za-z\s.\-]{3,40})\b", raw, re.IGNORECASE)
+            if m_raw and not any(w in m_raw.group(1).upper() for w in ["PERMIT", "GOVERNMENT", "ARUNACHAL", "CHECK"]):
+                val = m_raw.group(1).strip()
+                conf = _get_confidence_for_match(val, regions)
+                src = m_raw.group(0)
+
         fields["name"] = ExtractedField(name="name", value=val, confidence=conf, source_text=src)
 
-        # Permit type
-        val, conf, src = _find_label_value(regions, ["PERMIT TYPE", "TYPE OF PERMIT", "CLASS"])
-        if val is None:
-            pm = self._PERMIT_TYPE_RE.search(raw)
-            val = pm.group(0).lower().replace(" ", "-") if pm else None
-            conf = _get_confidence_for_match(val, regions) if val else None
-        fields["permit_type"] = ExtractedField(name="permit_type", value=val, confidence=conf, source_text=src)
+        # 3. Permit type (e.g. Single, Multiple, Temporary, Inner Line, Tourist, Business)
+        pt_val, pt_conf, pt_src = None, None, None
+        for r in regions:
+            m_pt = re.search(r"(?:Permit\s*Type|Type\s*of\s*(?:visit|permit)|Category)\s*[:\s\-]+([A-Za-z\s.\-]{3,30})", r.text, re.IGNORECASE)
+            if m_pt:
+                pt_val = m_pt.group(1).strip().lower().replace(" ", "-")
+                pt_conf = r.confidence
+                pt_src = r.text
+                break
 
-        # Vehicle number (Bharat Series plate)
-        val, conf, src = _find_label_value(
-            regions, ["VEHICLE NO", "VEH NO", "REG NO", "REGISTRATION NO"]
-        )
-        if val is None:
-            vnm = self._VEHICLE_NO_RE.search(raw)
-            val = vnm.group(0).upper() if vnm else None
-            conf = _get_confidence_for_match(val, regions) if val else None
-        fields["vehicle_no"] = ExtractedField(name="vehicle_no", value=val, confidence=conf)
+        if not pt_val:
+            val, conf, src = _find_label_value(regions, ["PERMIT TYPE", "TYPE OF PERMIT", "TYPE OF VISIT", "CATEGORY"])
+            if val:
+                pt_val = val.strip().lower().replace(" ", "-")
+                pt_conf = conf
+                pt_src = src
 
-        # Expiry date
-        val, conf, src = _find_label_value(
-            regions, ["EXPIRY", "VALID TILL", "VALID UPTO", "EXPIRES"]
-        )
-        fields["date_of_expiry"] = ExtractedField(name="date_of_expiry", value=val, confidence=conf, source_text=src)
+        if not pt_val:
+            if re.search(r"\b(inner\s*line|eilp|ilp|arunachal|protected\s*area)\b", raw, re.IGNORECASE):
+                pt_val = "inner-line"
+                pt_conf = 0.90
+            elif re.search(r"\b(single)\b", raw, re.IGNORECASE):
+                pt_val = "single"
+                pt_conf = 0.88
+
+        fields["permit_type"] = ExtractedField(name="permit_type", value=pt_val, confidence=pt_conf, source_text=pt_src)
+
+        # 4. Vehicle number (optional for personal ILP travel permits)
+        v_val, v_conf = None, None
+        val, conf, src = _find_label_value(regions, ["VEHICLE NO", "VEH NO", "REG NO", "REGISTRATION NO"])
+        if val:
+            v_val = val.strip().upper()
+            v_conf = conf
+        fields["vehicle_no"] = ExtractedField(name="vehicle_no", value=v_val, confidence=v_conf)
+
+        # 5. Expiry / Return Date
+        exp_val, exp_conf, exp_src = None, None, None
+        for r in regions:
+            m_exp = re.search(r"(?:Date\s*of\s*return|Return\s*Date|Valid\s*(?:Until|Till|Upto)|Expiry\s*Date|Date\s*of\s*Expiry|Expires)\s*[:\s\-]*(\d{2}[/\-.]\d{2}[/\-.]\d{4})", r.text, re.IGNORECASE)
+            if m_exp:
+                exp_val = m_exp.group(1).replace(".", "-").replace("/", "-")
+                exp_conf = r.confidence
+                exp_src = r.text
+                break
+
+        if not exp_val:
+            val, conf, src = _find_label_value(regions, ["DATE OF RETURN", "RETURN DATE", "VALID UNTIL", "VALID TILL", "VALID UPTO", "EXPIRY", "EXPIRES"])
+            if val:
+                dm = self._DATE_RE.search(val)
+                if dm:
+                    exp_val = dm.group(0).replace(".", "-").replace("/", "-")
+                    exp_conf = conf
+                    exp_src = src
+
+        if not exp_val:
+            # Check for latest date in document
+            all_dates = self._DATE_RE.findall(raw)
+            if len(all_dates) >= 2:
+                exp_val = all_dates[-1].replace(".", "-").replace("/", "-")
+                exp_conf = 0.85
+
+        fields["date_of_expiry"] = ExtractedField(name="date_of_expiry", value=exp_val, confidence=exp_conf, source_text=exp_src)
 
         for key in PERMIT_FIELDS:
             if key not in fields:
                 fields[key] = _empty(key)
 
         return fields
+

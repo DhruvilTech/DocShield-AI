@@ -298,5 +298,39 @@ def test_visa_mrz_extraction_mrv_b():
     assert fields["given_name"].value == "JANE"
 
 
+def test_arunachal_pradesh_eilp_permit_extraction():
+    texts = [
+        "Government of Arunachal Pradesh",
+        "(Temporary Single Inner Line Permit for Indian Nationals)",
+        "eILP No",
+        "0220353191611566",
+        "Caution: Entering the Check Gate of Arunachal Pradesh along with this eILP Pass.",
+        "Name : Mohd Shabbir",
+        "Permanent Address : Chaman Colony, Chandigarh, Chandigarh",
+        "Identification mark : Mole In Face",
+        "Reference details : Punyo Hinda 8794414609",
+        "Gender : Male",
+        "Date of birth : 20-11-1985",
+        "Occupation : Labour",
+        "Document Verified : Voter ID Card",
+        "Place of visit : Lower Subansiri",
+        "Check Gate : Khemin, Gumto, Gumto Railway Station",
+        "Date of visit : 21-10-2022",
+        "Type of visit : Business",
+        "Date of return : 19-11-2022",
+        "Place of Issue : DC Lower Subansiri District",
+        "Permit Type : Single",
+        "Issuing Authority : DC Lower Subansiri",
+        "Date of Issue : 21-10-2022",
+    ]
+    ocr = make_ocr(texts)
+    fields = PermitFieldExtractor().extract(ocr)
+    assert fields["permit_number"].value == "0220353191611566"
+    assert fields["name"].value == "Mohd Shabbir"
+    assert fields["permit_type"].value in ["single", "temporary", "inner-line", "business"]
+    assert fields["date_of_expiry"].value == "19-11-2022"
+
+
+
 
 

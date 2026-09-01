@@ -33,6 +33,15 @@ from document_detection.validation.rules import RuleSet
 
 
 _VALID_PERMIT_TYPES: frozenset[str] = frozenset({
+    "single",
+    "multiple",
+    "temporary",
+    "inner-line",
+    "ilp",
+    "eilp",
+    "business",
+    "labour",
+    "labor",
     "national",
     "state",
     "tourist",
@@ -42,11 +51,15 @@ _VALID_PERMIT_TYPES: frozenset[str] = frozenset({
     "contract-carriage",
     "stage-carriage",
     "educational-institution",
+    "work",
+    "transit",
+    "special-entry",
+    "resident",
 })
 
 
 class PermitValidator(BaseDocumentValidator):
-    """Validates Indian vehicle permit fields per the Motor Vehicles Act."""
+    """Validates Indian vehicle and travel permits (ILP/eILP/PAP/MVA)."""
 
     def validate(
         self, fields: dict[str, ExtractedField], rules: RuleSet
@@ -58,7 +71,7 @@ class PermitValidator(BaseDocumentValidator):
         # ── Phase 1: required field presence ──────────────────────────────────
         for field_name in rules.required_fields:
             f = fields.get(field_name)
-            if f is None or f.value is None or not f.value.strip():
+            if f is None or f.value is None or not str(f.value).strip():
                 checks.append(FieldCheck(
                     field=field_name,
                     status=CheckStatus.MISSING,
@@ -75,10 +88,10 @@ class PermitValidator(BaseDocumentValidator):
         # ── Phase 2: permit_number format ─────────────────────────────────────
         pn_field = fields.get("permit_number")
         if pn_field and pn_field.value:
-            raw = re.sub(r"[\s\-]", "", pn_field.value.strip().upper())
+            raw = re.sub(r"[\s\-]", "", str(pn_field.value).strip().upper())
             pattern = rules.patterns.get(
                 "permit_number",
-                r"^[A-Z]{2}[0-9]{2}(?:19|20)[0-9]{2}[A-Z0-9]{5,8}$",
+                r"^(?:[A-Z]{2}[0-9]{2}(?:19|20)[0-9]{2}[A-Z0-9]{5,8}|[0-9]{8,22}|[A-Z0-9\-_/]{5,25})$",
             )
             if not re.fullmatch(pattern, raw):
                 checks = [
@@ -87,7 +100,7 @@ class PermitValidator(BaseDocumentValidator):
                         status=CheckStatus.INVALID,
                         message=(
                             f"Permit number '{pn_field.value.strip()}' has an invalid format. "
-                            "Expected: STATE(2)+RTO(2)+YEAR(4)+SEQ(5-8), e.g. 'MH012020A1234'."
+                            "Expected valid MoRTH vehicle permit or official state eILP/ILP registration number."
                         ),
                         confidence=pn_field.confidence,
                     ) if c.field == "permit_number" else c
@@ -97,12 +110,12 @@ class PermitValidator(BaseDocumentValidator):
         # ── Phase 3: permit_type ──────────────────────────────────────────────
         pt_field = fields.get("permit_type")
         if pt_field and pt_field.value:
-            pt_norm = pt_field.value.strip().lower().replace(" ", "-")
+            pt_norm = str(pt_field.value).strip().lower().replace(" ", "-")
             pt_pattern = rules.patterns.get("permit_type")
             pt_invalid = (
                 not re.fullmatch(pt_pattern, pt_norm, re.IGNORECASE)
                 if pt_pattern
-                else pt_norm not in _VALID_PERMIT_TYPES
+                else not any(v in pt_norm for v in _VALID_PERMIT_TYPES)
             )
             if pt_invalid:
                 checks = [
@@ -118,22 +131,20 @@ class PermitValidator(BaseDocumentValidator):
                     for c in checks
                 ]
 
-        # ── Phase 4: vehicle_no (Bharat Series) ───────────────────────────────
+        # ── Phase 4: vehicle_no (optional for personal Inner Line Permits) ────
         vn_field = fields.get("vehicle_no")
         if vn_field and vn_field.value:
-            raw_vn = re.sub(r"[\s\-]", "", vn_field.value.strip().upper())
+            raw_vn = re.sub(r"[\s\-]", "", str(vn_field.value).strip().upper())
             vn_pattern = rules.patterns.get(
                 "vehicle_no",
-                r"^[A-Z]{2}[0-9]{2}[A-Z]{1,2}[0-9]{4}$",
+                r"^(?:[A-Z]{2}[0-9]{2}[A-Z]{1,2}[0-9]{4}|[A-Z0-9\-\s]{4,15})$",
             )
             if not re.fullmatch(vn_pattern, raw_vn):
                 checks.append(FieldCheck(
                     field="vehicle_no",
                     status=CheckStatus.INVALID,
                     message=(
-                        f"Vehicle number '{vn_field.value.strip()}' has an invalid format. "
-                        "Expected Bharat Series: STATE(2)+DIST(2)+SERIES(1-2)+NUMBER(4), "
-                        "e.g. 'MH01AB1234'."
+                        f"Vehicle number '{vn_field.value.strip()}' has an invalid format."
                     ),
                     confidence=vn_field.confidence,
                 ))
