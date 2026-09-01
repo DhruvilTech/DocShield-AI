@@ -132,18 +132,20 @@ def analyze_splicing(
                             reasons = []
                             score = 0.0
                             
-                            if has_timestamp and not is_round_seal:
+                            margin_asym = max(abs(margin_x - gap_right), abs(margin_y - gap_bot), abs(margin_x - margin_y))
+
+                            if has_timestamp and not is_round_seal and (margin_asym >= 3 or ela_deviation > 0.8):
                                 score = 0.85
                                 reasons = ["concentric crop border", "embedded studio timestamp marking"]
-                            elif not is_round_seal and (abs(margin_x - margin_y) >= 2 or abs(gap_right - gap_bot) >= 2):
+                            elif not is_round_seal and margin_asym >= 4:
                                 score = 0.75
-                                reasons = [f"asymmetric crop boundary (margins: {margin_x}x{margin_y}px)"]
+                                reasons = [f"asymmetric crop boundary (margins: {margin_x}x{margin_y}px, gaps: {gap_right}x{gap_bot}px)"]
                             elif not is_round_seal and ela_deviation > 1.2:
                                 score = 0.70
                                 reasons = [f"concentric crop border (margins: {margin_x}x{margin_y}px)", f"compression delta ({ela_deviation:.1f} std)"]
                             else:
                                 score = 0.15
-                                reasons = ["symmetric official seal/emblem frame"]
+                                reasons = ["symmetric official document container / frame"]
                                 
                             if score >= 0.50:
                                 if coordinate_mapper:

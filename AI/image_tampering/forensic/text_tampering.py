@@ -130,12 +130,16 @@ def analyze_text_tampering(
         total_pixels = img_h * img_w
 
         # ── 1. Document Substrate Noise Modeling ──────────────────────────────
-        # Isolate background substrate pixels (upper 50% luminance excluding dark text)
-        bg_pixels = (grayscale > 180)
-        if np.sum(bg_pixels) > 500:
-            doc_bg_noise_std = float(np.std(grayscale[bg_pixels]))
+        # Build global stroke-free substrate background mask to isolate authentic paper / sensor noise
+        _, doc_stroke = cv2.threshold(grayscale, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        k_dilate = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        doc_dilated_stroke = cv2.dilate(doc_stroke, k_dilate)
+        doc_bg_mask = (grayscale > 180) & (doc_dilated_stroke == 0)
+
+        if np.sum(doc_bg_mask) > 500:
+            doc_bg_noise_std = float(np.std(noise_residual[doc_bg_mask]))
         else:
-            doc_bg_noise_std = float(np.std(grayscale))
+            doc_bg_noise_std = float(np.std(noise_residual))
         doc_bg_noise_std = max(0.1, doc_bg_noise_std)
 
         # ── 2. Local ELA Compression Error Map ────────────────────────────────
@@ -170,19 +174,25 @@ def analyze_text_tampering(
             roi_gray = grayscale[cy:cy+ch, cx:cx+cw]
             roi_ela = ela_gray[cy:cy+ch, cx:cx+cw]
             roi_sharp = local_sharpness[cy:cy+ch, cx:cx+cw]
+            roi_noise_res = noise_residual[cy:cy+ch, cx:cx+cw]
 
             # Binary mask of text strokes vs local background
             _, stroke_mask = cv2.threshold(roi_gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
             bg_mask = cv2.bitwise_not(stroke_mask)
 
-            # Feature A: Raw background noise std inside candidate (excluding antialiased stroke edges)
-            clean_bg = (roi_gray > 215)
-            if np.sum(clean_bg) >= 10:
-                raw_bg_std = float(np.std(roi_gray[clean_bg]))
+            # Feature A: High-frequency background noise std inside and around candidate (excluding stroke edges)
+            pad = 6
+            x0, y0 = max(0, cx - pad), max(0, cy - pad)
+            x1, y1 = min(img_w, cx + cw + pad), min(img_h, cy + ch + pad)
+            ctx_bg_mask = doc_bg_mask[y0:y1, x0:x1]
+            ctx_noise = noise_residual[y0:y1, x0:x1]
+
+            if np.sum(ctx_bg_mask) >= 8:
+                raw_bg_std = float(np.std(ctx_noise[ctx_bg_mask]))
             elif np.sum(bg_mask > 0) >= 6:
-                raw_bg_std = float(np.std(roi_gray[bg_mask > 0]))
+                raw_bg_std = float(np.std(roi_noise_res[bg_mask > 0]))
             else:
-                raw_bg_std = float(np.std(roi_gray))
+                raw_bg_std = float(np.std(roi_noise_res))
 
             # Feature B: Mean ELA response
             mean_roi_ela = float(np.mean(roi_ela))
@@ -248,38 +258,43 @@ def analyze_text_tampering(
             has_substrate_artifact = False
 
             # 1. Background Noise Void (Inpainting / Erasure / Pure synthetic background)
-            if noise_void >= 0.55 and doc_bg_noise_std >= 2.5:
+            if noise_void >= 0.60 and doc_bg_noise_std >= 2.5:
                 s_void = min(1.0, 0.45 + 0.55 * noise_void)
                 cue_scores.append(s_void)
                 has_substrate_artifact = True
                 reasons.append(f"Substrate noise void around text (void: {noise_void*100:.0f}%, local bg std: {feat['raw_bg_std']:.2f} vs doc: {doc_bg_noise_std:.2f})")
 
             # 2. Local ELA Compression Inconsistency
-            if ela_disparity >= 0.60 and (feat["mean_roi_ela"] > 3.0 or neigh_ela > 3.0):
+            if ela_disparity >= 0.70 and (feat["mean_roi_ela"] > 4.0 or neigh_ela > 4.0):
                 s_ela = min(1.0, 0.40 + 0.40 * ela_disparity)
                 cue_scores.append(s_ela)
                 reasons.append(f"Local ELA compression disparity ({ela_disparity:.2f}x relative to neighboring text)")
 
             # 3. Perimeter Border Gradient (Paste / Whiteout boundary step)
-            if feat["border_grad"] > 250.0:
+            if feat["border_grad"] > 300.0 and cw >= 8 and ch >= 8:
                 s_border = min(1.0, feat["border_grad"] / 600.0)
                 cue_scores.append(s_border)
                 has_substrate_artifact = True
                 reasons.append(f"Paste / erasure perimeter boundary step ({feat['border_grad']:.1f})")
 
             # 4. Stroke Sharpness / Antialiasing Disparity (only when corroborated)
-            if sharp_disparity >= 0.50 and (feat["stroke_sharp"] > 15.0 or neigh_sharp > 15.0):
+            if sharp_disparity >= 0.55 and (feat["stroke_sharp"] > 20.0 or neigh_sharp > 20.0):
                 s_sharp = min(1.0, 0.35 + 0.45 * sharp_disparity)
                 cue_scores.append(s_sharp)
                 reasons.append(f"Stroke rendering disparity ({sharp_disparity:.2f}x relative to neighboring text)")
 
             # Strict Forensic Corroboration:
-            # Must have at least 2 distinct cues INCLUDING at least 1 substrate artifact (noise void or border step),
-            # OR an overwhelming noise void (> 0.85).
-            if (len(cue_scores) >= 2 and has_substrate_artifact) or (noise_void >= 0.85 and doc_bg_noise_std >= 3.0):
-                base_score = float(np.mean(cue_scores))
+            # 1. Multi-factor corroboration (at least 2 distinct cues including substrate artifact or strong multi-cue disparity)
+            # OR 2. Overwhelming background noise void on authentic noisy document substrate (erasure / inpainting / whiteout box)
+            is_corroborated = (len(cue_scores) >= 2 and (has_substrate_artifact or (ela_disparity >= 0.70 and sharp_disparity >= 0.50)))
+            is_overwhelming_void = (noise_void >= 0.70 and doc_bg_noise_std >= 2.0)
+
+            if is_corroborated or is_overwhelming_void:
+                base_score = float(np.mean(cue_scores)) if cue_scores else 0.50
                 if len(cue_scores) >= 2:
                     base_score = min(1.0, base_score + 0.12 * (len(cue_scores) - 1))
+                elif is_overwhelming_void:
+                    base_score = min(1.0, 0.45 + 0.45 * noise_void)
                 
                 raw_suspicious_boxes.append({
                     "box": (cx, cy, cw, ch),

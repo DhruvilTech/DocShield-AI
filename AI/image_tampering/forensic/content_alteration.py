@@ -185,20 +185,20 @@ def analyze_content_alteration(
             stroke_ela_max = float(np.max(roi_ela)) if roi_ela.size > 0 else 0.0
 
             # ── Attack Detection Conditions ───────────────────────────────────────
-            # 1. Freehand digital stroke defacement / scribble:
+            # 1. Freehand digital stroke defacement / scribble (high perimeter-to-area curvature ratio crossing document content):
             is_stroke_defacement = (
                 bw >= 50 and bh >= 40 and area >= 600 and
-                thinness >= 35.0 and surround_std >= 25.0 and
+                thinness >= 75.0 and surround_std >= 30.0 and
                 surround_dynamic_range >= 70.0 and fill_ratio <= 0.65 and
-                (thinness >= 70.0 or stroke_ela_max >= 32.0)
+                (stroke_ela_max >= 22.0 or thinness >= 150.0)
             )
 
-            # 2. Localized content alteration / text overpainting:
+            # 2. Localized content alteration / text overpainting (synthetic brush crossing heterogenous text/photo fields):
             is_localized_scribble = (
-                bw >= 35 and bh >= 35 and area >= 500 and
-                thinness >= 40.0 and surround_std >= 35.0 and
-                surround_dynamic_range >= 90.0 and
-                (thinness >= 70.0 or stroke_ela_max >= 32.0)
+                bw >= 40 and bh >= 40 and area >= 550 and
+                thinness >= 60.0 and surround_std >= 45.0 and
+                surround_dynamic_range >= 95.0 and
+                (stroke_ela_max >= 25.0 or thinness >= 120.0)
             )
 
             if is_stroke_defacement or is_localized_scribble:

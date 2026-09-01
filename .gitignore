@@ -49,6 +49,9 @@ AI/image_tampering/outputs/
 AI/image_tampering/**/*.tmp
 AI/image_tampering/output/
 AI/outputs/
+AI/scratch_debug/
+scratch_debug/
+**/scratch_debug/
 backend/storage/*
 !backend/storage/.gitkeep
 uploads/

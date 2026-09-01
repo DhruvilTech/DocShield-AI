@@ -286,14 +286,14 @@ export const ScannerPage: React.FC = () => {
       addLog(`→ Running Module 3: Tampering Forensics (Photo substitution, text manipulation, stamp seals)...`);
       await new Promise((r) => setTimeout(r, 500));
 
-      const isTampered = Boolean(tampStage?.result?.has_tampering_detected || (tampStage?.result?.overall_tampering_score ?? 0) >= 0.4);
+      const isTampered = Boolean(tampStage?.result?.has_tampering_detected || ['HIGH', 'CRITICAL'].includes(tampStage?.result?.analysis_metadata?.riskLevel || ''));
       if (tampStage && tampStage.status === 'passed' && !isTampered) {
-        addLog(`✓ Module 3 (Tampering Forensics) Passed. Tampering Score: ${tampStage.result?.overall_tampering_score || 0} pts (0 Alterations)`);
+        addLog(`✓ Module 3 (Tampering Forensics) Passed. Tampering Score: ${Math.round((tampStage.result?.overall_tampering_score || 0) * 100)}% (${tampStage.result?.analysis_metadata?.riskLevel || 'LOW'})`);
       } else {
         const tampScorePercent = Math.round((tampStage?.result?.overall_tampering_score ?? 0.8) * 100);
         const anomalyCount = tampStage?.result?.indicators?.length ?? 0;
         const failReason = isTampered
-          ? `Tampering detected (Score: ${tampScorePercent}%, ${anomalyCount} Anomalies)`
+          ? `Tampering detected (Score: ${tampScorePercent}%, ${anomalyCount} Anomalies, Risk: ${tampStage?.result?.analysis_metadata?.riskLevel || 'HIGH'})`
           : (tampStage?.reason || 'Tampering detected in document substrate.');
         addLog(`✗ Module 3 (Tampering Forensics) Failed: ${failReason}`);
       }
@@ -369,7 +369,7 @@ export const ScannerPage: React.FC = () => {
     
     const factors = pipelineResult.screening?.factors || [];
     const tamperingStage = pipelineResult.stages?.tampering?.result || pipelineResult.tampering;
-    const isTampered = tamperingStage?.has_tampering_detected || (tamperingStage?.overall_tampering_score ?? 0) >= 0.4;
+    const isTampered = Boolean(tamperingStage?.has_tampering_detected || ['HIGH', 'CRITICAL'].includes(tamperingStage?.analysis_metadata?.riskLevel || ''));
     const hasMrzTamperSignal = tamperingStage?.indicators?.some((i: any) => 
       i.category === 'TEXT_ALTERATION' || i.category === 'CONTENT_ALTERATION' || String(i.description || '').toLowerCase().includes('mrz') || String(i.description || '').toLowerCase().includes('void')
     );
@@ -468,7 +468,7 @@ export const ScannerPage: React.FC = () => {
     if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
     const tamperingStage = pipelineResult.stages?.tampering?.result || pipelineResult.tampering;
     if (!tamperingStage) return { label: 'NOT TESTED', variant: 'warning' as const };
-    const isTampered = tamperingStage.has_tampering_detected || (tamperingStage.overall_tampering_score ?? 0) >= 0.4;
+    const isTampered = Boolean(tamperingStage.has_tampering_detected || ['HIGH', 'CRITICAL'].includes(tamperingStage.analysis_metadata?.riskLevel || ''));
     const scorePct = ((tamperingStage.overall_tampering_score ?? 0) * 100).toFixed(0);
     if (isTampered) {
       const topCat = tamperingStage.indicators?.[0]?.category?.replace(/_/g, ' ') || 'ALTERATION / OVERPAINT';
