@@ -24,7 +24,7 @@ export class DocumentExtractor {
     if (mimeType === 'application/pdf') {
       extractionResult = await PdfExtractor.extract(fileBuffer);
     } else if (mimeType.startsWith('image/')) {
-      extractionResult = await ImageOcrExtractor.extract(fileBuffer, mimeType, originalFilename);
+      extractionResult = await ImageOcrExtractor.extract(fileBuffer, mimeType, originalFilename, documentType);
     } else {
       // DOCX, TXT or generic binary
       const text = fileBuffer.toString('utf-8');

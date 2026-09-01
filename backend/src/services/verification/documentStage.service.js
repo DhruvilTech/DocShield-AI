@@ -7,6 +7,8 @@ import { extractionRepository } from '../../repositories/extraction.repository.j
 import { AppError } from '../../errors/AppError.js';
 import crypto from 'crypto';
 
+import { PassportParser } from '../parsers/passportParser.js';
+
 export class DocumentStageService {
   /**
    * Run Stage 1 Document Detection on the uploaded file
@@ -60,6 +62,12 @@ export class DocumentStageService {
 
       const isSupported = detectedType && detectedType.toLowerCase() !== 'unknown' && detectedType.toLowerCase() === doc.document_type.toLowerCase();
 
+      // Extract passport domain fields & MRZ if passport
+      let extraDomainFields = {};
+      if (doc.document_type === 'PASSPORT' || detectedType === 'PASSPORT' || /passport/i.test(version.original_filename || '')) {
+        extraDomainFields = PassportParser.parse(rawText);
+      }
+
       // 3. Persist extraction record to DB so downstream services can access it
       await extractionRepository.create({
         id: crypto.randomUUID(),
@@ -72,7 +80,11 @@ export class DocumentStageService {
         rawText: rawText,
         normalizedText: rawText,
         extractedFields: {
+          ...extraDomainFields,
           ...(result.extracted_fields || {}),
+          mrzLines: extraDomainFields.mrzLines || (result.extracted_fields?.mrz_lines ? { value: typeof result.extracted_fields.mrz_lines.value === 'string' ? result.extracted_fields.mrz_lines.value.split('\n') : result.extracted_fields.mrz_lines.value, confidence: 0.98 } : undefined),
+          mrz_lines: result.extracted_fields?.mrz_lines || extraDomainFields.mrzLines,
+          mrzValidation: extraDomainFields.mrzValidation || result.validation,
           aiValidation: result.validation,
           detectedDocumentType: detectedType,
           classifiedType: classifiedType,

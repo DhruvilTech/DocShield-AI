@@ -35,6 +35,9 @@ import {
   AnalysisFinding,
 } from '../../types';
 import { formatDateTime } from '../../lib/date';
+import { parseAndValidateMrz } from '../../lib/mrzParser';
+
+
 
 type ForensicLayer = 'tampering' | 'mrz' | 'metadata' | 'hex' | 'findings';
 type VisualFilter = 'normal' | 'ela' | 'contrast' | 'invert';
@@ -777,61 +780,142 @@ export const AnalysisPage: React.FC = () => {
                 )}
 
                 {/* Layer 2: ICAO 9303 MRZ Engine */}
-                {activeLayer === 'mrz' && (
-                  <div className="space-y-4 font-mono text-xs">
-                    <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
-                      <span className="text-[var(--text-1)] font-bold flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-[var(--accent)]" />
-                        ICAO Doc 9303 7-3-1 Weight Checksum Engine
-                      </span>
-                      <Badge
-                        variant={extraction?.extracted_fields?.mrzValidation?.value?.isValid !== false ? 'safe' : 'threat'}
-                        size="sm"
-                        dot
-                      >
-                        {extraction?.extracted_fields?.mrzValidation?.value?.isValid !== false ? 'VALID ICAO MRZ' : 'CHECKSUM MISMATCH'}
-                      </Badge>
-                    </div>
+                {activeLayer === 'mrz' && (() => {
+                  const mrzData = parseAndValidateMrz(extraction, aiAnalysis, tampering, selectedDoc);
+                  return (
+                    <div className="space-y-4 font-mono text-xs">
+                      <div className="flex items-center justify-between border-b border-[var(--border)] pb-2 flex-wrap gap-2">
+                        <span className="text-[var(--text-1)] font-bold flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-[var(--accent)]" />
+                          ICAO Doc 9303 7-3-1 Weight Checksum Engine
+                        </span>
+                        <Badge
+                          variant={mrzData.hasMrz && mrzData.isValid ? 'safe' : mrzData.hasMrz ? 'warning' : 'neutral'}
+                          size="sm"
+                          dot
+                        >
+                          {mrzData.hasMrz
+                            ? mrzData.isValid
+                              ? 'VALID ICAO DOC 9303 MRZ'
+                              : 'CHECKSUM ANOMALY'
+                            : 'NO MRZ DETECTED'}
+                        </Badge>
+                      </div>
 
-                    {extraction?.extracted_fields?.mrzLines?.value ? (
-                      <div className="space-y-3">
-                        <div className="p-4 rounded-xl bg-[var(--surface-raised)] border border-[var(--border)] space-y-2">
-                          <span className="text-[10px] text-[var(--text-3)] uppercase block mb-1">
-                            Raw Machine Readable Zone Lines (OCR-B Font)
-                          </span>
-                          {extraction.extracted_fields.mrzLines.value.map((line: string, i: number) => (
-                            <div
-                              key={i}
-                              className="p-2.5 rounded bg-[var(--surface-alt)] text-[var(--safe)] tracking-widest overflow-x-auto text-sm font-mono border border-[var(--border)]"
-                            >
-                              {line}
+                      {mrzData.hasMrz ? (
+                        <div className="space-y-4">
+                          {/* Raw MRZ Stream in OCR-B Monospace */}
+                          <div className="p-4 rounded-xl bg-[var(--surface-raised)] border border-[var(--border)] space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] text-[var(--text-3)] uppercase block">
+                                Raw Machine Readable Zone Lines (ICAO TD3 · OCR-B Font)
+                              </span>
+                              <span className="text-[10px] font-mono text-[var(--accent)] bg-[var(--accent-muted)] px-1.5 py-0.5 rounded">
+                                44 CHARS × 2 LINES
+                              </span>
                             </div>
-                          ))}
-                        </div>
 
-                        {/* Checksum breakdown */}
-                        <div className="grid grid-cols-3 gap-3">
-                          <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] text-center">
-                            <span className="text-[10px] text-[var(--text-3)] block">DOC NUMBER CHECK</span>
-                            <span className="font-bold text-[var(--safe)] text-xs mt-1 block">✓ VALID (Mod 10)</span>
+                            {mrzData.rawLines.map((line: string, i: number) => (
+                              <div
+                                key={i}
+                                className="p-3 rounded-lg bg-[#070b12] text-[var(--safe)] tracking-[0.18em] overflow-x-auto text-xs sm:text-sm font-mono border border-[var(--border-accent)] shadow-inner"
+                              >
+                                {line}
+                              </div>
+                            ))}
                           </div>
-                          <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] text-center">
-                            <span className="text-[10px] text-[var(--text-3)] block">DOB CHECK DIGIT</span>
-                            <span className="font-bold text-[var(--safe)] text-xs mt-1 block">✓ 7-3-1 VERIFIED</span>
+
+                          {/* 4 Live ICAO Checksum Verification Cards */}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="p-3 rounded-xl bg-[var(--surface-raised)] border border-[var(--border)] text-center space-y-1">
+                              <span className="text-[10px] text-[var(--text-3)] block uppercase">DOC NUMBER CHECK</span>
+                              <div className="text-xs font-bold text-[var(--text-1)]">
+                                Found: {mrzData.checks.docNumberCheck.actual} · Expected: {mrzData.checks.docNumberCheck.expected}
+                              </div>
+                              <span className={cn('font-bold text-[11px] block', mrzData.checks.docNumberCheck.valid ? 'text-[var(--safe)]' : 'text-[var(--threat)]')}>
+                                {mrzData.checks.docNumberCheck.valid ? '✓ VALID (Mod 10)' : '✗ MISMATCH'}
+                              </span>
+                            </div>
+
+                            <div className="p-3 rounded-xl bg-[var(--surface-raised)] border border-[var(--border)] text-center space-y-1">
+                              <span className="text-[10px] text-[var(--text-3)] block uppercase">DOB CHECK DIGIT</span>
+                              <div className="text-xs font-bold text-[var(--text-1)]">
+                                Found: {mrzData.checks.dobCheck.actual} · Expected: {mrzData.checks.dobCheck.expected}
+                              </div>
+                              <span className={cn('font-bold text-[11px] block', mrzData.checks.dobCheck.valid ? 'text-[var(--safe)]' : 'text-[var(--threat)]')}>
+                                {mrzData.checks.dobCheck.valid ? '✓ 7-3-1 VERIFIED' : '✗ MISMATCH'}
+                              </span>
+                            </div>
+
+                            <div className="p-3 rounded-xl bg-[var(--surface-raised)] border border-[var(--border)] text-center space-y-1">
+                              <span className="text-[10px] text-[var(--text-3)] block uppercase">EXPIRY CHECK DIGIT</span>
+                              <div className="text-xs font-bold text-[var(--text-1)]">
+                                Found: {mrzData.checks.expiryCheck.actual} · Expected: {mrzData.checks.expiryCheck.expected}
+                              </div>
+                              <span className={cn('font-bold text-[11px] block', mrzData.checks.expiryCheck.valid ? 'text-[var(--safe)]' : 'text-[var(--threat)]')}>
+                                {mrzData.checks.expiryCheck.valid ? '✓ 7-3-1 VERIFIED' : '✗ MISMATCH'}
+                              </span>
+                            </div>
                           </div>
-                          <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] text-center">
-                            <span className="text-[10px] text-[var(--text-3)] block">EXPIRY CHECK DIGIT</span>
-                            <span className="font-bold text-[var(--safe)] text-xs mt-1 block">✓ 7-3-1 VERIFIED</span>
+
+                          {/* Decoded MRZ Dossier Fields Table */}
+                          <div className="p-4 rounded-xl bg-[var(--surface-raised)] border border-[var(--border)] space-y-2.5">
+                            <div className="text-[10px] font-bold uppercase text-[var(--accent)] tracking-wider border-b border-[var(--border)] pb-1.5">
+                              Decoded Identity Attributes (ICAO 9303 Specification)
+                            </div>
+
+                            <div className="grid sm:grid-cols-2 gap-x-6 gap-y-2 text-[11px]">
+                              <div className="flex justify-between py-1 border-b border-[var(--border)]/50">
+                                <span className="text-[var(--text-3)]">Passport Number:</span>
+                                <span className="text-[var(--text-1)] font-bold">{mrzData.passportNumber}</span>
+                              </div>
+                              <div className="flex justify-between py-1 border-b border-[var(--border)]/50">
+                                <span className="text-[var(--text-3)]">Issuing Country:</span>
+                                <span className="text-[var(--text-1)] font-bold">{mrzData.issuingCountry} (INDIAN)</span>
+                              </div>
+                              <div className="flex justify-between py-1 border-b border-[var(--border)]/50">
+                                <span className="text-[var(--text-3)]">Holder Name:</span>
+                                <span className="text-[var(--text-1)] font-bold">{mrzData.fullName}</span>
+                              </div>
+                              <div className="flex justify-between py-1 border-b border-[var(--border)]/50">
+                                <span className="text-[var(--text-3)]">Surname / Given:</span>
+                                <span className="text-[var(--text-1)] font-bold">{mrzData.surname} / {mrzData.givenNames}</span>
+                              </div>
+                              <div className="flex justify-between py-1 border-b border-[var(--border)]/50">
+                                <span className="text-[var(--text-3)]">Date of Birth:</span>
+                                <span className="text-[var(--text-1)] font-bold">{mrzData.dateOfBirth} ({mrzData.rawDob})</span>
+                              </div>
+                              <div className="flex justify-between py-1 border-b border-[var(--border)]/50">
+                                <span className="text-[var(--text-3)]">Gender / Sex:</span>
+                                <span className="text-[var(--text-1)] font-bold">{mrzData.gender === 'M' ? 'Male (M)' : mrzData.gender === 'F' ? 'Female (F)' : mrzData.gender}</span>
+                              </div>
+                              <div className="flex justify-between py-1 border-b border-[var(--border)]/50">
+                                <span className="text-[var(--text-3)]">Date of Expiry:</span>
+                                <span className="text-[var(--text-1)] font-bold">{mrzData.dateOfExpiry} ({mrzData.rawExpiry})</span>
+                              </div>
+                              {mrzData.personalNumber && (
+                                <div className="flex justify-between py-1 border-b border-[var(--border)]/50">
+                                  <span className="text-[var(--text-3)]">Personal Token No:</span>
+                                  <span className="text-[var(--text-1)] font-bold">{mrzData.personalNumber}</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="p-12 text-center text-xs text-[var(--text-3)] font-mono">
-                        No MRZ lines extracted for this credential category ({selectedDoc?.document_type}). National IDs without MRZ rely on optical barcode / QR security.
-                      </div>
-                    )}
-                  </div>
-                )}
+                      ) : (
+                        <div className="p-12 text-center text-xs text-[var(--text-3)] font-mono space-y-2">
+                          <div className="text-xl">🪪</div>
+                          <p>
+                            No MRZ lines extracted for this credential category ({selectedDoc?.document_type || 'DOCUMENT'}).
+                          </p>
+                          <p className="text-[10px] text-[var(--text-3)]">
+                            National IDs (e.g. Aadhaar, Driver License) without MRZ rely on QR / Barcode cryptographic signatures.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Layer 3: EXIF Metadata & Structural Signatures */}
                 {activeLayer === 'metadata' && (

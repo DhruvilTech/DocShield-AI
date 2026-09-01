@@ -1,10 +1,12 @@
 // src/services/extractors/imageOcrExtractor.js
+import { aiClient } from '../ai/aiClient.js';
+import logger from '../../utils/logger.js';
 
 export class ImageOcrExtractor {
   /**
-   * Extract text from image/scanned documents
+   * Extract text from image/scanned documents using AI OCR engine with fallback
    */
-  static async extract(imageBuffer, mimeType, filename = '') {
+  static async extract(imageBuffer, mimeType, filename = '', documentType = 'OTHER') {
     // Inspect image header for dimensions / metadata
     const fileSize = imageBuffer.length;
     let format = 'UNKNOWN';
@@ -19,7 +21,40 @@ export class ImageOcrExtractor {
       format = 'TIFF';
     }
 
-    // Try extracting any embedded text tags (EXIF/XMP/IPTC or plain test mock patterns)
+    // 1. Attempt AI OCR extraction via FastAPI PaddleOCR
+    try {
+      const docTypeQuery = (documentType && documentType !== 'OTHER')
+        ? documentType
+        : /passport/i.test(filename)
+        ? 'passport'
+        : /visa/i.test(filename)
+        ? 'visa'
+        : /id|aadhaar/i.test(filename)
+        ? 'national_id'
+        : 'passport';
+
+      const aiResponse = await aiClient.analyzeDocument(imageBuffer, filename || 'document.png', mimeType, docTypeQuery);
+      if (aiResponse?.ocr?.raw_text) {
+        return {
+          rawText: aiResponse.ocr.raw_text,
+          pageCount: 1,
+          extractor: 'FastAPI-PaddleOCR',
+          extractedFields: aiResponse.extracted_fields || {},
+          confidenceScore: aiResponse.ocr.confidence || 0.95,
+          metadata: {
+            format,
+            fileSize,
+            mimeType,
+            ocrEngine: aiResponse.ocr.engine_used || 'PaddleOCR-v4',
+            aiValidation: aiResponse.validation,
+          },
+        };
+      }
+    } catch (aiErr) {
+      logger.warn(`[ImageOcrExtractor] AI OCR call skipped/failed (${aiErr.message}), falling back to stream parsing.`);
+    }
+
+    // 2. Fallback: Extract text tags or string buffers
     const textBuffer = imageBuffer.toString('utf-8');
     const matches = textBuffer.match(/([A-Z0-9\s\.\,\:\-\/]{4,50})/g) || [];
     const filtered = matches
@@ -44,3 +79,4 @@ export class ImageOcrExtractor {
     };
   }
 }
+
