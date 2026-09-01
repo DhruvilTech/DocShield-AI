@@ -1010,7 +1010,7 @@ export const ScannerPage: React.FC = () => {
                 {/* Tab 2: OCR Fields (P8 Module 1 - Clean Visual Details) */}
                 {activeTab === 'ocr' && (
                   <Card className="p-4">
-                    <div className="flex items-center justify-between mb-3 border-b border-[var(--border)] pb-2">
+                    <div className="flex items-center justify-between mb-3 border-b border-[var(--border)] pb-2 flex-wrap gap-2">
                       <div>
                         <span className="text-xs font-bold font-mono uppercase text-[var(--text-1)] block">
                           Module 1: Visual Inspection Details
@@ -1019,7 +1019,16 @@ export const ScannerPage: React.FC = () => {
                           Official visual inspection zone credentials & document fields
                         </span>
                       </div>
-                      <Badge variant="safe" size="sm">Confidence: {((extraction?.confidence_score || 0.95) * 100).toFixed(0)}%</Badge>
+                      <div className="flex items-center gap-2">
+                        {docType === 'PASSPORT' && (
+                          <Badge variant="primary" size="sm">
+                            {extraction?.extracted_fields?.passportFormat?.value === 'OLD_FORMAT'
+                              ? 'Old Format (TD3-Legacy)'
+                              : 'New Format (TD3-2021+)'}
+                          </Badge>
+                        )}
+                        <Badge variant="safe" size="sm">Confidence: {((extraction?.confidence_score || 0.95) * 100).toFixed(0)}%</Badge>
+                      </div>
                     </div>
 
                     {(() => {
@@ -1076,6 +1085,7 @@ export const ScannerPage: React.FC = () => {
                           { label: 'Surname', value: sur || '—' },
                           { label: 'Given Name', value: giv || '—' },
                           { label: 'Passport Number', value: getVal('passport_number', 'visual_passport_number', 'passportNumber') || '—' },
+                          { label: 'Document Format', value: fields.passportFormat?.value === 'OLD_FORMAT' ? 'Old Format (TD3-Legacy / Pre-2021)' : 'New Format (TD3-2021+ Modern)' },
                           { label: 'Nationality', value: (getVal('nationality', 'visual_nationality', 'visualNationality') || '—').replace(/^IND$/, 'INDIAN') },
                           { label: 'Date of Birth', value: formatDate(getVal('date_of_birth', 'visual_date_of_birth', 'dateOfBirth')) },
                           { label: 'Gender', value: formatGender(getVal('gender', 'visual_gender', 'visualGender')) },

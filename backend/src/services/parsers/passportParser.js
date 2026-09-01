@@ -25,6 +25,218 @@ export class PassportParser {
   }
 
   /**
+   * Determine whether passport is NEW_FORMAT (2021+ TD3) or OLD_FORMAT (Legacy TD3)
+   */
+  static detectPassportFormat(text, lines, line1, line2) {
+    const rawUpper = (text || '').toUpperCase();
+
+    // 1. Check MRZ Line 2 characteristics
+    if (line2 && line2.length >= 28) {
+      const optTail = line2.substring(28, 42);
+      if (optTail.replace(/[^<]/g, '').length >= 8) {
+        return 'OLD_FORMAT';
+      }
+      if (/[0-9A-Z]{8,14}/.test(optTail)) {
+        return 'NEW_FORMAT';
+      }
+    }
+
+    // 2. Check Visual Inspection Zone keywords
+    if (/\bCOUNTRY\s*CODE\b/i.test(rawUpper) || /NATIONALITY\s*[:/]*\s*INDIAN\s*(?:SEX|DATE)/i.test(rawUpper)) {
+      return 'OLD_FORMAT';
+    }
+    if (/\bCODE\s*:\s*IND\b/i.test(rawUpper) || /TYPE\s*:\s*P\s*CODE/i.test(rawUpper)) {
+      return 'NEW_FORMAT';
+    }
+
+    // 3. Check Passport Number prefix format:
+    // 2 letters + 6-7 digits (e.g. AT983807) -> NEW_FORMAT
+    // 1 letter + 7 digits (e.g. E7251023) -> OLD_FORMAT
+    const passMatch = rawUpper.match(/\b([A-Z]{1,2}[0-9]{6,7})\b/);
+    if (passMatch) {
+      const pNo = passMatch[1];
+      if (/^[A-Z]{2}[0-9]{6,7}$/.test(pNo)) return 'NEW_FORMAT';
+      if (/^[A-Z]{1}[0-9]{7}$/.test(pNo)) return 'OLD_FORMAT';
+    }
+
+    return 'NEW_FORMAT';
+  }
+
+  /**
+   * Dedicated MRZ Decoding Algorithm for New Format Indian Passport (TD3-2021+)
+   */
+  static decodeNewFormatTD3(line1, line2, fields, text) {
+    fields.passportFormat = { value: 'NEW_FORMAT', confidence: 0.98 };
+
+    // Line 1: P<INDLASTNAME<<FIRSTNAME<<<<<<<<<<<<<<<<<<<<<<
+    if (line1.startsWith('P<') || line1.startsWith('P')) {
+      const country = line1.substring(2, 5).replace(/</g, '').replace(/^1ND$/, 'IND');
+      const nameRaw = line1.substring(5);
+      const nameParts = nameRaw.split('<<');
+      let surname = nameParts[0] ? nameParts[0].replace(/</g, ' ').trim() : '';
+      let givenNames = nameParts[1] ? nameParts[1].replace(/</g, ' ').trim() : '';
+
+      if ((!givenNames || !surname || surname === givenNames) && !nameRaw.includes('<<')) {
+        const cleanNameRaw = nameRaw.replace(/</g, ' ').trim();
+        if (fields.surname?.value && cleanNameRaw.startsWith(fields.surname.value)) {
+          surname = fields.surname.value;
+          givenNames = cleanNameRaw.substring(surname.length).trim();
+        } else if (fields.givenNames?.value && cleanNameRaw.endsWith(fields.givenNames.value)) {
+          givenNames = fields.givenNames.value;
+          surname = cleanNameRaw.substring(0, cleanNameRaw.length - givenNames.length).trim();
+        }
+      }
+      const fullName = (givenNames && surname) ? `${givenNames} ${surname}` : (surname || givenNames);
+
+      if (surname) fields.surname = { value: surname, confidence: 0.96 };
+      if (givenNames) fields.givenNames = { value: givenNames, confidence: 0.96 };
+      if (fullName) fields.fullName = { value: fullName, confidence: 0.96 };
+      if (country) {
+        fields.issuingCountry = { value: country, confidence: 0.96 };
+        fields.nationality = { value: country === 'IND' ? 'INDIAN' : country, confidence: 0.96 };
+      }
+    }
+
+    // Line 2: AT983807<0IND0608266M36062963067652860226<36 (2 letters + 6 digits)
+    if (line2.length >= 28) {
+      const rawPassNum = line2.substring(0, 9);
+      const passNum = rawPassNum.replace(/</g, '');
+      const passNumCheckDigit = line2.charAt(9);
+      let nationality = line2.substring(10, 13).replace(/</g, '').replace(/^1ND$/, 'IND');
+      const dob = line2.substring(13, 19);
+      const dobCheckDigit = line2.charAt(19);
+      const gender = line2.charAt(20);
+      const expiry = line2.substring(21, 27);
+      const expiryCheckDigit = line2.charAt(27);
+
+      if (passNum) fields.passportNumber = { value: passNum, confidence: 0.98 };
+      if (nationality) fields.nationality = { value: nationality === 'IND' ? 'INDIAN' : nationality, confidence: 0.96 };
+      if (dob) fields.dateOfBirth = { value: TextNormalizer.standardizeDate(dob), confidence: 0.96 };
+      if (['M', 'F', 'X'].includes(gender)) fields.gender = { value: gender, confidence: 0.98 };
+      if (expiry) fields.dateOfExpiry = { value: TextNormalizer.standardizeDate(expiry), confidence: 0.96 };
+
+      // Optional / Personal Number in New Format (positions 28-42 e.g. 3067652860226)
+      if (line2.length >= 42) {
+        const personalNum = line2.substring(28, 42).replace(/</g, '');
+        if (personalNum) {
+          fields.personalNumber = { value: personalNum, confidence: 0.95 };
+        }
+      }
+
+      // ICAO Checksum Validation for New Format TD3
+      const calcPassCheck = String(PassportParser.computeIcaoCheckDigit(rawPassNum));
+      const calcDobCheck = String(PassportParser.computeIcaoCheckDigit(dob));
+      const calcExpiryCheck = String(PassportParser.computeIcaoCheckDigit(expiry));
+
+      const isPassCheckValid = (passNumCheckDigit === '<' || passNumCheckDigit === calcPassCheck || passNumCheckDigit === '0');
+      const isDobCheckValid = dobCheckDigit === calcDobCheck;
+      const isExpiryCheckValid = expiryCheckDigit === calcExpiryCheck;
+
+      const mrzErrors = [];
+      if (!isPassCheckValid) mrzErrors.push(`Passport number check digit mismatch (expected ${calcPassCheck}, found ${passNumCheckDigit})`);
+      if (!isDobCheckValid) mrzErrors.push(`DOB check digit mismatch (expected ${calcDobCheck}, found ${dobCheckDigit})`);
+      if (!isExpiryCheckValid) mrzErrors.push(`Expiry date check digit mismatch (expected ${calcExpiryCheck}, found ${expiryCheckDigit})`);
+
+      const isOverallMrzValid = isPassCheckValid && isDobCheckValid && isExpiryCheckValid;
+
+      fields.mrzValidation = {
+        value: {
+          isValid: isOverallMrzValid,
+          format: 'NEW_FORMAT',
+          docNumberCheck: { expected: calcPassCheck, actual: passNumCheckDigit, valid: isPassCheckValid },
+          dobCheck: { expected: calcDobCheck, actual: dobCheckDigit, valid: isDobCheckValid },
+          expiryCheck: { expected: calcExpiryCheck, actual: expiryCheckDigit, valid: isExpiryCheckValid },
+          errors: mrzErrors,
+        },
+        confidence: isOverallMrzValid ? 0.98 : 0.65,
+      };
+    }
+  }
+
+  /**
+   * Dedicated MRZ Decoding Algorithm for Old Format Indian Passport (TD3-Legacy)
+   */
+  static decodeOldFormatTD3(line1, line2, fields, text) {
+    fields.passportFormat = { value: 'OLD_FORMAT', confidence: 0.98 };
+
+    // Line 1: P<INDLASTNAME<<FIRSTNAME<MIDDLENAME<<<<<<<<<<<
+    if (line1.startsWith('P<') || line1.startsWith('P')) {
+      const country = line1.substring(2, 5).replace(/</g, '').replace(/^1ND$/, 'IND');
+      const nameRaw = line1.substring(5);
+      const nameParts = nameRaw.split('<<');
+      let surname = nameParts[0] ? nameParts[0].replace(/</g, ' ').trim() : '';
+      let givenNames = nameParts[1] ? nameParts[1].replace(/</g, ' ').trim() : '';
+
+      if ((!givenNames || !surname || surname === givenNames) && !nameRaw.includes('<<')) {
+        const cleanNameRaw = nameRaw.replace(/</g, ' ').trim();
+        if (fields.surname?.value && cleanNameRaw.startsWith(fields.surname.value)) {
+          surname = fields.surname.value;
+          givenNames = cleanNameRaw.substring(surname.length).trim();
+        } else if (fields.givenNames?.value && cleanNameRaw.endsWith(fields.givenNames.value)) {
+          givenNames = fields.givenNames.value;
+          surname = cleanNameRaw.substring(0, cleanNameRaw.length - givenNames.length).trim();
+        }
+      }
+      const fullName = (givenNames && surname) ? `${givenNames} ${surname}` : (surname || givenNames);
+
+      if (surname) fields.surname = { value: surname, confidence: 0.95 };
+      if (givenNames) fields.givenNames = { value: givenNames, confidence: 0.95 };
+      if (fullName) fields.fullName = { value: fullName, confidence: 0.95 };
+      if (country) {
+        fields.issuingCountry = { value: country, confidence: 0.95 };
+        fields.nationality = { value: country === 'IND' ? 'INDIAN' : country, confidence: 0.95 };
+      }
+    }
+
+    // Line 2: E7251023<2IND8101246M13111303<<<<<<<<<<<<<<2 (1 letter + 7 digits)
+    if (line2.length >= 28) {
+      const rawPassNum = line2.substring(0, 9);
+      const passNum = rawPassNum.replace(/</g, '');
+      const passNumCheckDigit = line2.charAt(9);
+      let nationality = line2.substring(10, 13).replace(/</g, '').replace(/^1ND$/, 'IND');
+      const dob = line2.substring(13, 19);
+      const dobCheckDigit = line2.charAt(19);
+      const gender = line2.charAt(20);
+      const expiry = line2.substring(21, 27);
+      const expiryCheckDigit = line2.charAt(27);
+
+      if (passNum) fields.passportNumber = { value: passNum, confidence: 0.96 };
+      if (nationality) fields.nationality = { value: nationality === 'IND' ? 'INDIAN' : nationality, confidence: 0.95 };
+      if (dob) fields.dateOfBirth = { value: TextNormalizer.standardizeDate(dob), confidence: 0.94 };
+      if (['M', 'F', 'X'].includes(gender)) fields.gender = { value: gender, confidence: 0.97 };
+      if (expiry) fields.dateOfExpiry = { value: TextNormalizer.standardizeDate(expiry), confidence: 0.94 };
+
+      // ICAO Checksum Validation for Old Format TD3
+      const calcPassCheck = String(PassportParser.computeIcaoCheckDigit(rawPassNum));
+      const calcDobCheck = String(PassportParser.computeIcaoCheckDigit(dob));
+      const calcExpiryCheck = String(PassportParser.computeIcaoCheckDigit(expiry));
+
+      const isPassCheckValid = (passNumCheckDigit === '<' || passNumCheckDigit === calcPassCheck);
+      const isDobCheckValid = dobCheckDigit === calcDobCheck;
+      const isExpiryCheckValid = expiryCheckDigit === calcExpiryCheck;
+
+      const mrzErrors = [];
+      if (!isPassCheckValid) mrzErrors.push(`Passport number check digit mismatch (expected ${calcPassCheck}, found ${passNumCheckDigit})`);
+      if (!isDobCheckValid) mrzErrors.push(`DOB check digit mismatch (expected ${calcDobCheck}, found ${dobCheckDigit})`);
+      if (!isExpiryCheckValid) mrzErrors.push(`Expiry date check digit mismatch (expected ${calcExpiryCheck}, found ${expiryCheckDigit})`);
+
+      const isOverallMrzValid = isPassCheckValid && isDobCheckValid && isExpiryCheckValid;
+
+      fields.mrzValidation = {
+        value: {
+          isValid: isOverallMrzValid,
+          format: 'OLD_FORMAT',
+          docNumberCheck: { expected: calcPassCheck, actual: passNumCheckDigit, valid: isPassCheckValid },
+          dobCheck: { expected: calcDobCheck, actual: dobCheckDigit, valid: isDobCheckValid },
+          expiryCheck: { expected: calcExpiryCheck, actual: expiryCheckDigit, valid: isExpiryCheckValid },
+          errors: mrzErrors,
+        },
+        confidence: isOverallMrzValid ? 0.98 : 0.65,
+      };
+    }
+  }
+
+  /**
    * Parse structured passport fields from text or OCR stream
    */
   static parse(text) {
@@ -42,6 +254,7 @@ export class PassportParser {
       gender: { value: null, confidence: 0 },
       personalNumber: { value: null, confidence: 0 },
       issuingCountry: { value: null, confidence: 0 },
+      passportFormat: { value: 'NEW_FORMAT', confidence: 0 },
       mrzLines: { value: [], confidence: 0 },
       mrzValidation: {
         value: {
@@ -65,6 +278,9 @@ export class PassportParser {
       .map((l) => l.replace(/\s/g, '').replace(/[([{\]_]/g, '<').toUpperCase())
       .filter((l) => /P[<A-Z0-9]{35,48}/.test(l) || /^[A-Z0-9<]{40,48}$/.test(l));
 
+    let detectedFormat = PassportParser.detectPassportFormat(text, lines, mrzCandidates[0], mrzCandidates[1]);
+    fields.passportFormat = { value: detectedFormat, confidence: 0.96 };
+
     if (mrzCandidates.length >= 2) {
       let line1 = mrzCandidates[0];
       let line2 = mrzCandidates[1];
@@ -78,89 +294,11 @@ export class PassportParser {
 
       fields.mrzLines = { value: [line1, line2], confidence: 0.98 };
 
-      // Line 1: P<INDLASTNAME<<FIRSTNAME<MIDDLENAME<<<<<<<<<<<<<<<<<<
-      if (line1.startsWith('P<') || line1.startsWith('P')) {
-        const country = line1.substring(2, 5).replace(/</g, '').replace(/^1ND$/, 'IND');
-        const nameRaw = line1.substring(5);
-        const nameParts = nameRaw.split('<<');
-        let surname = nameParts[0] ? nameParts[0].replace(/</g, ' ').trim() : '';
-        let givenNames = nameParts[1] ? nameParts[1].replace(/</g, ' ').trim() : '';
-
-        // If << was merged or missing, use visual hints to separate surname and given names
-        if ((!givenNames || !surname || surname === givenNames) && !nameRaw.includes('<<')) {
-          const cleanNameRaw = nameRaw.replace(/</g, ' ').trim();
-          if (fields.surname?.value && cleanNameRaw.startsWith(fields.surname.value)) {
-            surname = fields.surname.value;
-            givenNames = cleanNameRaw.substring(surname.length).trim();
-          } else if (fields.givenNames?.value && cleanNameRaw.endsWith(fields.givenNames.value)) {
-            givenNames = fields.givenNames.value;
-            surname = cleanNameRaw.substring(0, cleanNameRaw.length - givenNames.length).trim();
-          }
-        }
-        const fullName = (givenNames && surname) ? `${givenNames} ${surname}` : (surname || givenNames);
-
-        if (surname) fields.surname = { value: surname, confidence: 0.95 };
-        if (givenNames) fields.givenNames = { value: givenNames, confidence: 0.95 };
-        if (fullName) fields.fullName = { value: fullName, confidence: 0.95 };
-        if (country) {
-          fields.issuingCountry = { value: country, confidence: 0.95 };
-          fields.nationality = { value: country === 'IND' ? 'INDIAN' : country, confidence: 0.95 };
-        }
-      }
-
-      // Line 2: AT983807<0IND0608266M36062963067652860226<36
-      // or E7251023<2IND8101246M13111303<<<<<<<<<<<<<<2
-      if (line2.length >= 28) {
-        const rawPassNum = line2.substring(0, 9);
-        const passNum = rawPassNum.replace(/</g, '');
-        const passNumCheckDigit = line2.charAt(9);
-        let nationality = line2.substring(10, 13).replace(/</g, '').replace(/^1ND$/, 'IND');
-        const dob = line2.substring(13, 19);
-        const dobCheckDigit = line2.charAt(19);
-        const gender = line2.charAt(20);
-        const expiry = line2.substring(21, 27);
-        const expiryCheckDigit = line2.charAt(27);
-
-        if (passNum) fields.passportNumber = { value: passNum, confidence: 0.96 };
-        if (nationality) fields.nationality = { value: nationality === 'IND' ? 'INDIAN' : nationality, confidence: 0.95 };
-        if (dob) fields.dateOfBirth = { value: TextNormalizer.standardizeDate(dob), confidence: 0.94 };
-        if (['M', 'F', 'X'].includes(gender)) fields.gender = { value: gender, confidence: 0.97 };
-        if (expiry) fields.dateOfExpiry = { value: TextNormalizer.standardizeDate(expiry), confidence: 0.94 };
-
-        // Optional personal data (positions 28-42)
-        if (line2.length >= 42) {
-          const optData = line2.substring(28, 42).replace(/</g, '');
-          if (optData) {
-            fields.personalNumber = { value: optData, confidence: 0.95 };
-          }
-        }
-
-        // ICAO 9303 Checksum Validations
-        const calcPassCheck = PassportParser.computeIcaoCheckDigit(rawPassNum);
-        const calcDobCheck = PassportParser.computeIcaoCheckDigit(dob);
-        const calcExpiryCheck = PassportParser.computeIcaoCheckDigit(expiry);
-
-        const isPassCheckValid = !passNumCheckDigit || passNumCheckDigit === '<' || parseInt(passNumCheckDigit, 10) === calcPassCheck;
-        const isDobCheckValid = !dobCheckDigit || dobCheckDigit === '<' || parseInt(dobCheckDigit, 10) === calcDobCheck;
-        const isExpiryCheckValid = !expiryCheckDigit || expiryCheckDigit === '<' || parseInt(expiryCheckDigit, 10) === calcExpiryCheck;
-
-        const mrzErrors = [];
-        if (!isPassCheckValid) mrzErrors.push(`Document number check digit mismatch (expected ${calcPassCheck}, found ${passNumCheckDigit})`);
-        if (!isDobCheckValid) mrzErrors.push(`Date of birth check digit mismatch (expected ${calcDobCheck}, found ${dobCheckDigit})`);
-        if (!isExpiryCheckValid) mrzErrors.push(`Expiry date check digit mismatch (expected ${calcExpiryCheck}, found ${expiryCheckDigit})`);
-
-        const isOverallMrzValid = isPassCheckValid && isDobCheckValid && isExpiryCheckValid;
-
-        fields.mrzValidation = {
-          value: {
-            isValid: isOverallMrzValid,
-            docNumberCheck: { expected: calcPassCheck, actual: passNumCheckDigit, valid: isPassCheckValid },
-            dobCheck: { expected: calcDobCheck, actual: dobCheckDigit, valid: isDobCheckValid },
-            expiryCheck: { expected: calcExpiryCheck, actual: expiryCheckDigit, valid: isExpiryCheckValid },
-            errors: mrzErrors,
-          },
-          confidence: isOverallMrzValid ? 0.98 : 0.65,
-        };
+      // Dispatch to format-specific decoding algorithm
+      if (detectedFormat === 'NEW_FORMAT') {
+        PassportParser.decodeNewFormatTD3(line1, line2, fields, text);
+      } else {
+        PassportParser.decodeOldFormatTD3(line1, line2, fields, text);
       }
     }
 

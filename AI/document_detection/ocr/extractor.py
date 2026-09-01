@@ -431,7 +431,12 @@ class PassportFieldExtractor(BaseFieldExtractor):
         if line1_cand and line2_cand:
             line1_cand = line1_cand.ljust(44, "<")[:44]
             line2_cand = line2_cand.ljust(44, "<")[:44]
-            self._apply_mrz([line1_cand, line2_cand], fields)
+            fmt = self._detect_passport_format(raw, regions, [line1_cand, line2_cand])
+            fields["passport_format"] = ExtractedField(name="passport_format", value=fmt, confidence=0.98)
+            self._apply_mrz([line1_cand, line2_cand], fields, detected_format=fmt)
+        else:
+            fmt = self._detect_passport_format(raw, regions, [])
+            fields["passport_format"] = ExtractedField(name="passport_format", value=fmt, confidence=0.95)
 
         for key in PASSPORT_FIELDS:
             if key not in fields:
@@ -439,9 +444,182 @@ class PassportFieldExtractor(BaseFieldExtractor):
 
         return fields
 
-    def _apply_mrz(self, lines: list[str], fields: dict) -> None:
+    def _detect_passport_format(self, raw: str, regions: list[TextRegion], mrz_lines: list[str]) -> str:
+        """
+        Determines whether the passport is in the New Format (TD3-2021+) or Old Format (TD3-Legacy).
+        """
+        raw_upper = raw.upper()
+
+        # 1. Check MRZ Line 2 characteristics
+        if len(mrz_lines) >= 2:
+            l2 = mrz_lines[1]
+            if len(l2) >= 42:
+                opt_tail = l2[28:42]
+                if opt_tail.count("<") >= 8:
+                    return "OLD_FORMAT"
+                elif re.search(r"[0-9A-Z]{8,14}", opt_tail):
+                    return "NEW_FORMAT"
+
+        # 2. Check visual inspection zone keywords
+        if re.search(r"\bCOUNTRY\s*CODE\b", raw_upper) or re.search(r"NATIONALITY\s*[:/]*\s*INDIAN\s*(?:SEX|DATE)", raw_upper):
+            return "OLD_FORMAT"
+        if re.search(r"\bCODE\s*:\s*IND\b", raw_upper) or re.search(r"TYPE\s*:\s*P\s*CODE", raw_upper):
+            return "NEW_FORMAT"
+
+        # 3. Check passport number prefix
+        m_pass = re.search(r"\b([A-Z]{1,2}[0-9]{6,7})\b", raw_upper)
+        if m_pass:
+            p_no = m_pass.group(1)
+            if re.match(r"^[A-Z]{2}[0-9]{6,7}$", p_no):
+                return "NEW_FORMAT"
+            elif re.match(r"^[A-Z]{1}[0-9]{7}$", p_no):
+                return "OLD_FORMAT"
+
+        return "NEW_FORMAT"
+
+    def _decode_new_format_mrz(self, line1: str, line2: str, fields: dict) -> None:
+        """
+        Dedicated MRZ Decoding Algorithm for New Format Indian Passport (TD3-2021+)
+        Line 1: P<INDLASTNAME<<FIRSTNAME<<<<<<<<<<<<<<<<<<<<<<
+        Line 2: AT983807<0IND0608266M36062963067652860226<36 (2 letters + 6 digits)
+        """
+        nat = line1[2:5].replace("<", "").replace("1ND", "IND")
+        if nat:
+            fields["nationality"] = ExtractedField(name="nationality", value=nat, confidence=0.99)
+
+        name_raw = line1[5:44]
+        name_parts = name_raw.split("<<")
+        surname = name_parts[0].replace("<", " ").strip() if len(name_parts) > 0 else ""
+        given_names = name_parts[1].replace("<", " ").strip() if len(name_parts) > 1 else ""
+
+        vis_sur = fields.get("visual_surname") and fields["visual_surname"].value
+        vis_giv = fields.get("visual_given_name") and fields["visual_given_name"].value
+
+        if not given_names or not surname or surname == given_names or "<<" not in name_raw:
+            clean_name_raw = name_raw.replace("<", " ").strip()
+            if vis_sur and vis_giv:
+                surname = vis_sur
+                given_names = vis_giv
+            elif vis_sur and clean_name_raw.startswith(vis_sur) and len(clean_name_raw) > len(vis_sur):
+                surname = vis_sur
+                given_names = clean_name_raw[len(vis_sur):].strip()
+            elif vis_giv and clean_name_raw.endswith(vis_giv) and len(clean_name_raw) > len(vis_giv):
+                given_names = vis_giv
+                surname = clean_name_raw[:-len(vis_giv)].strip()
+            elif vis_sur:
+                surname = vis_sur
+            elif vis_giv:
+                given_names = vis_giv
+
+        if surname:
+            fields["surname"] = ExtractedField(name="surname", value=surname, confidence=0.99)
+        if given_names:
+            fields["given_name"] = ExtractedField(name="given_name", value=given_names, confidence=0.99)
+
+        if surname and given_names:
+            fields["name"] = ExtractedField(name="name", value=f"{surname} {given_names}", confidence=0.99)
+        elif surname or given_names:
+            fields["name"] = ExtractedField(name="name", value=(surname or given_names), confidence=0.99)
+
+        # Line 2 (New Format: 2-letter passport number + check digit + IND + DOB + Sex + Expiry + 14-char personal number)
+        pp_no = line2[0:9].replace("<", "")
+        if pp_no:
+            fields["passport_number"] = ExtractedField(name="passport_number", value=pp_no, confidence=0.99)
+
+        if len(line2) >= 13:
+            line2_nat = line2[10:13].replace("<", "").replace("1ND", "IND")
+            if line2_nat and not fields.get("nationality"):
+                fields["nationality"] = ExtractedField(name="nationality", value=line2_nat, confidence=0.99)
+
+        dob_raw = line2[13:19]
+        if dob_raw.isdigit():
+            fields["date_of_birth"] = ExtractedField(name="date_of_birth", value=dob_raw, confidence=0.99)
+
+        sex = line2[20] if len(line2) > 20 else ""
+        if sex in ("M", "F", "X"):
+            fields["gender"] = ExtractedField(name="gender", value=sex, confidence=0.99)
+
+        exp_raw = line2[21:27]
+        if exp_raw.isdigit():
+            fields["date_of_expiry"] = ExtractedField(name="date_of_expiry", value=exp_raw, confidence=0.99)
+
+        if len(line2) >= 42:
+            opt_data = line2[28:42].replace("<", "")
+            if opt_data:
+                fields["personal_number"] = ExtractedField(name="personal_number", value=opt_data, confidence=0.99)
+
+        fields["mrz_lines"] = ExtractedField(name="mrz_lines", value=f"{line1}\n{line2}", confidence=0.99)
+
+    def _decode_old_format_mrz(self, line1: str, line2: str, fields: dict) -> None:
+        """
+        Dedicated MRZ Decoding Algorithm for Old Format Indian Passport (TD3-Legacy)
+        Line 1: P<INDLASTNAME<<FIRSTNAME<MIDDLENAME<<<<<<<<<<<
+        Line 2: E7251023<2IND8101246M13111303<<<<<<<<<<<<<<2 (1 letter + 7 digits)
+        """
+        nat = line1[2:5].replace("<", "").replace("1ND", "IND")
+        if nat:
+            fields["nationality"] = ExtractedField(name="nationality", value=nat, confidence=0.99)
+
+        name_raw = line1[5:44]
+        name_parts = name_raw.split("<<")
+        surname = name_parts[0].replace("<", " ").strip() if len(name_parts) > 0 else ""
+        given_names = name_parts[1].replace("<", " ").strip() if len(name_parts) > 1 else ""
+
+        vis_sur = fields.get("visual_surname") and fields["visual_surname"].value
+        vis_giv = fields.get("visual_given_name") and fields["visual_given_name"].value
+
+        if not given_names or not surname or surname == given_names or "<<" not in name_raw:
+            clean_name_raw = name_raw.replace("<", " ").strip()
+            if vis_sur and vis_giv:
+                surname = vis_sur
+                given_names = vis_giv
+            elif vis_sur and clean_name_raw.startswith(vis_sur) and len(clean_name_raw) > len(vis_sur):
+                surname = vis_sur
+                given_names = clean_name_raw[len(vis_sur):].strip()
+            elif vis_giv and clean_name_raw.endswith(vis_giv) and len(clean_name_raw) > len(vis_giv):
+                given_names = vis_giv
+                surname = clean_name_raw[:-len(vis_giv)].strip()
+            elif vis_sur:
+                surname = vis_sur
+            elif vis_giv:
+                given_names = vis_giv
+
+        if surname:
+            fields["surname"] = ExtractedField(name="surname", value=surname, confidence=0.99)
+        if given_names:
+            fields["given_name"] = ExtractedField(name="given_name", value=given_names, confidence=0.99)
+
+        if surname and given_names:
+            fields["name"] = ExtractedField(name="name", value=f"{surname} {given_names}", confidence=0.99)
+        elif surname or given_names:
+            fields["name"] = ExtractedField(name="name", value=(surname or given_names), confidence=0.99)
+
+        # Line 2 (Old Format: 1-letter passport number + check digit + IND + DOB + Sex + Expiry + filler)
+        pp_no = line2[0:9].replace("<", "")
+        if pp_no:
+            fields["passport_number"] = ExtractedField(name="passport_number", value=pp_no, confidence=0.99)
+
+        if len(line2) >= 13:
+            line2_nat = line2[10:13].replace("<", "").replace("1ND", "IND")
+            if line2_nat and not fields.get("nationality"):
+                fields["nationality"] = ExtractedField(name="nationality", value=line2_nat, confidence=0.99)
+
+        dob_raw = line2[13:19]
+        if dob_raw.isdigit():
+            fields["date_of_birth"] = ExtractedField(name="date_of_birth", value=dob_raw, confidence=0.99)
+
+        sex = line2[20] if len(line2) > 20 else ""
+        if sex in ("M", "F", "X"):
+            fields["gender"] = ExtractedField(name="gender", value=sex, confidence=0.99)
+
+        exp_raw = line2[21:27]
+        if exp_raw.isdigit():
+            fields["date_of_expiry"] = ExtractedField(name="date_of_expiry", value=exp_raw, confidence=0.99)
+
+        fields["mrz_lines"] = ExtractedField(name="mrz_lines", value=f"{line1}\n{line2}", confidence=0.99)
+
+    def _apply_mrz(self, lines: list[str], fields: dict, detected_format: str = "NEW_FORMAT") -> None:
         try:
-            # Swap lines if they were detected out of vertical order
             clean_l0 = lines[0].replace(" ", "")
             clean_l1 = lines[1].replace(" ", "")
             if clean_l1.startswith("P") and not clean_l0.startswith("P"):
@@ -451,86 +629,10 @@ class PassportFieldExtractor(BaseFieldExtractor):
                 line1 = clean_l0
                 line2 = clean_l1
 
-            # Line 1: P<INDPATHAK<<PARTH<<<<<<<<<<<<<<<<<<<<<<<<<<<
-            # or P<INDPATHAK<<MAULIKKUMAR<ARUNKUMAR<<<<<<<<<<<
-            nat = line1[2:5].replace("<", "")
-            if nat:
-                fields["nationality"] = ExtractedField(name="nationality", value=nat, confidence=0.99)
-
-            name_raw = line1[5:44]
-            name_parts = name_raw.split("<<")
-            surname = name_parts[0].replace("<", " ").strip() if len(name_parts) > 0 else ""
-            given_names = name_parts[1].replace("<", " ").strip() if len(name_parts) > 1 else ""
-
-            vis_sur = fields.get("visual_surname") and fields["visual_surname"].value
-            vis_giv = fields.get("visual_given_name") and fields["visual_given_name"].value
-            vis_nam = fields.get("visual_name") and fields["visual_name"].value
-
-            # If MRZ delimiter "<<" was dropped or merged by OCR (e.g. PATHAKPARTH)
-            if not given_names or not surname or surname == given_names or "<<" not in name_raw:
-                clean_name_raw = name_raw.replace("<", " ").strip()
-                if vis_sur and vis_giv:
-                    surname = vis_sur
-                    given_names = vis_giv
-                elif vis_sur and clean_name_raw.startswith(vis_sur) and len(clean_name_raw) > len(vis_sur):
-                    surname = vis_sur
-                    given_names = clean_name_raw[len(vis_sur):].strip()
-                elif vis_giv and clean_name_raw.endswith(vis_giv) and len(clean_name_raw) > len(vis_giv):
-                    given_names = vis_giv
-                    surname = clean_name_raw[:-len(vis_giv)].strip()
-                elif vis_sur:
-                    surname = vis_sur
-                elif vis_giv:
-                    given_names = vis_giv
-
-            if surname:
-                fields["surname"] = ExtractedField(name="surname", value=surname, confidence=0.99)
-            if given_names:
-                fields["given_name"] = ExtractedField(name="given_name", value=given_names, confidence=0.99)
-
-            if surname and given_names:
-                fields["name"] = ExtractedField(name="name", value=f"{surname} {given_names}", confidence=0.99)
-            elif surname or given_names:
-                fields["name"] = ExtractedField(name="name", value=(surname or given_names), confidence=0.99)
+            if detected_format == "NEW_FORMAT":
+                self._decode_new_format_mrz(line1, line2, fields)
             else:
-                name_part = re.sub(r"\s+", " ", name_raw.replace("<", " ")).strip()
-                if name_part:
-                    fields["name"] = ExtractedField(name="name", value=name_part, confidence=0.99)
-
-            # Line 2: AT983807<0IND0608266M36062963067652860226<36
-            # or E7251023<2IND8101246M13111303<<<<<<<<<<<<<<2
-            pp_no = line2[0:9].replace("<", "")
-            if pp_no:
-                fields["passport_number"] = ExtractedField(name="passport_number", value=pp_no, confidence=0.99)
-
-            # Nationality in line 2
-            if len(line2) >= 13:
-                line2_nat = line2[10:13].replace("<", "")
-                if line2_nat and not fields.get("nationality"):
-                    fields["nationality"] = ExtractedField(name="nationality", value=line2_nat, confidence=0.99)
-
-            # Date of birth (positions 13-18)
-            dob_raw = line2[13:19]
-            if dob_raw.isdigit():
-                fields["date_of_birth"] = ExtractedField(name="date_of_birth", value=dob_raw, confidence=0.99)
-
-            # Gender / Sex (position 20)
-            sex = line2[20] if len(line2) > 20 else ""
-            if sex in ("M", "F", "X"):
-                fields["gender"] = ExtractedField(name="gender", value=sex, confidence=0.99)
-
-            # Date of expiry (positions 21-26)
-            exp_raw = line2[21:27]
-            if exp_raw.isdigit():
-                fields["date_of_expiry"] = ExtractedField(name="date_of_expiry", value=exp_raw, confidence=0.99)
-
-            # Optional / Personal number data (positions 28-42)
-            if len(line2) >= 42:
-                opt_data = line2[28:42].replace("<", "")
-                if opt_data:
-                    fields["personal_number"] = ExtractedField(name="personal_number", value=opt_data, confidence=0.99)
-
-            fields["mrz_lines"] = ExtractedField(name="mrz_lines", value=f"{line1}\n{line2}", confidence=0.99)
+                self._decode_old_format_mrz(line1, line2, fields)
         except Exception:
             pass
 

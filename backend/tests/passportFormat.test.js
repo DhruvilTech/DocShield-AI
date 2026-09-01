@@ -15,6 +15,7 @@ AT983807<0IND0608266M36062963067652860226<36
     const fields = PassportParser.parse(text);
 
     assert.strictEqual(fields.passportNumber.value, 'AT983807');
+    assert.strictEqual(fields.passportFormat.value, 'NEW_FORMAT');
     assert.ok(fields.nationality.value === 'INDIAN' || fields.nationality.value === 'IND');
     assert.strictEqual(fields.gender.value, 'M');
     assert.strictEqual(fields.dateOfBirth.value, '2006-08-26');
@@ -38,6 +39,7 @@ E7251023<2IND8101246M13111303<<<<<<<<<<<<<<2
     const fields = PassportParser.parse(text);
 
     assert.strictEqual(fields.passportNumber.value, 'E7251023');
+    assert.strictEqual(fields.passportFormat.value, 'OLD_FORMAT');
     assert.ok(fields.nationality.value === 'INDIAN' || fields.nationality.value === 'IND');
     assert.strictEqual(fields.gender.value, 'M');
     assert.strictEqual(fields.dateOfBirth.value, '1981-01-24');
