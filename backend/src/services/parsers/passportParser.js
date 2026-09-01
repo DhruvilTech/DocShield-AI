@@ -80,19 +80,31 @@ export class PassportParser {
 
       // Line 1: P<INDLASTNAME<<FIRSTNAME<MIDDLENAME<<<<<<<<<<<<<<<<<<
       if (line1.startsWith('P<') || line1.startsWith('P')) {
-        const country = line1.substring(2, 5).replace(/</g, '');
+        const country = line1.substring(2, 5).replace(/</g, '').replace(/^1ND$/, 'IND');
         const nameRaw = line1.substring(5);
         const nameParts = nameRaw.split('<<');
-        const surname = nameParts[0] ? nameParts[0].replace(/</g, ' ').trim() : '';
-        const givenNames = nameParts[1] ? nameParts[1].replace(/</g, ' ').trim() : '';
-        const fullName = `${surname} ${givenNames}`.trim() || `${givenNames} ${surname}`.trim();
+        let surname = nameParts[0] ? nameParts[0].replace(/</g, ' ').trim() : '';
+        let givenNames = nameParts[1] ? nameParts[1].replace(/</g, ' ').trim() : '';
+
+        // If << was merged or missing, use visual hints to separate surname and given names
+        if ((!givenNames || !surname || surname === givenNames) && !nameRaw.includes('<<')) {
+          const cleanNameRaw = nameRaw.replace(/</g, ' ').trim();
+          if (fields.surname?.value && cleanNameRaw.startsWith(fields.surname.value)) {
+            surname = fields.surname.value;
+            givenNames = cleanNameRaw.substring(surname.length).trim();
+          } else if (fields.givenNames?.value && cleanNameRaw.endsWith(fields.givenNames.value)) {
+            givenNames = fields.givenNames.value;
+            surname = cleanNameRaw.substring(0, cleanNameRaw.length - givenNames.length).trim();
+          }
+        }
+        const fullName = (givenNames && surname) ? `${givenNames} ${surname}` : (surname || givenNames);
 
         if (surname) fields.surname = { value: surname, confidence: 0.95 };
         if (givenNames) fields.givenNames = { value: givenNames, confidence: 0.95 };
         if (fullName) fields.fullName = { value: fullName, confidence: 0.95 };
         if (country) {
           fields.issuingCountry = { value: country, confidence: 0.95 };
-          fields.nationality = { value: country, confidence: 0.95 };
+          fields.nationality = { value: country === 'IND' ? 'INDIAN' : country, confidence: 0.95 };
         }
       }
 
@@ -102,7 +114,7 @@ export class PassportParser {
         const rawPassNum = line2.substring(0, 9);
         const passNum = rawPassNum.replace(/</g, '');
         const passNumCheckDigit = line2.charAt(9);
-        const nationality = line2.substring(10, 13).replace(/</g, '');
+        let nationality = line2.substring(10, 13).replace(/</g, '').replace(/^1ND$/, 'IND');
         const dob = line2.substring(13, 19);
         const dobCheckDigit = line2.charAt(19);
         const gender = line2.charAt(20);
@@ -110,7 +122,7 @@ export class PassportParser {
         const expiryCheckDigit = line2.charAt(27);
 
         if (passNum) fields.passportNumber = { value: passNum, confidence: 0.96 };
-        if (nationality) fields.nationality = { value: nationality, confidence: 0.95 };
+        if (nationality) fields.nationality = { value: nationality === 'IND' ? 'INDIAN' : nationality, confidence: 0.95 };
         if (dob) fields.dateOfBirth = { value: TextNormalizer.standardizeDate(dob), confidence: 0.94 };
         if (['M', 'F', 'X'].includes(gender)) fields.gender = { value: gender, confidence: 0.97 };
         if (expiry) fields.dateOfExpiry = { value: TextNormalizer.standardizeDate(expiry), confidence: 0.94 };

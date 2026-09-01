@@ -348,25 +348,17 @@ export const ScannerPage: React.FC = () => {
     if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
     const docStage = pipelineResult.stages?.document_detection;
     if (docStage && docStage.status === 'passed') {
-      return { label: 'PASSED', variant: 'safe' as const };
+      return { label: 'DETECTED', variant: 'safe' as const };
     }
-    return { label: 'FAILED', variant: 'threat' as const };
+    return { label: 'FAILED / MISMATCH', variant: 'threat' as const };
   };
 
   const isDocTypeMismatch = () => {
     if (!pipelineResult) return false;
-    const docStage = pipelineResult.stages?.document_detection;
-    const valStage = pipelineResult.stages?.validation;
-    if (docStage && docStage.status === 'failed') return true;
-    if (valStage && valStage.status === 'failed') return true;
     const factors = pipelineResult.screening?.factors || [];
     const hasMismatch = factors.some((f: any) =>
-      f.rule?.includes('MISMATCH') ||
-      f.rule?.includes('MISSING_') ||
-      f.rule?.includes('REQUIRED_FIELD_MISSING') ||
-      f.title?.includes('Mismatch') ||
-      f.title?.includes('Missing') ||
-      f.title?.includes('Required Field')
+      f.rule === 'DOCUMENT_TYPE_MISMATCH' ||
+      f.title?.includes('Document Type Mismatch')
     );
     return hasMismatch;
   };
@@ -375,10 +367,10 @@ export const ScannerPage: React.FC = () => {
     if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
     if (isDocTypeMismatch()) return { label: 'INVALID / FAILED', variant: 'threat' as const };
     const factors = pipelineResult.screening?.factors || [];
-    const hasMrzFailure = factors.some((f: any) => f.rule === 'ICAO_9303_CHECKSUM_FAILURE' || f.title.includes('MRZ') || f.title.includes('ICAO'));
-    const isMissing = factors.some((f: any) => f.rule?.includes('REQUIRED_FIELD_MISSING') || f.title.includes('Required Field') || f.title.includes('Missing'));
+    const hasMrzFailure = factors.some((f: any) => f.rule === 'ICAO_9303_CHECKSUM_FAILURE' || (f.title?.includes('MRZ') && f.title?.includes('Checksum')));
+    const isMissing = factors.some((f: any) => f.rule === 'MISSING_MRZ_LINES' || f.title?.includes('Missing MRZ'));
     if (isMissing) {
-      return { label: 'MISSING FIELDS', variant: 'threat' as const };
+      return { label: 'MISSING MRZ', variant: 'threat' as const };
     }
     if (hasMrzFailure) {
       return { label: 'CHECKSUM MISMATCH', variant: 'threat' as const };
@@ -390,7 +382,7 @@ export const ScannerPage: React.FC = () => {
     if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
     if (isDocTypeMismatch()) return { label: 'INVALID / FAILED', variant: 'threat' as const };
     const factors = pipelineResult.screening?.factors || [];
-    const hasMismatch = factors.some((f: any) => f.rule?.includes('MISMATCH') || f.title.includes('Mismatch') || f.title.includes('Discrepancy'));
+    const hasMismatch = factors.some((f: any) => f.rule?.startsWith('VISUAL_MRZ_') && f.rule?.endsWith('_MISMATCH'));
     return hasMismatch
       ? { label: 'DATA MISMATCH', variant: 'threat' as const }
       : { label: 'MATCHED', variant: 'safe' as const };
@@ -400,7 +392,7 @@ export const ScannerPage: React.FC = () => {
     if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
     if (isDocTypeMismatch()) return { label: 'INVALID / FAILED', variant: 'threat' as const };
     const factors = pipelineResult.screening?.factors || [];
-    const isExpired = factors.some((f: any) => f.title.includes('Expired'));
+    const isExpired = factors.some((f: any) => f.rule === 'PASSPORT_EXPIRED' || f.title?.includes('Expired'));
     if (isExpired) {
       return { label: 'EXPIRED', variant: 'threat' as const };
     }
@@ -411,11 +403,11 @@ export const ScannerPage: React.FC = () => {
     if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
     if (isDocTypeMismatch()) return { label: 'INVALID / FAILED', variant: 'threat' as const };
     const factors = pipelineResult.screening?.factors || [];
-    const isExpired = factors.some((f: any) => f.title.includes('Expired'));
+    const isExpired = factors.some((f: any) => f.rule === 'PASSPORT_EXPIRED' || f.title?.includes('Expired'));
     if (isExpired) {
       return { label: 'FAILED (EXPIRED)', variant: 'threat' as const };
     }
-    const isNearExpiry = factors.some((f: any) => f.title.includes('Expires Within 6 Months'));
+    const isNearExpiry = factors.some((f: any) => f.rule === 'NEAR_EXPIRY_SIX_MONTHS' || f.title?.includes('Expires Within 6 Months'));
     if (isNearExpiry) {
       return { label: 'FAILED (NEAR EXPIRY)', variant: 'warning' as const };
     }
@@ -426,7 +418,7 @@ export const ScannerPage: React.FC = () => {
     if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
     if (isDocTypeMismatch()) return { label: 'INVALID / FAILED', variant: 'threat' as const };
     const factors = pipelineResult.screening?.factors || [];
-    const hasInvalidNationality = factors.some((f: any) => f.title.includes('Nationality') && f.title.includes('Invalid'));
+    const hasInvalidNationality = factors.some((f: any) => f.rule === 'INVALID_NATIONALITY_EXTRACTION' || (f.title?.includes('Nationality') && f.title?.includes('Invalid')));
     if (hasInvalidNationality) {
       return { label: 'INVALID EXTRACTION', variant: 'threat' as const };
     }
@@ -437,7 +429,7 @@ export const ScannerPage: React.FC = () => {
     if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
     if (isDocTypeMismatch()) return { label: 'UNVERIFIED', variant: 'threat' as const };
     const factors = pipelineResult.screening?.factors || [];
-    const watchlistHit = factors.some((f: any) => f.title.includes('Watchlist') || f.title.includes('Interpol'));
+    const watchlistHit = factors.some((f: any) => f.title?.includes('Watchlist') || f.title?.includes('Interpol') || f.rule?.includes('WATCHLIST'));
     return watchlistHit
       ? { label: 'ALERT / HIT', variant: 'threat' as const }
       : { label: 'CLEAR', variant: 'safe' as const };
@@ -447,8 +439,8 @@ export const ScannerPage: React.FC = () => {
     if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
     if (isDocTypeMismatch()) return { label: 'INVALID / FAILED', variant: 'threat' as const };
     const factors = pipelineResult.screening?.factors || [];
-    const verhoeffFail = factors.some((f: any) => f.rule === 'VERHOEFF_CHECKSUM_FAILURE' || f.title.includes('Verhoeff'));
-    const isMissing = factors.some((f: any) => f.rule === 'MISSING_AADHAAR_IDENTIFIER' || f.title.includes('Missing National Identity') || f.title.includes('Missing Aadhaar'));
+    const verhoeffFail = factors.some((f: any) => f.rule === 'VERHOEFF_CHECKSUM_FAILURE' || f.title?.includes('Verhoeff'));
+    const isMissing = factors.some((f: any) => f.rule === 'MISSING_AADHAAR_IDENTIFIER' || f.title?.includes('Missing National Identity') || f.title?.includes('Missing Aadhaar'));
     if (isMissing) {
       return { label: 'MISSING ID', variant: 'threat' as const };
     }
@@ -461,8 +453,8 @@ export const ScannerPage: React.FC = () => {
     if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
     if (isDocTypeMismatch()) return { label: 'INVALID / FAILED', variant: 'threat' as const };
     const factors = pipelineResult.screening?.factors || [];
-    const formatFail = factors.some((f: any) => f.rule === 'NATIONAL_ID_FORMAT_MISMATCH' || f.title.includes('National ID Syntax'));
-    const isMissing = factors.some((f: any) => f.rule === 'MISSING_AADHAAR_IDENTIFIER' || f.title.includes('Missing National Identity') || f.title.includes('Missing Aadhaar'));
+    const formatFail = factors.some((f: any) => f.rule === 'NATIONAL_ID_FORMAT_MISMATCH' || f.title?.includes('National ID Syntax'));
+    const isMissing = factors.some((f: any) => f.rule === 'MISSING_AADHAAR_IDENTIFIER' || f.title?.includes('Missing National Identity') || f.title?.includes('Missing Aadhaar'));
     if (isMissing) {
       return { label: 'MISSING ID', variant: 'threat' as const };
     }
@@ -475,14 +467,7 @@ export const ScannerPage: React.FC = () => {
     if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
     const docStage = pipelineResult.stages?.document_detection;
     const isPassed = docStage && docStage.status === 'passed';
-    const factors = pipelineResult.screening?.factors || [];
-    const hasMissingIdentifier = factors.some((f: any) =>
-      f.rule?.includes('MISSING_') ||
-      f.rule?.includes('REQUIRED_FIELD_MISSING') ||
-      f.title?.includes('Missing') ||
-      f.title?.includes('Required Field')
-    );
-    return (isPassed && !hasMissingIdentifier)
+    return isPassed
       ? { label: 'DETECTED', variant: 'safe' as const }
       : { label: 'FAILED / MISMATCH', variant: 'threat' as const };
   };
@@ -1022,44 +1007,134 @@ export const ScannerPage: React.FC = () => {
                   </Card>
                 )}
 
-                {/* Tab 2: OCR Fields (P8 Module 1) */}
+                {/* Tab 2: OCR Fields (P8 Module 1 - Clean Visual Details) */}
                 {activeTab === 'ocr' && (
                   <Card className="p-4">
                     <div className="flex items-center justify-between mb-3 border-b border-[var(--border)] pb-2">
-                      <span className="text-xs font-bold font-mono uppercase text-[var(--text-1)]">
-                        Module 1: Extracted Credential Fields
-                      </span>
+                      <div>
+                        <span className="text-xs font-bold font-mono uppercase text-[var(--text-1)] block">
+                          Module 1: Visual Inspection Details
+                        </span>
+                        <span className="text-[11px] text-[var(--text-3)] font-mono">
+                          Official visual inspection zone credentials & document fields
+                        </span>
+                      </div>
                       <Badge variant="safe" size="sm">Confidence: {((extraction?.confidence_score || 0.95) * 100).toFixed(0)}%</Badge>
                     </div>
 
-                    <div className="grid sm:grid-cols-2 gap-3 text-xs font-mono">
-                      {extraction?.extracted_fields &&
-                        Object.entries(extraction.extracted_fields).map(([key, val]) => {
-                          if (key === 'mrzLines' || key === 'mrzValidation' || typeof val !== 'object' || !val) return null;
-                          return (
-                            <div key={key} className="p-2.5 rounded border border-[var(--border)] bg-[var(--surface-raised)]">
-                              <span className="text-[10px] text-[var(--text-3)] uppercase block mb-0.5">
-                                {key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1')}
+                    {(() => {
+                      const fields: Record<string, any> = extraction?.extracted_fields || {};
+                      const getVal = (primaryKey: string, visualKey: string, altKey?: string) => {
+                        const vis = fields[visualKey]?.value;
+                        if (vis && String(vis).trim()) return String(vis).trim();
+                        const prim = fields[primaryKey]?.value;
+                        if (prim && String(prim).trim()) return String(prim).trim();
+                        if (altKey) {
+                          const alt = fields[altKey]?.value;
+                          if (alt && String(alt).trim()) return String(alt).trim();
+                        }
+                        return null;
+                      };
+
+                      const formatDate = (rawDate: string | null) => {
+                        if (!rawDate) return '—';
+                        const d = String(rawDate).trim();
+                        if (/^\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4}$/.test(d)) return d;
+                        const isoMatch = d.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+                        if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+                        const mrzMatch = d.match(/^(\d{2})(\d{2})(\d{2})$/);
+                        if (mrzMatch) {
+                          const yy = parseInt(mrzMatch[1], 10);
+                          const yearPrefix = yy > 50 ? '19' : '20';
+                          return `${mrzMatch[3]}/${mrzMatch[2]}/${yearPrefix}${mrzMatch[1]}`;
+                        }
+                        return d;
+                      };
+
+                      const formatGender = (rawGender: string | null) => {
+                        if (!rawGender) return '—';
+                        const g = String(rawGender).trim().toUpperCase();
+                        if (g.startsWith('M')) return 'M (MALE)';
+                        if (g.startsWith('F')) return 'F (FEMALE)';
+                        return g;
+                      };
+
+                      const sur = getVal('surname', 'visual_surname', 'visualSurname');
+                      const giv = getVal('given_name', 'visual_given_name', 'givenNames');
+                      let full = getVal('name', 'visual_name', 'fullName');
+                      if (full && sur && full === sur && giv) {
+                        full = `${giv} ${sur}`;
+                      } else if (!full && sur && giv) {
+                        full = `${giv} ${sur}`;
+                      }
+
+                      let displayItems: Array<{ label: string; value: string }> = [];
+
+                      if (docType === 'PASSPORT') {
+                        displayItems = [
+                          { label: 'Full Name', value: full || '—' },
+                          { label: 'Surname', value: sur || '—' },
+                          { label: 'Given Name', value: giv || '—' },
+                          { label: 'Passport Number', value: getVal('passport_number', 'visual_passport_number', 'passportNumber') || '—' },
+                          { label: 'Nationality', value: (getVal('nationality', 'visual_nationality', 'visualNationality') || '—').replace(/^IND$/, 'INDIAN') },
+                          { label: 'Date of Birth', value: formatDate(getVal('date_of_birth', 'visual_date_of_birth', 'dateOfBirth')) },
+                          { label: 'Gender', value: formatGender(getVal('gender', 'visual_gender', 'visualGender')) },
+                          { label: 'Place of Birth', value: getVal('place_of_birth', 'visual_place_of_birth', 'placeOfBirth') || '—' },
+                          { label: 'Place of Issue', value: getVal('place_of_issue', 'visual_place_of_issue', 'placeOfIssue') || '—' },
+                          { label: 'Date of Issue', value: formatDate(getVal('date_of_issue', 'visual_date_of_issue', 'dateOfIssue')) },
+                          { label: 'Date of Expiry', value: formatDate(getVal('date_of_expiry', 'visual_date_of_expiry', 'dateOfExpiry')) },
+                        ];
+                      } else if (docType === 'VISA') {
+                        displayItems = [
+                          { label: 'Full Name', value: full || '—' },
+                          { label: 'Visa Number', value: getVal('visa_number', 'visual_visa_number', 'visaNumber') || '—' },
+                          { label: 'Visa Type', value: getVal('visa_type', 'visual_visa_type', 'visaType') || '—' },
+                          { label: 'Entry Type', value: getVal('entry_type', 'visual_entry_type', 'entryType') || 'SINGLE' },
+                          { label: 'Stay Duration', value: getVal('stay_duration', 'visual_stay_duration', 'stayDuration') || '—' },
+                          { label: 'Date of Issue', value: formatDate(getVal('date_of_issue', 'visual_date_of_issue', 'dateOfIssue')) },
+                          { label: 'Date of Expiry', value: formatDate(getVal('date_of_expiry', 'visual_date_of_expiry', 'dateOfExpiry')) },
+                        ];
+                      } else if (docType === 'NATIONAL_ID') {
+                        displayItems = [
+                          { label: 'Full Name', value: full || '—' },
+                          { label: 'Aadhaar / National ID Number', value: getVal('id_number', 'visual_id_number', 'aadhaarNumber') || '—' },
+                          { label: 'Date of Birth', value: formatDate(getVal('date_of_birth', 'visual_date_of_birth', 'dateOfBirth')) },
+                          { label: 'Gender', value: formatGender(getVal('gender', 'visual_gender', 'visualGender')) },
+                          { label: 'Address', value: getVal('address', 'visual_address', 'address') || '—' },
+                        ];
+                      } else if (docType === 'DRIVING_LICENSE') {
+                        displayItems = [
+                          { label: 'Full Name', value: full || '—' },
+                          { label: 'License Number', value: getVal('license_number', 'visual_license_number', 'licenseNumber') || '—' },
+                          { label: 'Vehicle Class', value: getVal('vehicle_class', 'visual_vehicle_class', 'vehicleClass') || '—' },
+                          { label: 'Date of Birth', value: formatDate(getVal('date_of_birth', 'visual_date_of_birth', 'dateOfBirth')) },
+                          { label: 'Date of Issue', value: formatDate(getVal('date_of_issue', 'visual_date_of_issue', 'dateOfIssue')) },
+                          { label: 'Date of Expiry', value: formatDate(getVal('date_of_expiry', 'visual_date_of_expiry', 'dateOfExpiry')) },
+                        ];
+                      } else {
+                        displayItems = [
+                          { label: 'Full Name', value: full || '—' },
+                          { label: 'Permit Number', value: getVal('permit_number', 'visual_permit_number', 'permitNumber') || '—' },
+                          { label: 'Permit Type', value: getVal('permit_type', 'visual_permit_type', 'permitType') || '—' },
+                          { label: 'Validity Date', value: formatDate(getVal('validity_date', 'visual_validity_date', 'validityDate')) },
+                        ];
+                      }
+
+                      return (
+                        <div className="grid sm:grid-cols-2 gap-3 text-xs font-mono">
+                          {displayItems.map((item, idx) => (
+                            <div key={idx} className="p-2.5 rounded border border-[var(--border)] bg-[var(--surface-raised)]">
+                              <span className="text-[10px] text-[var(--text-3)] uppercase block mb-0.5 font-sans font-semibold tracking-wider">
+                                {item.label}
                               </span>
-                              <span className="font-bold text-[var(--text-1)] text-xs">
-                                {val.value ? String(val.value) : '—'}
+                              <span className="font-bold text-[var(--text-1)] text-xs font-mono">
+                                {item.value}
                               </span>
                             </div>
-                          );
-                        })}
-                    </div>
-
-                    {/* MRZ Lines */}
-                    {extraction?.extracted_fields?.mrzLines?.value && (
-                      <div className="mt-4 p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--border)] text-xs font-mono text-[var(--safe)]">
-                        <span className="text-[10px] text-[var(--text-3)] uppercase block mb-1 font-bold">
-                          Machine Readable Zone (MRZ ICAO Doc 9303)
-                        </span>
-                        {extraction.extracted_fields.mrzLines.value.map((line: string, i: number) => (
-                          <div key={i} className="tracking-widest">{line}</div>
-                        ))}
-                      </div>
-                    )}
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </Card>
                 )}
 

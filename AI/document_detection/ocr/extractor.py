@@ -448,6 +448,27 @@ class PassportFieldExtractor(BaseFieldExtractor):
             surname = name_parts[0].replace("<", " ").strip() if len(name_parts) > 0 else ""
             given_names = name_parts[1].replace("<", " ").strip() if len(name_parts) > 1 else ""
 
+            vis_sur = fields.get("visual_surname") and fields["visual_surname"].value
+            vis_giv = fields.get("visual_given_name") and fields["visual_given_name"].value
+            vis_nam = fields.get("visual_name") and fields["visual_name"].value
+
+            # If MRZ delimiter "<<" was dropped or merged by OCR (e.g. PATHAKPARTH)
+            if not given_names or not surname or surname == given_names or "<<" not in name_raw:
+                clean_name_raw = name_raw.replace("<", " ").strip()
+                if vis_sur and vis_giv:
+                    surname = vis_sur
+                    given_names = vis_giv
+                elif vis_sur and clean_name_raw.startswith(vis_sur) and len(clean_name_raw) > len(vis_sur):
+                    surname = vis_sur
+                    given_names = clean_name_raw[len(vis_sur):].strip()
+                elif vis_giv and clean_name_raw.endswith(vis_giv) and len(clean_name_raw) > len(vis_giv):
+                    given_names = vis_giv
+                    surname = clean_name_raw[:-len(vis_giv)].strip()
+                elif vis_sur:
+                    surname = vis_sur
+                elif vis_giv:
+                    given_names = vis_giv
+
             if surname:
                 fields["surname"] = ExtractedField(name="surname", value=surname, confidence=0.99)
             if given_names:
