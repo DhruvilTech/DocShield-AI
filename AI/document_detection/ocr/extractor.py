@@ -87,6 +87,32 @@ def _is_bilingual_noise(text: str) -> bool:
     return s_cleaned in noise_tokens
 
 
+_SUBTITLE_PATTERNS = [
+    r"/\s*LIEU\s*DE\s*(?:NAISSANCE|D[EÉ']?LIVRANCE|DLIVRANCE)",
+    r"/\s*DATE\s*DE\s*(?:NAISSANCE|D[EÉ']?LIVRANCE|DLIVRANCE)",
+    r"/\s*DATE\s*D['\s]?(?:EXPIRATION|EMISSION)",
+    r"/\s*NO\s*DU\s*PASSEPORT",
+    r"/\s*CODE\s*DU\s*PAYS",
+    r"/\s*CODE\s*PAYS",
+    r"/\s*NATIONALIT[EÉ]",
+    r"/\s*PR[EÉ]NOMS?",
+    r"/\s*NOM",
+    r"/\s*SEXE",
+    r"/\s*TYPE",
+]
+
+
+def _clean_field_value(text: str | None) -> str:
+    if not text:
+        return ""
+    val = text
+    val = re.sub(r"\([^)]*\)", "", val)
+    for pat in _SUBTITLE_PATTERNS:
+        val = re.sub(pat, "", val, flags=re.IGNORECASE)
+    val = re.sub(r"^[/:\s.\-]+", "", val).strip()
+    return val
+
+
 def _find_label_value(
     regions: list[TextRegion],
     labels: list[str],
@@ -98,10 +124,7 @@ def _find_label_value(
             if label in upper:
                 idx = upper.find(label)
                 after_label = region.text[idx + len(label):]
-                after_clean = after_label.lstrip(" :.-")
-
-                # Strip parentheticals like (s), bilingual French prefixes like / Nom, / Nationalité, and colons
-                real_val = re.sub(r"^\s*(?:\([^)]*\)|/[^:]*|[:/.\-\s])+\s*", "", after_clean).strip()
+                real_val = _clean_field_value(after_label)
                 if real_val and not _is_bilingual_noise(real_val):
                     return real_val, region.confidence, region.text
 
@@ -109,7 +132,7 @@ def _find_label_value(
                 for step in (1, 2, 3):
                     if i + step < len(regions):
                         nxt = regions[i + step]
-                        nxt_clean = re.sub(r"^\s*(?:\([^)]*\)|/[^:]*|[:/.\-\s])+\s*", "", nxt.text).strip()
+                        nxt_clean = _clean_field_value(nxt.text)
                         if nxt_clean and not _is_bilingual_noise(nxt_clean):
                             return nxt_clean, nxt.confidence, nxt.text
     return None, None, None
@@ -450,32 +473,40 @@ class PassportFieldExtractor(BaseFieldExtractor):
         """
         raw_upper = raw.upper()
 
-        # 1. Check MRZ Line 2 characteristics
+        line1, line2 = None, None
         if len(mrz_lines) >= 2:
-            l2 = mrz_lines[1]
-            if len(l2) >= 42:
-                opt_tail = l2[28:42]
-                if opt_tail.count("<") >= 8:
-                    return "OLD_FORMAT"
-                elif re.search(r"[0-9A-Z]{8,14}", opt_tail):
-                    return "NEW_FORMAT"
+            l0, l1 = mrz_lines[0], mrz_lines[1]
+            line1 = l0 if l0.startswith("P") else l1
+            line2 = l1 if l0.startswith("P") else l0
+
+        # 1. Check passport number prefix (1 letter + 7 digits = OLD_FORMAT, 2 letters = NEW_FORMAT)
+        m_pass = re.search(r"\b([A-Z]{1,2}[0-9]{6,7})\b", raw_upper)
+        if m_pass:
+            p_no = m_pass.group(1)
+            if re.match(r"^[A-Z]{1}[0-9]{7}$", p_no):
+                return "OLD_FORMAT"
+            elif re.match(r"^[A-Z]{2}[0-9]{6,7}$", p_no):
+                return "NEW_FORMAT"
 
         # 2. Check visual inspection zone keywords
-        if re.search(r"\bCOUNTRY\s*CODE\b", raw_upper) or re.search(r"NATIONALITY\s*[:/]*\s*INDIAN\s*(?:SEX|DATE)", raw_upper):
+        if re.search(r"\bCOUNTRY\s*CODE\b", raw_upper) or re.search(r"CODE\s*DU\s*PAYS", raw_upper):
+            return "OLD_FORMAT"
+        if re.search(r"NATIONALITY\s*[:/]*\s*INDIAN\s*(?:SEX|DATE)", raw_upper):
+            return "OLD_FORMAT"
+        if re.search(r"DATE\s*OF\s*ISSUE.*DATE\s*OF\s*EXPIRY", raw_upper):
             return "OLD_FORMAT"
         if re.search(r"\bCODE\s*:\s*IND\b", raw_upper) or re.search(r"TYPE\s*:\s*P\s*CODE", raw_upper):
             return "NEW_FORMAT"
 
-        # 3. Check passport number prefix
-        m_pass = re.search(r"\b([A-Z]{1,2}[0-9]{6,7})\b", raw_upper)
-        if m_pass:
-            p_no = m_pass.group(1)
-            if re.match(r"^[A-Z]{2}[0-9]{6,7}$", p_no):
+        # 3. Check MRZ Line 2 characteristics
+        if line2 and len(line2) >= 42:
+            opt_tail = line2[28:42].replace("<", "")
+            if len(opt_tail) >= 10 and opt_tail.isdigit():
                 return "NEW_FORMAT"
-            elif re.match(r"^[A-Z]{1}[0-9]{7}$", p_no):
+            if len(opt_tail) <= 4:
                 return "OLD_FORMAT"
 
-        return "NEW_FORMAT"
+        return "OLD_FORMAT"
 
     def _decode_new_format_mrz(self, line1: str, line2: str, fields: dict) -> None:
         """

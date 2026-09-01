@@ -25,41 +25,73 @@ export class PassportParser {
   }
 
   /**
+   * Helper to strip parentheticals and French subtitles from extracted visual fields
+   */
+  static cleanSubtitle(str) {
+    if (!str) return '';
+    return str
+      .replace(/\([^)]*\)/g, '')
+      .replace(/\/\s*LIEU\s*DE\s*(?:NAISSANCE|D[EÉ']?LIVRANCE|DLIVRANCE)/gi, '')
+      .replace(/\/\s*DATE\s*DE\s*(?:NAISSANCE|D[EÉ']?LIVRANCE|DLIVRANCE)/gi, '')
+      .replace(/\/\s*DATE\s*D['\s]?(?:EXPIRATION|EMISSION)/gi, '')
+      .replace(/\/\s*NO\s*DU\s*PASSEPORT/gi, '')
+      .replace(/\/\s*CODE\s*(?:DU\s*)?PAYS/gi, '')
+      .replace(/\/\s*NATIONALIT[EÉ]/gi, '')
+      .replace(/\/\s*PR[EÉ]NOMS?/gi, '')
+      .replace(/\/\s*NOM/gi, '')
+      .replace(/\/\s*SEXE/gi, '')
+      .replace(/\/\s*TYPE/gi, '')
+      .replace(/^[/:\s.\-]+/, '')
+      .trim();
+  }
+
+  /**
    * Determine whether passport is NEW_FORMAT (2021+ TD3) or OLD_FORMAT (Legacy TD3)
    */
-  static detectPassportFormat(text, lines, line1, line2) {
+  static detectPassportFormat(text, lines, rawLine1, rawLine2) {
     const rawUpper = (text || '').toUpperCase();
 
-    // 1. Check MRZ Line 2 characteristics
-    if (line2 && line2.length >= 28) {
-      const optTail = line2.substring(28, 42);
-      if (optTail.replace(/[^<]/g, '').length >= 8) {
-        return 'OLD_FORMAT';
-      }
-      if (/[0-9A-Z]{8,14}/.test(optTail)) {
-        return 'NEW_FORMAT';
-      }
+    let line1 = rawLine1;
+    let line2 = rawLine2;
+    if (line2 && line2.startsWith('P') && line1 && !line1.startsWith('P')) {
+      line1 = rawLine2;
+      line2 = rawLine1;
     }
 
-    // 2. Check Visual Inspection Zone keywords
-    if (/\bCOUNTRY\s*CODE\b/i.test(rawUpper) || /NATIONALITY\s*[:/]*\s*INDIAN\s*(?:SEX|DATE)/i.test(rawUpper)) {
+    // 1. Check Passport Number prefix (1 letter + 7 digits = OLD_FORMAT, 2 letters = NEW_FORMAT)
+    const passMatch = rawUpper.match(/\b([A-Z]{1,2}[0-9]{6,7})\b/);
+    if (passMatch) {
+      const pNo = passMatch[1];
+      if (/^[A-Z]{1}[0-9]{7}$/.test(pNo)) return 'OLD_FORMAT';
+      if (/^[A-Z]{2}[0-9]{6,7}$/.test(pNo)) return 'NEW_FORMAT';
+    }
+
+    // 2. Check Visual Layout signatures
+    if (/\bCOUNTRY\s*CODE\b/i.test(rawUpper) || /CODE\s*DU\s*PAYS/i.test(rawUpper)) {
+      return 'OLD_FORMAT';
+    }
+    if (/NATIONALITY\s*[:/]*\s*INDIAN\s*(?:SEX|DATE)/i.test(rawUpper)) {
+      return 'OLD_FORMAT';
+    }
+    if (/DATE\s*OF\s*ISSUE.*DATE\s*OF\s*EXPIRY/i.test(rawUpper)) {
       return 'OLD_FORMAT';
     }
     if (/\bCODE\s*:\s*IND\b/i.test(rawUpper) || /TYPE\s*:\s*P\s*CODE/i.test(rawUpper)) {
       return 'NEW_FORMAT';
     }
 
-    // 3. Check Passport Number prefix format:
-    // 2 letters + 6-7 digits (e.g. AT983807) -> NEW_FORMAT
-    // 1 letter + 7 digits (e.g. E7251023) -> OLD_FORMAT
-    const passMatch = rawUpper.match(/\b([A-Z]{1,2}[0-9]{6,7})\b/);
-    if (passMatch) {
-      const pNo = passMatch[1];
-      if (/^[A-Z]{2}[0-9]{6,7}$/.test(pNo)) return 'NEW_FORMAT';
-      if (/^[A-Z]{1}[0-9]{7}$/.test(pNo)) return 'OLD_FORMAT';
+    // 3. Check MRZ Line 2 characteristics
+    if (line2 && line2.length >= 28) {
+      const optTail = line2.substring(28, 42).replace(/</g, '');
+      if (/^\d{10,14}$/.test(optTail)) {
+        return 'NEW_FORMAT';
+      }
+      if (optTail.length <= 4) {
+        return 'OLD_FORMAT';
+      }
     }
 
-    return 'NEW_FORMAT';
+    return 'OLD_FORMAT';
   }
 
   /**
@@ -400,13 +432,13 @@ export class PassportParser {
       if (!fields.placeOfBirth.value) {
         const pobRegex = /(?:place\s*of\s*birth|lieu\s*de\s*naissance|birth\s*place)/i;
         if (pobRegex.test(line)) {
-          const lineVal = line.replace(pobRegex, '').replace(/\([^)]*\)/g, '').replace(/^[/:\s.\-]+/, '').trim();
+          const lineVal = PassportParser.cleanSubtitle(line.replace(pobRegex, ''));
           if (lineVal && !/^(lieu|de|naissance|passport|issue|date|republic|state)$/i.test(lineVal)) {
-            fields.placeOfBirth = { value: lineVal, confidence: 0.88 };
+            fields.placeOfBirth = { value: lineVal, confidence: 0.90 };
           } else if (i + 1 < lines.length) {
-            const nextLine = lines[i + 1].replace(/\([^)]*\)/g, '').replace(/^[/:\s.\-]+/, '').trim();
+            const nextLine = PassportParser.cleanSubtitle(lines[i + 1]);
             if (nextLine && !pobRegex.test(nextLine) && !/(?:date|issue|expiry|passport|surname|given)/i.test(nextLine)) {
-              fields.placeOfBirth = { value: nextLine, confidence: 0.88 };
+              fields.placeOfBirth = { value: nextLine, confidence: 0.90 };
             }
           }
         }
@@ -416,13 +448,13 @@ export class PassportParser {
       if (!fields.placeOfIssue.value) {
         const poiRegex = /(?:place\s*of\s*(?:issue|issuance|isue)|lieu\s*de\s*d[eé']?livrance|issued\s*at|issue\s*place)/i;
         if (poiRegex.test(line)) {
-          const lineVal = line.replace(poiRegex, '').replace(/\([^)]*\)/g, '').replace(/^[/:\s.\-]+/, '').trim();
+          const lineVal = PassportParser.cleanSubtitle(line.replace(poiRegex, ''));
           if (lineVal && !/^(lieu|de|d[eé']?livrance|passport|birth|date|republic|state|issue)$/i.test(lineVal)) {
-            fields.placeOfIssue = { value: lineVal, confidence: 0.88 };
+            fields.placeOfIssue = { value: lineVal, confidence: 0.90 };
           } else if (i + 1 < lines.length) {
-            const nextLine = lines[i + 1].replace(/\([^)]*\)/g, '').replace(/^[/:\s.\-]+/, '').trim();
+            const nextLine = PassportParser.cleanSubtitle(lines[i + 1]);
             if (nextLine && !poiRegex.test(nextLine) && !/(?:date|birth|expiry|passport|surname|given)/i.test(nextLine)) {
-              fields.placeOfIssue = { value: nextLine, confidence: 0.88 };
+              fields.placeOfIssue = { value: nextLine, confidence: 0.90 };
             }
           }
         }

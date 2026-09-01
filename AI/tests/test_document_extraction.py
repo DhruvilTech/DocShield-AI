@@ -147,10 +147,13 @@ def test_new_format_indian_passport_visual_layout_extraction():
     ocr = make_ocr(texts)
     fields = PassportFieldExtractor().extract(ocr)
     assert fields["passport_number"].value == "AT983807"
+    assert fields["passport_format"].value == "NEW_FORMAT"
     assert fields["nationality"].value == "INDIAN"
     assert fields["date_of_birth"].value == "26/08/2006"
     assert fields["gender"].value == "M"
     assert fields["date_of_expiry"].value == "29/06/2036"
+    assert fields["place_of_birth"].value == "AHMEDABAD"
+    assert fields["place_of_issue"].value == "AHMEDABAD"
     assert "PARTH" in fields["name"].value
     assert "PATHAK" in fields["name"].value
 
@@ -168,10 +171,13 @@ def test_old_format_indian_passport_visual_layout_extraction():
     ocr = make_ocr(texts)
     fields = PassportFieldExtractor().extract(ocr)
     assert fields["passport_number"].value == "E7251023"
+    assert fields["passport_format"].value == "OLD_FORMAT"
     assert fields["nationality"].value == "INDIAN"
     assert fields["date_of_birth"].value == "24/01/1981"
     assert fields["gender"].value == "M"
     assert fields["date_of_expiry"].value == "13/11/2013"
+    assert fields["place_of_birth"].value == "AHMEDABAD"
+    assert fields["place_of_issue"].value == "AHMEDABAD"
     assert "MAULIKKUMAR" in fields["name"].value
     assert "PATHAK" in fields["name"].value
 
@@ -197,6 +203,7 @@ def test_bilingual_french_indian_passport_extraction():
     ocr = make_ocr(texts)
     fields = PassportFieldExtractor().extract(ocr)
     assert fields["passport_number"].value == "AT983807"
+    assert fields["passport_format"].value == "NEW_FORMAT"
     assert fields["nationality"].value == "IND"
     assert fields["visual_nationality"].value == "INDIAN"
     assert fields["gender"].value == "M"
@@ -210,5 +217,6 @@ def test_bilingual_french_indian_passport_extraction():
     assert fields["name"].value == "PATHAK PARTH"
     assert fields["visual_name"].value == "PARTH PATHAK"
     assert fields["visual_place_of_birth"].value == "VADODARA , GUJARAT"
+    assert fields["visual_place_of_issue"].value == "AHMEDABAD"
 
 
