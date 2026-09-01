@@ -1145,14 +1145,50 @@ export const ScannerPage: React.FC = () => {
                         return g;
                       };
 
+                      const isNoiseName = (nameStr: string | null) => {
+                        if (!nameStr) return true;
+                        const u = nameStr.toUpperCase();
+                        return (
+                          u.includes('SIGNATURE') ||
+                          u.includes('HOLDER') ||
+                          u.includes('LICENCE') ||
+                          u.includes('LICENSE') ||
+                          u.includes('GOVERNMENT') ||
+                          u.includes('GUJARAT') ||
+                          u.length < 3
+                        );
+                      };
+
                       const sur = getVal('surname', 'visual_surname', 'visualSurname');
                       const giv = getVal('given_name', 'visual_given_name', 'givenNames');
                       let full = getVal('name', 'visual_name', 'fullName');
-                      if (sur && giv) {
+
+                      if (isNoiseName(full)) {
+                        // Attempt fallback from raw text
+                        const rawT = String(extraction?.raw_text || extraction?.rawText || '');
+                        const nameM = rawT.match(/(?:Name|Full\s*Name)\s*[:\s\-]+([A-Za-z\s.\-]{3,40})/i);
+                        if (nameM && !isNoiseName(nameM[1])) {
+                          full = nameM[1].trim().toUpperCase();
+                        } else {
+                          full = (fields['name']?.value && !isNoiseName(fields['name'].value)) ? fields['name'].value : null;
+                        }
+                      }
+
+                      if (sur && giv && !isNoiseName(`${giv} ${sur}`)) {
                         full = `${giv} ${sur}`;
-                      } else if (full && sur && !full.includes(sur)) {
+                      } else if (full && sur && !full.includes(sur) && !isNoiseName(full)) {
                         full = `${full} ${sur}`;
                       }
+
+                      // Driving license dates fallback from raw text if missing
+                      const rawPool = String(extraction?.raw_text || extraction?.rawText || '');
+                      const rawIssueM = rawPool.match(/(?:Issue\s*Date|Date\s*Of\s*First\s*Issue|Date\s*of\s*Issue|DOI|Issued\s*On)\s*[:\s\-]*(\d{2}[/\-.]\d{2}[/\-.]\d{4})/i);
+                      const rawExpM = rawPool.match(/(?:Validity\s*(?:\(\s*[A-Z]+\s*\))?|Valid\s*(?:Till|Upto|Until)|Expiry\s*Date|Date\s*of\s*Expiry|Expires)\s*[:\s\-]*(\d{2}[/\-.]\d{2}[/\-.]\d{4})/i);
+                      const rawDobM = rawPool.match(/(?:Date\s*Of\s*Birth|DOB|Birth\s*Date)\s*[:\s\-]*(\d{2}[/\-.]\d{2}[/\-.]\d{4})/i);
+
+                      const dlDob = getVal('date_of_birth', 'visual_date_of_birth', 'dateOfBirth') || (rawDobM ? rawDobM[1] : null);
+                      const dlIssue = getVal('date_of_issue', 'visual_date_of_issue', 'dateOfIssue', 'issue_date') || (rawIssueM ? rawIssueM[1] : null);
+                      const dlExpiry = getVal('date_of_expiry', 'visual_date_of_expiry', 'dateOfExpiry', 'validity') || (rawExpM ? rawExpM[1] : null);
 
                       let displayItems: Array<{ label: string; value: string }> = [];
 
@@ -1191,11 +1227,11 @@ export const ScannerPage: React.FC = () => {
                       } else if (docType === 'DRIVING_LICENSE') {
                         displayItems = [
                           { label: 'Full Name', value: full || '—' },
-                          { label: 'License Number', value: getVal('license_number', 'visual_license_number', 'licenseNumber') || '—' },
-                          { label: 'Vehicle Class', value: getVal('vehicle_class', 'visual_vehicle_class', 'vehicleClass') || '—' },
-                          { label: 'Date of Birth', value: formatDate(getVal('date_of_birth', 'visual_date_of_birth', 'dateOfBirth')) },
-                          { label: 'Date of Issue', value: formatDate(getVal('date_of_issue', 'visual_date_of_issue', 'dateOfIssue')) },
-                          { label: 'Date of Expiry', value: formatDate(getVal('date_of_expiry', 'visual_date_of_expiry', 'dateOfExpiry')) },
+                          { label: 'License Number', value: getVal('license_number', 'visual_license_number', 'licenseNumber', 'id_number') || '—' },
+                          { label: 'Vehicle Class', value: getVal('vehicle_class', 'visual_vehicle_class', 'vehicleClass', 'licenseClass') || '—' },
+                          { label: 'Date of Birth', value: formatDate(dlDob) },
+                          { label: 'Date of Issue', value: formatDate(dlIssue) },
+                          { label: 'Date of Expiry', value: formatDate(dlExpiry) },
                         ];
                       } else {
                         displayItems = [

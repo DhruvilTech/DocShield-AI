@@ -29,7 +29,7 @@ PASSPORT_FIELDS = [
 VISA_FIELDS = ["visa_number", "visa_type", "entry_validation", "stay_duration"]
 NATIONAL_ID_FIELDS = ["id_number", "name", "date_of_birth", "gender", "pin_code"]
 DRIVING_LICENSE_FIELDS = [
-    "license_number", "name", "date_of_birth", "date_of_expiry", "vehicle_class",
+    "license_number", "name", "date_of_birth", "date_of_issue", "date_of_expiry", "vehicle_class",
 ]
 PERMIT_FIELDS = ["permit_number", "name", "permit_type", "vehicle_no", "date_of_expiry"]
 
@@ -941,16 +941,16 @@ class DrivingLicenseFieldExtractor(BaseFieldExtractor):
     """Extracts Indian Driving License fields per MoRTH/SARATHI.
 
     License number format: STATE(2) + RTO(2) + YEAR(4) + SEQ(7) = 15 chars
-    Example: MH0120200034761
+    Example: GJ0620230002129 / MH0120200034761
     """
 
     _DL_RE = re.compile(
         r"\b([A-Z]{2}[\s\-]?[0-9]{2}[\s\-]?(?:19|20)[0-9]{2}[\s\-]?[0-9]{7})\b",
         re.IGNORECASE,
     )
-    _DOB_RE = re.compile(r"\b(\d{2}[/\-]\d{2}[/\-]\d{4})\b")
+    _DOB_RE = re.compile(r"\b(\d{2}[/\-.]\d{2}[/\-.]\d{4})\b")
     _VEHICLE_CLASS_RE = re.compile(
-        r"\b(LMV|MCWG|MCWOG|HPMV|HTV|HGV|MGV|LPV|LDRXCV|ADAPT|TR)\b",
+        r"\b(LMV|MCWG|MCWOG|HPMV|HTV|HGV|MGV|LPV|LDRXCV|ADAPT|TR|NT)\b",
         re.IGNORECASE,
     )
 
@@ -959,7 +959,7 @@ class DrivingLicenseFieldExtractor(BaseFieldExtractor):
         regions = ocr_result.regions
         fields: dict[str, ExtractedField] = {}
 
-        # License number — normalise spaces/hyphens
+        # 1. License number — normalise spaces/hyphens
         m = self._DL_RE.search(raw)
         if m:
             fields["license_number"] = ExtractedField(
@@ -971,30 +971,166 @@ class DrivingLicenseFieldExtractor(BaseFieldExtractor):
         else:
             fields["license_number"] = _empty("license_number")
 
-        # Name
-        val, conf, src = _find_label_value(regions, ["NAME", "HOLDER", "NAAM"])
-        fields["name"] = ExtractedField(name="name", value=val, confidence=conf, source_text=src)
+        # Helper to validate clean personal name (reject signatures and government headers)
+        def is_clean_name(val_str: str | None) -> bool:
+            if not val_str:
+                return False
+            clean = val_str.strip().upper()
+            noise = [
+                "SIGNATURE", "HOLDER", "HOLDER'S SIGNATURE", "SIGN", "LICENCE", "LICENSE",
+                "DRIVING", "UNION", "INDIAN", "GUJARAT", "MAHARASHTRA", "GOVERNMENT",
+                "STATE", "AUTHORITY", "TRANSPORT", "MINISTRY", "MORTH", "SARATHI",
+                "SON", "DAUGHTER", "WIFE", "S/O", "D/O", "W/O", "DATE", "ISSUE",
+                "EXPIRY", "VALIDITY", "CLASS", "ADDRESS", "BLOOD", "GROUP", "DONOR"
+            ]
+            if any(n in clean for n in ["SIGNATURE", "LICENCE", "LICENSE", "GOVERNMENT", "GUJARAT", "INDIAN UNION"]):
+                return False
+            if any(clean == n for n in noise):
+                return False
+            if len(clean) < 3:
+                return False
+            letters_spaces = sum(c.isalpha() or c.isspace() or c == '.' for c in clean)
+            return letters_spaces >= len(clean) * 0.85
 
-        # Date of birth
-        val, conf, src = _find_label_value(regions, ["DOB", "DATE OF BIRTH", "BIRTH"])
-        if val is None:
-            dm = self._DOB_RE.search(raw)
-            val = dm.group(0) if dm else None
-            conf = _get_confidence_for_match(val, regions) if val else None
-        fields["date_of_birth"] = ExtractedField(name="date_of_birth", value=val, confidence=conf, source_text=src)
+        # 2. Name Extraction
+        name_val, name_conf, name_src = None, None, None
 
-        # Expiry date
-        val, conf, src = _find_label_value(
-            regions, ["EXPIRY", "VALID TILL", "VALID UPTO", "EXP", "EXPIRES"]
-        )
-        fields["date_of_expiry"] = ExtractedField(name="date_of_expiry", value=val, confidence=conf, source_text=src)
+        # Look in regions for "Name :" or "Name" label specifically (not Holder)
+        for r in regions:
+            r_text = r.text.strip()
+            # Match "Name : PARTH PATHAK" or "Name: PARTH PATHAK"
+            m_name = re.search(r"^(?:Name|Full\s*Name|Naam)\s*[:\s\-]+([A-Za-z\s.\-]{3,40})$", r_text, re.IGNORECASE)
+            if m_name and is_clean_name(m_name.group(1)):
+                name_val = m_name.group(1).strip().upper()
+                name_conf = r.confidence
+                name_src = r.text
+                break
 
-        # Vehicle class
+        if not name_val:
+            val, conf, src = _find_label_value(regions, ["NAME", "NAAM"])
+            if val and is_clean_name(val):
+                name_val = val.strip().upper()
+                name_conf = conf
+                name_src = src
+
+        if not name_val:
+            m_raw = re.search(r"\bName\s*[:\s\-]+([A-Z\s.\-]{3,40})\b", raw, re.IGNORECASE)
+            if m_raw and is_clean_name(m_raw.group(1)):
+                name_val = m_raw.group(1).strip().upper()
+                name_conf = _get_confidence_for_match(name_val, regions)
+                name_src = m_raw.group(0)
+
+        fields["name"] = ExtractedField(name="name", value=name_val, confidence=name_conf, source_text=name_src)
+
+        # 3. All Dates Collection for Smart Chronological & Label-Based Resolution
+        all_dates_found = re.findall(r"\b(\d{2}[/\-.]\d{2}[/\-.]\d{4})\b", raw)
+        parsed_dates = []
+        for d_str in all_dates_found:
+            try:
+                from dateutil import parser as d_parser
+                parsed_dates.append((d_parser.parse(d_str, dayfirst=True).date(), d_str))
+            except Exception:
+                pass
+        parsed_dates = sorted(list(set(parsed_dates)), key=lambda x: x[0])
+
+        # 4. Date of Birth
+        dob_val, dob_conf, dob_src = None, None, None
+        for r in regions:
+            m_dob = re.search(r"(?:Date\s*Of\s*Birth|DOB|Birth\s*Date|Janm\s*Tithi)\s*[:\s\-]*(\d{2}[/\-.]\d{2}[/\-.]\d{4})", r.text, re.IGNORECASE)
+            if m_dob:
+                dob_val = m_dob.group(1).replace(".", "-").replace("/", "-")
+                dob_conf = r.confidence
+                dob_src = r.text
+                break
+
+        if not dob_val:
+            val, conf, src = _find_label_value(regions, ["DOB", "DATE OF BIRTH", "BIRTH DATE", "BIRTH"])
+            if val:
+                dm = self._DOB_RE.search(val)
+                if dm:
+                    dob_val = dm.group(0).replace(".", "-").replace("/", "-")
+                    dob_conf = conf
+                    dob_src = src
+
+        if not dob_val and parsed_dates:
+            from datetime import date
+            today = date.today()
+            past_dates = [d for d in parsed_dates if d[0] < today]
+            if past_dates:
+                dob_val = past_dates[0][1].replace(".", "-").replace("/", "-")
+                dob_conf = 0.92
+
+        fields["date_of_birth"] = ExtractedField(name="date_of_birth", value=dob_val, confidence=dob_conf, source_text=dob_src)
+
+        # 5. Date of Issue
+        doi_val, doi_conf, doi_src = None, None, None
+        for r in regions:
+            m_doi = re.search(r"(?:Issue\s*Date|Date\s*Of\s*First\s*Issue|Date\s*of\s*Issue|Issued\s*On|DOI)\s*[:\s\-]*(\d{2}[/\-.]\d{2}[/\-.]\d{4})", r.text, re.IGNORECASE)
+            if m_doi:
+                doi_val = m_doi.group(1).replace(".", "-").replace("/", "-")
+                doi_conf = r.confidence
+                doi_src = r.text
+                break
+
+        if not doi_val:
+            val, conf, src = _find_label_value(regions, ["ISSUE DATE", "DATE OF FIRST ISSUE", "DATE OF ISSUE", "ISSUED ON", "DOI", "ISSUE"])
+            if val:
+                dm = self._DOB_RE.search(val)
+                if dm:
+                    doi_val = dm.group(0).replace(".", "-").replace("/", "-")
+                    doi_conf = conf
+                    doi_src = src
+
+        if not doi_val and len(parsed_dates) >= 2:
+            from datetime import date
+            today = date.today()
+            past_dates = [d for d in parsed_dates if d[0] < today and d[1].replace(".", "-").replace("/", "-") != dob_val]
+            if past_dates:
+                doi_val = past_dates[-1][1].replace(".", "-").replace("/", "-")
+                doi_conf = 0.88
+
+        fields["date_of_issue"] = ExtractedField(name="date_of_issue", value=doi_val, confidence=doi_conf, source_text=doi_src)
+
+        # 6. Date of Expiry / Validity
+        exp_val, exp_conf, exp_src = None, None, None
+        for r in regions:
+            m_exp = re.search(r"(?:Validity\s*(?:\(\s*[A-Z]+\s*\))?|Valid\s*(?:Till|Upto|Until)|Expiry\s*Date|Date\s*of\s*Expiry|Expires)\s*[:\s\-]*(\d{2}[/\-.]\d{2}[/\-.]\d{4})", r.text, re.IGNORECASE)
+            if m_exp:
+                exp_val = m_exp.group(1).replace(".", "-").replace("/", "-")
+                exp_conf = r.confidence
+                exp_src = r.text
+                break
+
+        if not exp_val:
+            val, conf, src = _find_label_value(
+                regions, ["VALIDITY ( NT )", "VALIDITY ( TR )", "VALIDITY(NT)", "VALIDITY(TR)", "VALIDITY", "VALID TILL", "VALID UPTO", "EXPIRY", "EXP", "EXPIRES"]
+            )
+            if val:
+                dm = self._DOB_RE.search(val)
+                if dm:
+                    exp_val = dm.group(0).replace(".", "-").replace("/", "-")
+                    exp_conf = conf
+                    exp_src = src
+
+        if not exp_val and parsed_dates:
+            from datetime import date
+            today = date.today()
+            future_dates = [d for d in parsed_dates if d[0] >= today]
+            if future_dates:
+                exp_val = future_dates[-1][1].replace(".", "-").replace("/", "-")
+                exp_conf = 0.94
+            elif len(parsed_dates) >= 2:
+                exp_val = parsed_dates[-1][1].replace(".", "-").replace("/", "-")
+                exp_conf = 0.85
+
+        fields["date_of_expiry"] = ExtractedField(name="date_of_expiry", value=exp_val, confidence=exp_conf, source_text=exp_src)
+
+        # 7. Vehicle class
         val, conf, src = _find_label_value(regions, ["CLASS", "VEHICLE CLASS", "COV", "CATEGORY"])
-        if val is None:
-            vcm = self._VEHICLE_CLASS_RE.search(raw)
-            val = vcm.group(0).upper() if vcm else None
-            conf = _get_confidence_for_match(val, regions) if val else None
+        classes_found = re.findall(r"\b(LMV|MCWG|MCWOG|HPMV|HTV|HGV|MGV|LPV|LDRXCV|ADAPT|TR|NT)\b", raw, re.IGNORECASE)
+        if classes_found:
+            val = ", ".join(list(dict.fromkeys([c.upper() for c in classes_found])))
+            conf = 0.95
         fields["vehicle_class"] = ExtractedField(name="vehicle_class", value=val, confidence=conf)
 
         for key in DRIVING_LICENSE_FIELDS:
@@ -1002,6 +1138,7 @@ class DrivingLicenseFieldExtractor(BaseFieldExtractor):
                 fields[key] = _empty(key)
 
         return fields
+
 
 
 # ── Vehicle Permit ─────────────────────────────────────────────────────────────

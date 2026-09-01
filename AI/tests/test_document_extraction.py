@@ -220,3 +220,30 @@ def test_bilingual_french_indian_passport_extraction():
     assert fields["visual_place_of_issue"].value == "AHMEDABAD"
 
 
+def test_indian_gujarat_driving_license_extraction():
+    texts = [
+        "Indian Union Driving Licence",
+        "Issued by Government of Gujarat  GJ",
+        "GJ06 20230002129",
+        "Issue Date    Validity ( NT )    Validity ( TR )",
+        "04-02-2023    25-08-2046",
+        "Date Of First Issue 04-02-2023",
+        "Holder's Signature",
+        "Name : PARTH PATHAK",
+        "Date Of Birth : 26-08-2006   Blood Group :",
+        "Son/Daughter/Wife of : MAULIK PATHAK",
+        "Address",
+        "A-2/42 DWARKANAGARI SOCIETY,",
+        "BH HARIGANGA SOCIETY,",
+        "WAGHODIA ROAD, 390019",
+    ]
+    ocr = make_ocr(texts)
+    fields = DrivingLicenseFieldExtractor().extract(ocr)
+    assert fields["license_number"].value == "GJ0620230002129"
+    assert fields["name"].value == "PARTH PATHAK"
+    assert fields["date_of_birth"].value == "26-08-2006"
+    assert fields["date_of_issue"].value == "04-02-2023"
+    assert fields["date_of_expiry"].value == "25-08-2046"
+
+
+
