@@ -670,12 +670,15 @@ class PassportFieldExtractor(BaseFieldExtractor):
 
 # ── Visa ───────────────────────────────────────────────────────────────────────
 
-class VisaFieldExtractor(BaseFieldExtractor):
-    """Extracts Indian visa fields.
+# ── Visa ───────────────────────────────────────────────────────────────────────
 
-    visa_number patterns (India Bureau of Immigration):
+class VisaFieldExtractor(BaseFieldExtractor):
+    """Extracts Visa fields supporting Visual Inspection Zone and ICAO Doc 9303 MRV (MRV-A 2x44 & MRV-B 2x36).
+
+    visa_number patterns (India Bureau of Immigration & ICAO MRTD):
       Sticker visa : 8-digit numeric   (e.g. 12345678)
       e-Visa ETA   : 8-12 alphanumeric (e.g. 9004FF17M)
+      MRV format   : 9 alphanumeric characters (e.g. V1234567< or 12345678<)
     """
 
     _VISA_NO_RE = re.compile(r"\b(?:[A-Z0-9]{8,12}|\d{8})\b")
@@ -686,52 +689,204 @@ class VisaFieldExtractor(BaseFieldExtractor):
         regions = ocr_result.regions
         fields: dict[str, ExtractedField] = {}
 
-        val, conf, src = _find_label_value(regions, ["VISA NO", "VISA NUMBER", "VISA#", "ETA"])
+        # 1. Visa Number
+        val, conf, src = _find_label_value(regions, ["VISA NUMBER", "VISA NO.", "VISA NO", "VISA#", "CONTROL NUMBER", "CONTROL NO", "ETA"])
         if val is None:
             m = self._VISA_NO_RE.search(raw)
             val = m.group(0) if m else None
             conf = _get_confidence_for_match(val, regions) if val else None
         fields["visa_number"] = ExtractedField(name="visa_number", value=val, confidence=conf, source_text=src)
 
-        val, conf, src = _find_label_value(regions, ["VISA TYPE", "TYPE OF VISA", "TYPE"])
+        # 2. Visa Type
+        val, conf, src = _find_label_value(regions, ["TYPE OF VISA", "VISA TYPE", "CATEGORY", "CLASS", "TYPE"])
         fields["visa_type"] = ExtractedField(name="visa_type", value=val, confidence=conf, source_text=src)
 
-        val, conf, src = _find_label_value(regions, ["ENTRY", "ENTRIES", "NUMBER OF ENTRIES", "NO OF ENTRIES"])
+        # 3. Entry Validation
+        val, conf, src = _find_label_value(regions, ["NUMBER OF ENTRIES", "NO OF ENTRIES", "NO. OF ENTRIES", "ENTRIES", "ENTRY"])
         fields["entry_validation"] = ExtractedField(name="entry_validation", value=val, confidence=conf, source_text=src)
 
-        val, conf, src = _find_label_value(regions, ["DURATION", "STAY", "PERIOD", "VALIDITY"])
+        # 4. Stay Duration
+        val, conf, src = _find_label_value(regions, ["DURATION OF STAY", "STAY DURATION", "DURATION", "PERIOD", "VALIDITY", "STAY"])
         if val is None:
             sm = self._STAY_RE.search(raw)
             val = sm.group(0) if sm else None
             conf = _get_confidence_for_match(val, regions) if val else None
         fields["stay_duration"] = ExtractedField(name="stay_duration", value=val, confidence=conf, source_text=src)
 
-        # Name / Bearer
-        val, conf, src = _find_label_value(regions, ["NAME", "FULL NAME", "BEARER", "NAME OF BEARER", "HOLDER"])
-        if val and not any(k in val.lower() for k in ["visa", "passport", "republic", "consulate"]):
-            fields["name"] = ExtractedField(name="name", value=val, confidence=conf, source_text=src)
+        # 5. Name / Bearer
+        val, conf, src = _find_label_value(regions, ["NAME OF BEARER", "FULL NAME", "BEARER", "NAME", "HOLDER"])
+        if val and not any(k in val.lower() for k in ["visa", "passport", "republic", "consulate", "department", "embassy"]):
+            fields["name"] = ExtractedField(name="name", value=val.strip().upper(), confidence=conf, source_text=src)
 
-        # Gender / Sex
+        # Surname & Given Names if separate
+        sur_val, sur_conf, sur_src = _find_label_value(regions, ["SURNAME", "LAST NAME"])
+        if sur_val and not any(k in sur_val.lower() for k in ["visa", "passport", "republic"]):
+            fields["surname"] = ExtractedField(name="surname", value=sur_val.strip().upper(), confidence=sur_conf, source_text=sur_src)
+
+        giv_val, giv_conf, giv_src = _find_label_value(regions, ["GIVEN NAME", "GIVEN NAMES", "FIRST NAME"])
+        if giv_val and not any(k in giv_val.lower() for k in ["visa", "passport", "republic"]):
+            fields["given_name"] = ExtractedField(name="given_name", value=giv_val.strip().upper(), confidence=giv_conf, source_text=giv_src)
+
+        if fields.get("surname") and fields.get("given_name") and fields["surname"].value and fields["given_name"].value:
+            fields["name"] = ExtractedField(
+                name="name",
+                value=f"{fields['given_name'].value} {fields['surname'].value}".strip(),
+                confidence=0.92
+            )
+
+        # 6. Gender / Sex
         val, conf, src = _find_label_value(regions, ["SEX", "GENDER", "SEXE"])
         if val:
             v_upper = val.strip().upper()
-            if v_upper.startswith("M"):
+            if v_upper.startswith("M") or v_upper == "HOMME":
                 fields["gender"] = ExtractedField(name="gender", value="M", confidence=conf, source_text=src)
-            elif v_upper.startswith("F"):
+            elif v_upper.startswith("F") or v_upper == "FEMME":
                 fields["gender"] = ExtractedField(name="gender", value="F", confidence=conf, source_text=src)
             else:
                 fields["gender"] = ExtractedField(name="gender", value=v_upper, confidence=conf, source_text=src)
 
-        # Passport Number reference
-        val, conf, src = _find_label_value(regions, ["PASSPORT NO", "PASSPORT NUMBER", "PP NO", "DOC NO"])
+        # 7. Nationality
+        nat_val, nat_conf, nat_src = _find_label_value(regions, ["NATIONALITY", "CITIZENSHIP", "NATIONAL"])
+        if nat_val and len(nat_val.strip()) >= 2:
+            fields["nationality"] = ExtractedField(name="nationality", value=nat_val.strip().upper(), confidence=nat_conf, source_text=nat_src)
+
+        # 8. Dates (DOB, Valid From / Issue Date, Valid Until / Expiry Date)
+        dob_val, dob_conf, dob_src = _find_label_value(regions, ["DOB", "DATE OF BIRTH", "BIRTH DATE", "BORN"])
+        if dob_val:
+            fields["date_of_birth"] = ExtractedField(name="date_of_birth", value=dob_val.strip(), confidence=dob_conf, source_text=dob_src)
+
+        doi_val, doi_conf, doi_src = _find_label_value(regions, ["VALID FROM", "DATE OF ISSUE", "ISSUE DATE", "FROM", "ISSUED ON"])
+        if doi_val:
+            fields["date_of_issue"] = ExtractedField(name="date_of_issue", value=doi_val.strip(), confidence=doi_conf, source_text=doi_src)
+
+        exp_val, exp_conf, exp_src = _find_label_value(regions, ["VALID UNTIL", "EXPIRY DATE", "EXPIRATION", "EXPIRY", "UNTIL", "DATE OF EXPIRY"])
+        if exp_val:
+            fields["date_of_expiry"] = ExtractedField(name="date_of_expiry", value=exp_val.strip(), confidence=exp_conf, source_text=exp_src)
+
+        # 9. Passport Number reference
+        val, conf, src = _find_label_value(regions, ["PASSPORT NO", "PASSPORT NUMBER", "PP NO", "DOC NO", "PASSPORT"])
         if val:
-            fields["passport_number"] = ExtractedField(name="passport_number", value=val, confidence=conf, source_text=src)
+            fields["passport_number"] = ExtractedField(name="passport_number", value=val.strip().upper(), confidence=conf, source_text=src)
+
+        # Store visual values before MRZ override for cross-validation
+        for field_name in ["visa_number", "gender", "name", "surname", "given_name", "nationality", "date_of_birth", "date_of_expiry", "date_of_issue", "passport_number"]:
+            if field_name in fields and fields[field_name].value:
+                fields[f"visual_{field_name}"] = ExtractedField(
+                    name=f"visual_{field_name}",
+                    value=fields[field_name].value,
+                    confidence=fields[field_name].confidence,
+                    source_text=fields[field_name].source_text
+                )
+
+        # 10. MRZ Detection for Visas (ICAO Doc 9303 MRV-A 2x44 and MRV-B 2x36)
+        mrz_candidates = []
+        for r in regions:
+            cleaned = r.text.replace(" ", "").upper()
+            cleaned = cleaned.replace("(", "<").replace(")", "<").replace("[", "<").replace("]", "<").replace("{", "<").replace("}", "<").replace("«", "<").replace("—", "<").replace("_", "<")
+            filtered = "".join([c for c in cleaned if c.isalnum() or c == "<"])
+            if len(filtered) >= 25 and ("<" in filtered or filtered.startswith("V")):
+                mrz_candidates.append(filtered)
+
+        for line in raw.split("\n"):
+            cleaned = line.replace(" ", "").upper()
+            cleaned = cleaned.replace("(", "<").replace(")", "<").replace("[", "<").replace("]", "<").replace("{", "<").replace("}", "<").replace("«", "<").replace("—", "<").replace("_", "<")
+            filtered = "".join([c for c in cleaned if c.isalnum() or c == "<"])
+            if len(filtered) >= 25 and ("<" in filtered or filtered.startswith("V")):
+                if filtered not in mrz_candidates:
+                    mrz_candidates.append(filtered)
+
+        line1_cand = None
+        line2_cand = None
+        for cand in mrz_candidates:
+            if not line1_cand and (cand.startswith("V<") or (cand.startswith("V") and "<" in cand)):
+                line1_cand = cand
+            elif not line2_cand and cand != line1_cand:
+                if re.search(r"[0-9]{6}", cand) or re.search(r"[0-9]{7}", cand):
+                    line2_cand = cand
+
+        if line1_cand and line2_cand:
+            # Determine whether MRV-A (44 chars) or MRV-B (36 chars)
+            max_len = max(len(line1_cand), len(line2_cand))
+            target_len = 44 if max_len > 36 else 36
+            visa_fmt = "MRV_A" if target_len == 44 else "MRV_B"
+            
+            line1_cand = line1_cand.ljust(target_len, "<")[:target_len]
+            line2_cand = line2_cand.ljust(target_len, "<")[:target_len]
+
+            fields["visa_format"] = ExtractedField(name="visa_format", value=visa_fmt, confidence=0.98)
+            self._apply_visa_mrz(line1_cand, line2_cand, fields, visa_fmt)
 
         for key in VISA_FIELDS:
             if key not in fields:
                 fields[key] = _empty(key)
 
         return fields
+
+    def _apply_visa_mrz(self, line1: str, line2: str, fields: dict, visa_format: str) -> None:
+        """
+        Decodes ICAO Doc 9303 Part 7 Machine Readable Visa (MRV-A 2x44 or MRV-B 2x36).
+        Line 1: V<INDLASTNAME<<FIRSTNAME<<<<<<<<<<<<<<<<<<<<<< (MRV-A)
+                V<INDLASTNAME<<FIRSTNAME<<<<<<<<<<<< (MRV-B)
+        Line 2: 12345678<0USA8608266M2606296<<<<<<<<<<<<<<<< (MRV-A)
+                12345678<0USA8608266M2606296<<<<<<<< (MRV-B)
+        """
+        try:
+            # Line 1: Issuing state and Name
+            country = line1[2:5].replace("<", "")
+            if country:
+                fields["issuing_country"] = ExtractedField(name="issuing_country", value=country, confidence=0.98)
+
+            name_raw = line1[5:]
+            name_parts = name_raw.split("<<")
+            surname = name_parts[0].replace("<", " ").strip() if len(name_parts) > 0 else ""
+            given_names = name_parts[1].replace("<", " ").strip() if len(name_parts) > 1 else ""
+
+            if surname:
+                fields["surname"] = ExtractedField(name="surname", value=surname, confidence=0.98)
+            if given_names:
+                fields["given_name"] = ExtractedField(name="given_name", value=given_names, confidence=0.98)
+
+            if surname and given_names:
+                fields["name"] = ExtractedField(name="name", value=f"{surname} {given_names}", confidence=0.98)
+            elif surname or given_names:
+                fields["name"] = ExtractedField(name="name", value=(surname or given_names), confidence=0.98)
+
+            # Line 2: Visa Number, Nationality, DOB, Gender, Expiry Date, Optional Data
+            v_no = line2[0:9].replace("<", "")
+            if v_no:
+                fields["visa_number"] = ExtractedField(name="visa_number", value=v_no, confidence=0.98)
+
+            if len(line2) >= 13:
+                nat = line2[10:13].replace("<", "")
+                if nat:
+                    fields["nationality"] = ExtractedField(name="nationality", value=nat, confidence=0.98)
+
+            if len(line2) >= 19:
+                dob_raw = line2[13:19]
+                if dob_raw.isdigit():
+                    fields["date_of_birth"] = ExtractedField(name="date_of_birth", value=dob_raw, confidence=0.98)
+
+            if len(line2) > 20:
+                sex = line2[20]
+                if sex in ("M", "F", "X"):
+                    fields["gender"] = ExtractedField(name="gender", value=sex, confidence=0.98)
+
+            if len(line2) >= 27:
+                exp_raw = line2[21:27]
+                if exp_raw.isdigit():
+                    fields["date_of_expiry"] = ExtractedField(name="date_of_expiry", value=exp_raw, confidence=0.98)
+
+            if len(line2) > 28:
+                opt_data = line2[28:].replace("<", "")
+                if opt_data:
+                    fields["optional_data"] = ExtractedField(name="optional_data", value=opt_data, confidence=0.95)
+                    # If optional data looks like a passport number reference (e.g. A1234567)
+                    if re.match(r"^[A-Z][0-9]{7}$|^[A-Z]{2}[0-9]{6,7}$", opt_data) and not fields.get("passport_number"):
+                        fields["passport_number"] = ExtractedField(name="passport_number", value=opt_data, confidence=0.95)
+
+            fields["mrz_lines"] = ExtractedField(name="mrz_lines", value=f"{line1}\n{line2}", confidence=0.99)
+        except Exception:
+            pass
 
 
 # ── Aadhaar / National ID ──────────────────────────────────────────────────────

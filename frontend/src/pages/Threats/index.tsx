@@ -381,7 +381,7 @@ export const ThreatsPage: React.FC = () => {
                     {/* Threat Action Buttons */}
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[var(--border)]">
                       <span className="text-[10px] text-[var(--text-3)] font-mono">
-                        {doc.screening_summary || 'Multi-engine neural scan identified structural anomalies.'}
+                        {(doc as any).screening_summary || 'Multi-engine neural scan identified structural anomalies.'}
                       </span>
                       <div className="flex items-center gap-2">
                         <Button

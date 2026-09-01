@@ -32,6 +32,7 @@ import {
   Terminal,
   ChevronRight,
   ExternalLink,
+} from 'lucide-react';
 import { Button, Badge, Card, CountUp, cn, SectionHeader, Reveal } from '../../components/ui';
 import { DocShieldLogo } from '../../components/common/DocShieldLogo';
 import { useAuth } from '../../hooks/useAuth';

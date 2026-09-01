@@ -8,6 +8,7 @@ import { AppError } from '../../errors/AppError.js';
 import crypto from 'crypto';
 
 import { PassportParser } from '../parsers/passportParser.js';
+import { VisaParser } from '../parsers/visaParser.js';
 
 export class DocumentStageService {
   /**
@@ -62,10 +63,12 @@ export class DocumentStageService {
 
       const isSupported = detectedType && detectedType.toLowerCase() !== 'unknown' && detectedType.toLowerCase() === doc.document_type.toLowerCase();
 
-      // Extract passport domain fields & MRZ if passport
+      // Extract passport or visa domain fields & MRZ
       let extraDomainFields = {};
       if (doc.document_type === 'PASSPORT' || detectedType === 'PASSPORT' || /passport/i.test(version.original_filename || '')) {
         extraDomainFields = PassportParser.parse(rawText);
+      } else if (doc.document_type === 'VISA' || detectedType === 'VISA' || /visa/i.test(version.original_filename || '')) {
+        extraDomainFields = VisaParser.parse(rawText);
       }
 
       // 3. Persist extraction record to DB so downstream services can access it
