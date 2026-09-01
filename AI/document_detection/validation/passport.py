@@ -226,8 +226,11 @@ class PassportValidator(BaseDocumentValidator):
     def _parse_date(field: ExtractedField | None, is_expiry: bool = False) -> date | None:
         if field is None or field.value is None:
             return None
-        val = field.value.strip()
-        # Handle YYMMDD from MRZ
+        val = field.value.strip().upper()
+        if not val:
+            return None
+
+        # 1. Handle YYMMDD from MRZ
         if len(val) == 6 and val.isdigit():
             today_yy = date.today().year % 100
             yy, mm, dd = int(val[:2]), int(val[2:4]), int(val[4:6])
@@ -240,9 +243,44 @@ class PassportValidator(BaseDocumentValidator):
                 return date(year, mm, dd)
             except ValueError:
                 return None
-        try:
-            if len(val) >= 10 and val[4] == '-' and val[7] == '-':
+
+        # 2. ISO format YYYY-MM-DD
+        if len(val) >= 10 and val[4] == '-' and val[7] == '-':
+            try:
                 return date.fromisoformat(val[:10])
-            return dateutil_parser.parse(val).date()
-        except Exception:
-            return None
+            except ValueError:
+                pass
+
+        # 3. Standard Indian DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY
+        dmy_match = re.match(r"^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$", val)
+        if dmy_match:
+            try:
+                d, m, y = int(dmy_match.group(1)), int(dmy_match.group(2)), int(dmy_match.group(3))
+                return date(y, m, d)
+            except ValueError:
+                pass
+
+        # 4. Named month DD MMM YYYY (e.g. 26 AUG 2006, 14-MAY-1995, 14 NOV 2003)
+        month_map = {
+            "JAN": 1, "FEB": 2, "MAR": 3, "APR": 4, "MAY": 5, "JUN": 6,
+            "JUL": 7, "AUG": 8, "SEP": 9, "OCT": 10, "NOV": 11, "DEC": 12,
+        }
+        named_match = re.match(r"^(\d{1,2})[\s\-/\.]([A-Z]{3})[\s\-/\.](\d{4})$", val)
+        if named_match:
+            try:
+                d = int(named_match.group(1))
+                m = month_map.get(named_match.group(2))
+                y = int(named_match.group(3))
+                if m:
+                    return date(y, m, d)
+            except ValueError:
+                pass
+
+        # 5. Fallback with dateutil parser if available (dayfirst=True for Indian documents)
+        if dateutil_parser is not None:
+            try:
+                return dateutil_parser.parse(val, dayfirst=True).date()
+            except Exception:
+                pass
+
+        return None
