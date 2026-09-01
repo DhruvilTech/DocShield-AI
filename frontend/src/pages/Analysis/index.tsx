@@ -719,7 +719,7 @@ export const AnalysisPage: React.FC = () => {
                             {tampering?.indicators &&
                               tampering.indicators.map((ind, idx) => {
                                 const isSelected = selectedIndicatorIdx === idx;
-                                const box = ind.boundingBox || (ind as any).bounding_box;
+                                const box = (ind as any).boundingBox || (ind as any).bounding_box;
                                 if (!box || typeof box.x !== 'number') return null;
                                 return (
                                   <motion.div
@@ -808,10 +808,10 @@ export const AnalysisPage: React.FC = () => {
                           <div className="p-4 rounded-xl bg-[var(--surface-raised)] border border-[var(--border)] space-y-2">
                             <div className="flex items-center justify-between">
                               <span className="text-[10px] text-[var(--text-3)] uppercase block">
-                                Raw Machine Readable Zone Lines (ICAO TD3 · OCR-B Font)
+                                Raw Machine Readable Zone Lines ({mrzData.format.startsWith('MRV') ? 'ICAO MRV · Part 7' : 'ICAO TD3 · Part 4'} · OCR-B Font)
                               </span>
                               <span className="text-[10px] font-mono text-[var(--accent)] bg-[var(--accent-muted)] px-1.5 py-0.5 rounded">
-                                44 CHARS × 2 LINES
+                                {mrzData.format === 'MRV_B' ? '36 CHARS × 2 LINES (MRV-B)' : mrzData.format === 'MRV_A' ? '44 CHARS × 2 LINES (MRV-A)' : '44 CHARS × 2 LINES (TD3)'}
                               </span>
                             </div>
 
@@ -825,10 +825,12 @@ export const AnalysisPage: React.FC = () => {
                             ))}
                           </div>
 
-                          {/* 4 Live ICAO Checksum Verification Cards */}
+                          {/* 3 Live ICAO Checksum Verification Cards */}
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div className="p-3 rounded-xl bg-[var(--surface-raised)] border border-[var(--border)] text-center space-y-1">
-                              <span className="text-[10px] text-[var(--text-3)] block uppercase">DOC NUMBER CHECK</span>
+                              <span className="text-[10px] text-[var(--text-3)] block uppercase">
+                                {mrzData.format.startsWith('MRV') || selectedDoc?.document_type === 'VISA' ? 'VISA NUMBER CHECK' : 'DOC NUMBER CHECK'}
+                              </span>
                               <div className="text-xs font-bold text-[var(--text-1)]">
                                 Found: {mrzData.checks.docNumberCheck.actual} · Expected: {mrzData.checks.docNumberCheck.expected}
                               </div>
@@ -866,12 +868,14 @@ export const AnalysisPage: React.FC = () => {
 
                             <div className="grid sm:grid-cols-2 gap-x-6 gap-y-2 text-[11px]">
                               <div className="flex justify-between py-1 border-b border-[var(--border)]/50">
-                                <span className="text-[var(--text-3)]">Passport Number:</span>
-                                <span className="text-[var(--text-1)] font-bold">{mrzData.passportNumber}</span>
+                                <span className="text-[var(--text-3)]">
+                                  {mrzData.format.startsWith('MRV') || selectedDoc?.document_type === 'VISA' ? 'Visa Number:' : 'Passport Number:'}
+                                </span>
+                                <span className="text-[var(--text-1)] font-bold">{mrzData.visaNumber || mrzData.passportNumber}</span>
                               </div>
                               <div className="flex justify-between py-1 border-b border-[var(--border)]/50">
                                 <span className="text-[var(--text-3)]">Issuing Country:</span>
-                                <span className="text-[var(--text-1)] font-bold">{mrzData.issuingCountry} (INDIAN)</span>
+                                <span className="text-[var(--text-1)] font-bold">{mrzData.issuingCountry} {mrzData.issuingCountry === 'IND' ? '(INDIA)' : ''}</span>
                               </div>
                               <div className="flex justify-between py-1 border-b border-[var(--border)]/50">
                                 <span className="text-[var(--text-3)]">Holder Name:</span>
@@ -893,9 +897,17 @@ export const AnalysisPage: React.FC = () => {
                                 <span className="text-[var(--text-3)]">Date of Expiry:</span>
                                 <span className="text-[var(--text-1)] font-bold">{mrzData.dateOfExpiry} ({mrzData.rawExpiry})</span>
                               </div>
+                              {mrzData.nationality && (
+                                <div className="flex justify-between py-1 border-b border-[var(--border)]/50">
+                                  <span className="text-[var(--text-3)]">Nationality:</span>
+                                  <span className="text-[var(--text-1)] font-bold">{mrzData.nationality}</span>
+                                </div>
+                              )}
                               {mrzData.personalNumber && (
                                 <div className="flex justify-between py-1 border-b border-[var(--border)]/50">
-                                  <span className="text-[var(--text-3)]">Personal Token No:</span>
+                                  <span className="text-[var(--text-3)]">
+                                    {mrzData.format.startsWith('MRV') ? 'Passport / Control Ref:' : 'Personal Token No:'}
+                                  </span>
                                   <span className="text-[var(--text-1)] font-bold">{mrzData.personalNumber}</span>
                                 </div>
                               )}

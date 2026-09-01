@@ -78,7 +78,7 @@ export const ScannerPage: React.FC = () => {
         label: 'Module 1: OCR Extraction',
         detail:
           currentDocType === 'PASSPORT' ? 'Decompiling ICAO MRZ, visual zones & credential metadata...' :
-          currentDocType === 'VISA' ? 'Decompiling visa stamp layout, validity regions & text descriptors...' :
+          currentDocType === 'VISA' ? 'Decompiling ICAO Doc 9303 MRV, visa layout & validity regions...' :
           currentDocType === 'NATIONAL_ID' ? 'Parsing National ID card layout, biometric labels & text regions...' :
           currentDocType === 'DRIVING_LICENSE' ? 'Extracting driver info, vehicle classifications & permission codes...' :
           'Extracting permit parameters, registry ids & license plates...',
@@ -88,7 +88,7 @@ export const ScannerPage: React.FC = () => {
         label: 'Module 2: Doc Validation',
         detail:
           currentDocType === 'PASSPORT' ? 'Calculating ICAO 9303 check digits & Interpol SLTD database...' :
-          currentDocType === 'VISA' ? 'Verifying entry permissions, visa type constraints & stay duration...' :
+          currentDocType === 'VISA' ? 'Calculating ICAO 9303 MRV check digits, entry permissions & stay duration...' :
           currentDocType === 'NATIONAL_ID' ? 'Verifying Verhoeff dihedral D5 mathematical check digits...' :
           currentDocType === 'DRIVING_LICENSE' ? 'Verifying licensing authority database & validity terms...' :
           'Verifying transport registry databases & validity compliance...',
@@ -308,13 +308,29 @@ export const ScannerPage: React.FC = () => {
         addLog(`[ACTION REQUIRED] Document authenticated. Module 4 (Live Biometric Face Match) is now UNLOCKED.`);
         addLog(`[ACTION REQUIRED] Please open live camera to verify identity.`);
       } else {
-        const failReason = tampStage?.reason || valStage?.reason || docStage?.reason || 'Document failed verification integrity checks.';
+        const isMismatch = isDocTypeMismatch() || docStage?.status === 'failed';
+        const failReason = (isMismatch && docStage?.reason)
+          ? docStage.reason
+          : (isMismatch && valStage?.reason)
+          ? valStage.reason
+          : docStage?.status === 'failed'
+          ? (docStage?.reason || 'Document category format mismatch.')
+          : valStage?.status === 'failed'
+          ? (valStage?.reason || 'Document failed format standards.')
+          : (isTampered && tampStage?.reason)
+          ? tampStage.reason
+          : 'Document failed verification integrity checks.';
+
         setError(failReason);
         setPhase('complete');
         addLog(`=======================================================`);
         addLog(`[PIPELINE] ⛔ VERIFICATION REJECTED: Clearance Refused.`);
-        addLog(`Module 4 Biometrics: BLOCKED (Document Failed Integrity / Tampering Checks)`);
-        if (isTampered) {
+        addLog(`[REASON] ${failReason}`);
+        addLog(`Module 4 Biometrics: BLOCKED (Document Failed Integrity / Category Validation)`);
+
+        if (isMismatch || docStage?.status === 'failed' || valStage?.status === 'failed') {
+          setActiveTab('validation');
+        } else if (isTampered) {
           setActiveTab('tampering');
         }
       }
@@ -338,27 +354,23 @@ export const ScannerPage: React.FC = () => {
     setRiskScore(null);
     setScreening(null);
     setCreatedDocId(null);
+    setPipelineResult(null);
     setError(null);
     setFaceVerifyError(null);
     setLogs([]);
-    setPipelineResult(null);
-  };
-
-  const getDocDetectedStatus = () => {
-    if (!pipelineResult) return { label: 'NOT TESTED', variant: 'warning' as const };
-    const docStage = pipelineResult.stages?.document_detection;
-    if (docStage && docStage.status === 'passed') {
-      return { label: 'DETECTED', variant: 'safe' as const };
-    }
-    return { label: 'FAILED / MISMATCH', variant: 'threat' as const };
   };
 
   const isDocTypeMismatch = () => {
     if (!pipelineResult) return false;
+    const docStage = pipelineResult.stages?.document_detection;
+    if (docStage && docStage.status === 'failed' && (docStage.reason?.includes('Mismatch') || docStage.reason?.includes('not valid as per selected'))) {
+      return true;
+    }
     const factors = pipelineResult.screening?.factors || [];
     const hasMismatch = factors.some((f: any) =>
       f.rule === 'DOCUMENT_TYPE_MISMATCH' ||
-      f.title?.includes('Document Type Mismatch')
+      f.title?.includes('Document Type Mismatch') ||
+      f.title?.includes('Mismatch')
     );
     return hasMismatch;
   };
@@ -399,6 +411,9 @@ export const ScannerPage: React.FC = () => {
     }
     if (hasMrzTamperSignal && isTampered) {
       return { label: 'TAMPERED / ALTERED', variant: 'threat' as const };
+    }
+    if (docType === 'VISA' && hasEmptyMrz) {
+      return { label: 'E-VISA / NO MRZ', variant: 'safe' as const };
     }
     return { label: 'VALID MRZ', variant: 'safe' as const };
   };
@@ -1098,7 +1113,7 @@ export const ScannerPage: React.FC = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         {docType === 'PASSPORT' && (
-                          <Badge variant="primary" size="sm">
+                          <Badge variant="accent" size="sm">
                             {extraction?.extracted_fields?.passportFormat?.value === 'OLD_FORMAT'
                               ? 'Old Format (TD3-Legacy)'
                               : 'New Format (TD3-2021+)'}
@@ -1110,14 +1125,10 @@ export const ScannerPage: React.FC = () => {
 
                     {(() => {
                       const fields: Record<string, any> = extraction?.extracted_fields || {};
-                      const getVal = (primaryKey: string, visualKey: string, altKey?: string) => {
-                        const vis = fields[visualKey]?.value;
-                        if (vis && String(vis).trim()) return String(vis).trim();
-                        const prim = fields[primaryKey]?.value;
-                        if (prim && String(prim).trim()) return String(prim).trim();
-                        if (altKey) {
-                          const alt = fields[altKey]?.value;
-                          if (alt && String(alt).trim()) return String(alt).trim();
+                      const getVal = (...keys: string[]) => {
+                        for (const key of keys) {
+                          const v = fields[key]?.value;
+                          if (v && String(v).trim()) return String(v).trim();
                         }
                         return null;
                       };
@@ -1165,7 +1176,7 @@ export const ScannerPage: React.FC = () => {
 
                       if (isNoiseName(full)) {
                         // Attempt fallback from raw text
-                        const rawT = String(extraction?.raw_text || extraction?.rawText || '');
+                        const rawT = String(extraction?.raw_text || (extraction as any)?.rawText || '');
                         const nameM = rawT.match(/(?:Name|Full\s*Name)\s*[:\s\-]+([A-Za-z\s.\-]{3,40})/i);
                         if (nameM && !isNoiseName(nameM[1])) {
                           full = nameM[1].trim().toUpperCase();
@@ -1181,7 +1192,7 @@ export const ScannerPage: React.FC = () => {
                       }
 
                       // Driving license dates fallback from raw text if missing
-                      const rawPool = String(extraction?.raw_text || extraction?.rawText || '');
+                      const rawPool = String(extraction?.raw_text || (extraction as any)?.rawText || '');
                       const rawIssueM = rawPool.match(/(?:Issue\s*Date|Date\s*Of\s*First\s*Issue|Date\s*of\s*Issue|DOI|Issued\s*On)\s*[:\s\-]*(\d{2}[/\-.]\d{2}[/\-.]\d{4})/i);
                       const rawExpM = rawPool.match(/(?:Validity\s*(?:\(\s*[A-Z]+\s*\))?|Valid\s*(?:Till|Upto|Until)|Expiry\s*Date|Date\s*of\s*Expiry|Expires)\s*[:\s\-]*(\d{2}[/\-.]\d{2}[/\-.]\d{4})/i);
                       const rawDobM = rawPool.match(/(?:Date\s*Of\s*Birth|DOB|Birth\s*Date)\s*[:\s\-]*(\d{2}[/\-.]\d{2}[/\-.]\d{4})/i);

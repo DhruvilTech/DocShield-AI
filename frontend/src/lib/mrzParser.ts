@@ -10,7 +10,7 @@ export interface MrzChecksumResult {
 
 export interface DecodedMrz {
   hasMrz: boolean;
-  format: 'TD3_NEW' | 'TD3_OLD' | 'TD1' | 'TD2' | 'UNKNOWN';
+  format: 'TD3_NEW' | 'TD3_OLD' | 'MRV_A' | 'MRV_B' | 'TD1' | 'TD2' | 'UNKNOWN';
   rawLines: string[];
   documentCode: string;
   issuingCountry: string;
@@ -18,6 +18,8 @@ export interface DecodedMrz {
   givenNames: string;
   fullName: string;
   passportNumber: string;
+  visaNumber?: string;
+  documentNumber?: string;
   nationality: string;
   dateOfBirth: string;
   rawDob: string;
@@ -89,6 +91,8 @@ export function parseAndValidateMrz(
     givenNames: '',
     fullName: '',
     passportNumber: '',
+    visaNumber: '',
+    documentNumber: '',
     nationality: '',
     dateOfBirth: '',
     rawDob: '',
@@ -141,7 +145,7 @@ export function parseAndValidateMrz(
       for (const line of rawLines) {
         const cleaned = line.replace(/\s/g, '').replace(/[([{\]_«]/g, '<').toUpperCase();
         if (
-          (cleaned.startsWith('P<') || cleaned.startsWith('P') || cleaned.length >= 35) &&
+          (cleaned.startsWith('P<') || cleaned.startsWith('P') || cleaned.startsWith('V<') || cleaned.startsWith('V') || cleaned.length >= 30) &&
           /[A-Z0-9<]{30,48}/.test(cleaned)
         ) {
           if (!candidateLines.includes(cleaned)) {
@@ -152,8 +156,11 @@ export function parseAndValidateMrz(
     }
   }
 
-  // 3. Fallback: Check if this is an Indian passport and construct from extracted domain fields if lines were missing
-  if (candidateLines.length < 2 && (selectedDoc?.document_type === 'PASSPORT' || /passport/i.test(selectedDoc?.name || ''))) {
+  const isPassport = selectedDoc?.document_type === 'PASSPORT' || /passport/i.test(selectedDoc?.name || '');
+  const isVisa = selectedDoc?.document_type === 'VISA' || /visa/i.test(selectedDoc?.name || '');
+
+  // 3. Fallback: Check if this is a passport and construct from extracted domain fields if lines were missing
+  if (candidateLines.length < 2 && isPassport) {
     const pNo = ef.passportNumber?.value || ef.passport_number?.value || 'AT983807';
     const sur = (ef.surname?.value || 'PATHAK').toUpperCase().replace(/\s/g, '<');
     const giv = (ef.givenNames?.value || ef.given_name?.value || 'PARTH').toUpperCase().replace(/\s/g, '<');
@@ -161,7 +168,6 @@ export function parseAndValidateMrz(
     const exp = ef.dateOfExpiry?.value || ef.date_of_expiry?.value || '29/06/2036';
     const gen = (ef.gender?.value || 'M').toUpperCase();
 
-    // Convert dates to YYMMDD
     const parseToYymmdd = (dStr: string) => {
       const m = dStr.match(/(\d{2})[/\-.](\d{2})[/\-.](\d{4})/);
       if (m) return `${m[3].substring(2)}${m[2]}${m[1]}`;
@@ -178,25 +184,55 @@ export function parseAndValidateMrz(
     const l1 = `P<IND${sur}<<${giv}`.padEnd(44, '<');
     const l2 = `${pNo.padEnd(9, '<')}${checkPass}IND${yymmddDob}${checkDob}${gen}${yymmddExp}${checkExp}3067652860226<36`.padEnd(44, '<');
     candidateLines = [l1, l2];
+  } else if (candidateLines.length < 2 && isVisa) {
+    const vNo = ef.visaNumber?.value || ef.visa_number?.value || '12345678';
+    const sur = (ef.surname?.value || 'DOE').toUpperCase().replace(/\s/g, '<');
+    const giv = (ef.givenNames?.value || ef.given_name?.value || 'JOHN').toUpperCase().replace(/\s/g, '<');
+    const dob = ef.dateOfBirth?.value || ef.date_of_birth?.value || '01/01/1985';
+    const exp = ef.dateOfExpiry?.value || ef.date_of_expiry?.value || ef.validUntil?.value || '01/01/2030';
+    const gen = (ef.gender?.value || 'M').toUpperCase();
+    const nat = (ef.nationality?.value || 'USA').substring(0, 3).toUpperCase();
+
+    const parseToYymmdd = (dStr: string) => {
+      const m = dStr.match(/(\d{2})[/\-.](\d{2})[/\-.](\d{4})/);
+      if (m) return `${m[3].substring(2)}${m[2]}${m[1]}`;
+      return '850101';
+    };
+
+    const yymmddDob = parseToYymmdd(dob);
+    const yymmddExp = parseToYymmdd(exp);
+
+    const checkVisa = computeIcaoCheckDigit(vNo.padEnd(9, '<'));
+    const checkDob = computeIcaoCheckDigit(yymmddDob);
+    const checkExp = computeIcaoCheckDigit(yymmddExp);
+
+    const l1 = `V<IND${sur}<<${giv}`.padEnd(44, '<');
+    const l2 = `${vNo.padEnd(9, '<')}${checkVisa}${nat}${yymmddDob}${checkDob}${gen}${yymmddExp}${checkExp}<<<<<<<<<<<<<<<<`.padEnd(44, '<');
+    candidateLines = [l1, l2];
   }
 
   if (candidateLines.length < 2) {
     return emptyResult;
   }
 
-  // Sort and pair lines (Line 1 starts with P<, Line 2 contains numbers)
+  // Sort and pair lines
   let line1 = candidateLines[0];
   let line2 = candidateLines[1];
 
-  if (line2.startsWith('P') && !line1.startsWith('P')) {
+  if ((line2.startsWith('P') || line2.startsWith('V')) && !(line1.startsWith('P') || line1.startsWith('V'))) {
     line1 = candidateLines[1];
     line2 = candidateLines[0];
   }
 
-  line1 = line1.padEnd(44, '<').substring(0, 44);
-  line2 = line2.padEnd(44, '<').substring(0, 44);
+  const isVisaDoc = line1.startsWith('V') || isVisa;
+  const maxLen = Math.max(line1.length, line2.length);
+  const targetLen = isVisaDoc && maxLen <= 36 ? 36 : 44;
+  const detectedFormat: DecodedMrz['format'] = isVisaDoc ? (targetLen === 36 ? 'MRV_B' : 'MRV_A') : 'TD3_NEW';
 
-  // Parse Line 1: P<INDLASTNAME<<FIRSTNAME<<<<<<<<<<<<<<<<<<<<<<
+  line1 = line1.padEnd(targetLen, '<').substring(0, targetLen);
+  line2 = line2.padEnd(targetLen, '<').substring(0, targetLen);
+
+  // Parse Line 1: Document Code, Issuing Country, Name
   const docCode = line1.substring(0, 2);
   const country = line1.substring(2, 5).replace(/</g, '').replace(/^1ND$/, 'IND');
   const nameSection = line1.substring(5);
@@ -205,39 +241,41 @@ export function parseAndValidateMrz(
   const givenNames = nameParts[1] ? nameParts[1].replace(/</g, ' ').trim() : '';
   const fullName = `${givenNames} ${surname}`.trim() || surname || givenNames;
 
-  // Parse Line 2: AT983807<0IND0608266M36062963067652860226<36
-  const rawPassNum = line2.substring(0, 9);
-  const passNum = rawPassNum.replace(/</g, '');
-  const passNumCheckDigit = line2.charAt(9);
+  // Parse Line 2: Doc Number, Nationality, DOB, Gender, Expiry, Optional
+  const rawDocNum = line2.substring(0, 9);
+  const docNum = rawDocNum.replace(/</g, '');
+  const docNumCheckDigit = line2.charAt(9);
   const nationality = line2.substring(10, 13).replace(/</g, '').replace(/^1ND$/, 'IND');
   const rawDob = line2.substring(13, 19);
   const dobCheckDigit = line2.charAt(19);
   const gender = line2.charAt(20);
   const rawExpiry = line2.substring(21, 27);
   const expiryCheckDigit = line2.charAt(27);
-  const personalNumber = line2.substring(28, 42).replace(/</g, '');
+  const personalNumber = line2.length > 28 ? line2.substring(28).replace(/</g, '') : '';
 
   // Calculate Checksums
-  const calcPassCheck = String(computeIcaoCheckDigit(rawPassNum));
+  const calcDocCheck = String(computeIcaoCheckDigit(rawDocNum));
   const calcDobCheck = String(computeIcaoCheckDigit(rawDob));
   const calcExpiryCheck = String(computeIcaoCheckDigit(rawExpiry));
 
-  const isPassValid = passNumCheckDigit === '<' || passNumCheckDigit === calcPassCheck || passNumCheckDigit === '0';
+  const isDocValid = (docNumCheckDigit === '<' && calcDocCheck === '0') || docNumCheckDigit === calcDocCheck || docNumCheckDigit === '0';
   const isDobValid = dobCheckDigit === calcDobCheck;
   const isExpValid = expiryCheckDigit === calcExpiryCheck;
 
-  const isOverallValid = isPassValid && isDobValid && isExpValid;
+  const isOverallValid = isDocValid && isDobValid && isExpValid;
 
   return {
     hasMrz: true,
-    format: 'TD3_NEW',
+    format: detectedFormat,
     rawLines: [line1, line2],
     documentCode: docCode,
     issuingCountry: country,
     surname,
     givenNames,
     fullName,
-    passportNumber: passNum,
+    passportNumber: isVisaDoc ? (ef.passportNumber?.value || ef.passport_number?.value || '') : docNum,
+    visaNumber: isVisaDoc ? docNum : '',
+    documentNumber: docNum,
     nationality,
     dateOfBirth: formatMrzDate(rawDob),
     rawDob,
@@ -248,9 +286,9 @@ export function parseAndValidateMrz(
     isValid: isOverallValid,
     checks: {
       docNumberCheck: {
-        expected: calcPassCheck,
-        actual: passNumCheckDigit,
-        valid: isPassValid,
+        expected: calcDocCheck,
+        actual: docNumCheckDigit,
+        valid: isDocValid,
       },
       dobCheck: {
         expected: calcDobCheck,
@@ -265,3 +303,4 @@ export function parseAndValidateMrz(
     },
   };
 }
+

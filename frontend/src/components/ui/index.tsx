@@ -127,7 +127,7 @@ export const Badge: React.FC<BadgeProps> = ({ children, variant = 'neutral', siz
 };
 
 /* ---- Card ---- */
-interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
   className?: string;
   interactive?: boolean;
@@ -137,49 +137,56 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   style?: React.CSSProperties;
 }
 
-export const Card: React.FC<CardProps> = ({ children, className, interactive, accent, as: Tag = 'div', onClick, style, ...rest }) => {
-  const cardRef = React.useRef<HTMLDivElement>(null);
+export const Card = React.forwardRef<HTMLDivElement, CardProps>(
+  ({ children, className, interactive, accent, as: Tag = 'div', onClick, style, onMouseMove, ...rest }, ref) => {
+    const internalRef = React.useRef<HTMLDivElement>(null);
+    const resolvedRef = (ref || internalRef) as React.RefObject<HTMLDivElement>;
 
-  const handleMouseMove = React.useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!interactive || !cardRef.current) return;
-    const rect = cardRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    cardRef.current.style.setProperty('--mouse-x', `${x}px`);
-    cardRef.current.style.setProperty('--mouse-y', `${y}px`);
-  }, [interactive]);
+    const handleMouseMove = React.useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+      if (onMouseMove) {
+        onMouseMove(e);
+      }
+      if (!interactive || !resolvedRef.current) return;
+      const rect = resolvedRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      resolvedRef.current.style.setProperty('--mouse-x', `${x}px`);
+      resolvedRef.current.style.setProperty('--mouse-y', `${y}px`);
+    }, [interactive, onMouseMove, resolvedRef]);
 
-  const Component = Tag as any;
-  return (
-    <Component
-      ref={cardRef}
-      onMouseMove={handleMouseMove}
-      className={cn(
-        'group/card relative rounded-[18px] border bg-[var(--surface)]/50 backdrop-blur-xl border-[var(--border)]',
-        'transition-all duration-300 shadow-[var(--shadow-sm)] overflow-hidden',
-        interactive && 'cursor-pointer card-interactive card-display card-magnetic hover:border-[var(--accent)]',
-        accent && 'border-[var(--border-accent)] hover:shadow-[var(--glow-sm)]',
-        className
-      )}
-      style={style}
-      onClick={onClick}
-      {...rest}
-    >
-      {/* Dynamic Cursor Spotlight Effect */}
-      {interactive && (
-        <div
-          className="pointer-events-none absolute -inset-px rounded-[18px] opacity-0 transition-opacity duration-300 group-hover/card:opacity-100 z-0"
-          style={{
-            background: 'radial-gradient(550px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(45, 212, 191, 0.12), rgba(124, 92, 252, 0.06) 40%, transparent 80%)',
-          }}
-        />
-      )}
-      <div className="relative z-10 w-full min-h-0 flex flex-col">
-        {children}
-      </div>
-    </Component>
-  );
-};
+    const Component = Tag as any;
+    return (
+      <Component
+        ref={ref || internalRef}
+        onMouseMove={handleMouseMove}
+        className={cn(
+          'group/card relative rounded-[18px] border bg-[var(--surface)]/50 backdrop-blur-xl border-[var(--border)]',
+          'transition-all duration-300 shadow-[var(--shadow-sm)] overflow-hidden',
+          interactive && 'cursor-pointer card-interactive card-display card-magnetic hover:border-[var(--accent)]',
+          accent && 'border-[var(--border-accent)] hover:shadow-[var(--glow-sm)]',
+          className
+        )}
+        style={style}
+        onClick={onClick}
+        {...rest}
+      >
+        {/* Dynamic Cursor Spotlight Effect */}
+        {interactive && (
+          <div
+            className="pointer-events-none absolute -inset-px rounded-[18px] opacity-0 transition-opacity duration-300 group-hover/card:opacity-100 z-0"
+            style={{
+              background: 'radial-gradient(550px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(45, 212, 191, 0.12), rgba(124, 92, 252, 0.06) 40%, transparent 80%)',
+            }}
+          />
+        )}
+        <div className="relative z-10 w-full min-h-0 flex flex-col">
+          {children}
+        </div>
+      </Component>
+    );
+  }
+);
+Card.displayName = 'Card';
 
 /* ---- Metric Card ---- */
 interface MetricProps {

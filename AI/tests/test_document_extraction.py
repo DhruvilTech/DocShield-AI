@@ -246,4 +246,57 @@ def test_indian_gujarat_driving_license_extraction():
     assert fields["date_of_expiry"].value == "25-08-2046"
 
 
+def test_visa_mrz_extraction_mrv_a():
+    texts = [
+        "EMBASSY OF INDIA, WASHINGTON DC",
+        "VISA / VISA",
+        "Visa No: 12345678",
+        "Type: Tourist",
+        "Entries: Multiple",
+        "Duration: 90 Days",
+        "Name of Bearer: JOHN DOE",
+        "V<INDDOE<<JOHN<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<",
+        "12345678<8USA8501019M30010191234567890123456",
+    ]
+    ocr = make_ocr(texts)
+    fields = VisaFieldExtractor().extract(ocr)
+    assert fields["visa_number"].value == "12345678"
+    assert fields["visa_type"].value.upper() == "TOURIST"
+    assert fields["entry_validation"].value == "Multiple"
+    assert fields["stay_duration"].value == "90 Days"
+    assert fields["visa_format"].value == "MRV_A"
+    assert fields["nationality"].value == "USA"
+    assert fields["date_of_birth"].value == "850101"
+    assert fields["date_of_expiry"].value == "300101"
+    assert fields["gender"].value == "M"
+    assert fields["surname"].value == "DOE"
+    assert fields["given_name"].value == "JOHN"
+    assert fields["name"].value == "DOE JOHN"
+    assert fields["visual_visa_number"].value == "12345678"
+    assert fields["visual_name"].value == "JOHN DOE"
+
+
+def test_visa_mrz_extraction_mrv_b():
+    texts = [
+        "CONSULATE GENERAL OF INDIA",
+        "VISA",
+        "Visa No: V9876543",
+        "Type: Business",
+        "Entries: Single",
+        "Stay: 30 Days",
+        "V<INDDOE<<JANE<<<<<<<<<<<<<<<<<<<<<<",
+        "V9876543<2GBR9005154F2812318<<<<<<<<",
+    ]
+    ocr = make_ocr(texts)
+    fields = VisaFieldExtractor().extract(ocr)
+    assert fields["visa_number"].value == "V9876543"
+    assert fields["visa_format"].value == "MRV_B"
+    assert fields["nationality"].value == "GBR"
+    assert fields["date_of_birth"].value == "900515"
+    assert fields["gender"].value == "F"
+    assert fields["surname"].value == "DOE"
+    assert fields["given_name"].value == "JANE"
+
+
+
 

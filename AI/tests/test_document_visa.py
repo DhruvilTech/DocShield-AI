@@ -70,3 +70,63 @@ def test_invalid_stay_duration():
 def test_empty_fields_all_missing():
     result = validator.validate({}, rules)
     assert result.valid is False
+
+def test_valid_mrv_a_visa_mrz():
+    fields = valid_fields()
+    l1 = "V<INDDOE<<JOHN<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+    l2 = "12345678<8USA8501019M30010191234567890123456"
+    fields["mrz_lines"] = f("mrz_lines", f"{l1}\n{l2}")
+    fields["visa_number"] = f("visa_number", "12345678")
+    fields["visual_visa_number"] = f("visual_visa_number", "12345678")
+    fields["date_of_birth"] = f("date_of_birth", "850101")
+    fields["visual_date_of_birth"] = f("visual_date_of_birth", "01/01/1985")
+    fields["date_of_expiry"] = f("date_of_expiry", "300101")
+    fields["visual_date_of_expiry"] = f("visual_date_of_expiry", "01/01/2030")
+    fields["gender"] = f("gender", "M")
+    fields["visual_gender"] = f("visual_gender", "M")
+    fields["name"] = f("name", "DOE JOHN")
+    fields["visual_name"] = f("visual_name", "JOHN DOE")
+
+    result = validator.validate(fields, rules)
+    assert result.valid is True
+    assert any(c.field == "mrz_lines" and c.status == CheckStatus.VALID for c in result.checks)
+
+def test_valid_mrv_b_visa_mrz():
+    fields = valid_fields()
+    l1 = "V<INDDOE<<JOHN<<<<<<<<<<<<<<<<<<<<<<"
+    l2 = "12345678<8USA8501019M3001019<<<<<<<<"
+    fields["mrz_lines"] = f("mrz_lines", f"{l1}\n{l2}")
+    fields["visa_number"] = f("visa_number", "12345678")
+    fields["visual_visa_number"] = f("visual_visa_number", "12345678")
+
+    result = validator.validate(fields, rules)
+    assert result.valid is True
+    assert any(c.field == "mrz_lines" and c.status == CheckStatus.VALID for c in result.checks)
+
+def test_tampered_visa_mrz_checksum():
+    fields = valid_fields()
+    l1 = "V<INDDOE<<JOHN<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+    # Tampered doc check digit: '5' instead of '8'
+    l2 = "12345678<5USA8501019M30010191234567890123456"
+    fields["mrz_lines"] = f("mrz_lines", f"{l1}\n{l2}")
+    fields["visa_number"] = f("visa_number", "12345678")
+
+    result = validator.validate(fields, rules)
+    assert result.valid is False
+    mrz_check = next((c for c in result.checks if c.field == "mrz_lines"), None)
+    assert mrz_check is not None
+    assert mrz_check.status == CheckStatus.INVALID
+    assert "Doc# valid=False" in mrz_check.message
+
+def test_visual_vs_mrz_visa_number_mismatch():
+    fields = valid_fields()
+    l1 = "V<INDDOE<<JOHN<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+    l2 = "12345678<8USA8501019M30010191234567890123456"
+    fields["mrz_lines"] = f("mrz_lines", f"{l1}\n{l2}")
+    fields["visa_number"] = f("visa_number", "12345678")
+    fields["visual_visa_number"] = f("visual_visa_number", "99999999")
+
+    result = validator.validate(fields, rules)
+    assert result.valid is False
+    assert any(c.field == "visa_number" and c.status == CheckStatus.INVALID and "Mismatched" in c.message for c in result.checks)
+

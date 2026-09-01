@@ -301,8 +301,8 @@ export class DocumentValidationService {
       }
     }
 
-    // --- 1. MRZ Standard Check (ICAO Doc 9303) ---
-    if (normalizedType === 'PASSPORT') {
+    // --- 1. MRZ Standard Check (ICAO Doc 9303 for Passports & Visas) ---
+    if (normalizedType === 'PASSPORT' || normalizedType === 'VISA') {
       const rawMrz = extractedFields.mrzLines?.value || extractedFields.mrz_lines?.value || extractedFields.mrzLines || extractedFields.mrz_lines;
       let mrzLines = [];
       if (Array.isArray(rawMrz)) {
@@ -314,46 +314,47 @@ export class DocumentValidationService {
       if (mrzLines.length >= 2) {
         let line1 = mrzLines[0];
         let line2 = mrzLines[1];
-        if (line2.startsWith('P') && !line1.startsWith('P')) {
+        if ((line2.startsWith('P') || line2.startsWith('V')) && !(line1.startsWith('P') || line1.startsWith('V'))) {
           line1 = mrzLines[1];
           line2 = mrzLines[0];
         }
 
         if (line2.length >= 28) {
-          const rawPassNum = line2.substring(0, 9);
-          const passNumCheckDigit = line2.charAt(9);
+          const rawDocNum = line2.substring(0, 9);
+          const docNumCheckDigit = line2.charAt(9);
           const dob = line2.substring(13, 19);
           const dobCheckDigit = line2.charAt(19);
           const expiry = line2.substring(21, 27);
           const expiryCheckDigit = line2.charAt(27);
 
-          const calcPassCheck = PassportParser.computeIcaoCheckDigit(rawPassNum);
+          const calcDocCheck = PassportParser.computeIcaoCheckDigit(rawDocNum);
           const calcDobCheck = PassportParser.computeIcaoCheckDigit(dob);
           const calcExpiryCheck = PassportParser.computeIcaoCheckDigit(expiry);
 
           // Strict validation: check digits must match computed checksums exactly
-          const passValid = /^\d$/.test(passNumCheckDigit) && parseInt(passNumCheckDigit, 10) === calcPassCheck;
+          const docValid = (/^\d$/.test(docNumCheckDigit) && parseInt(docNumCheckDigit, 10) === calcDocCheck) || (docNumCheckDigit === '<' && calcDocCheck === 0);
           const dobValid = /^\d$/.test(dobCheckDigit) && parseInt(dobCheckDigit, 10) === calcDobCheck;
           const expValid = /^\d$/.test(expiryCheckDigit) && parseInt(expiryCheckDigit, 10) === calcExpiryCheck;
 
           const mrzValObj = extractedFields.mrzValidation?.value || extractedFields.mrzValidation;
           const isExplicitlyInvalid = mrzValObj && mrzValObj.isValid === false;
 
-          if (passValid && dobValid && expValid && !isExplicitlyInvalid) {
+          if (docValid && dobValid && expValid && !isExplicitlyInvalid) {
+            const formatName = normalizedType === 'VISA' ? 'ICAO Doc 9303 Part 7 Visa MRZ' : 'ICAO Doc 9303 Type 3 MRZ';
             checks.mrzCheck = {
               status: 'PASSED',
-              details: 'ICAO Doc 9303 Type 3 MRZ check digits verified valid (Document Number, DOB, Expiry).',
+              details: `${formatName} check digits verified valid (Document Number, DOB, Expiry).`,
             };
           } else {
             checks.mrzCheck = {
               status: 'FAILED',
-              details: `MRZ Check Digit Mismatch: Doc# valid=${passValid}, DOB valid=${dobValid}, Expiry valid=${expValid}`,
+              details: `MRZ Check Digit Mismatch: Doc# valid=${docValid}, DOB valid=${dobValid}, Expiry valid=${expValid}`,
             };
             findings.push({
               rule: 'ICAO_9303_CHECKSUM_FAILURE',
               severity: 'CRITICAL',
               title: 'MRZ Check Digit Calculation Mismatch',
-              description: 'The Machine Readable Zone checksum does not match official ICAO 9303 algorithm standards. This indicates forged passport details or tampered characters.',
+              description: `The ${normalizedType.toLowerCase()} Machine Readable Zone checksum does not match official ICAO 9303 algorithm standards. This indicates forged credentials or tampered characters.`,
               evidence: checks.mrzCheck.details,
             });
             totalRiskImpact += 40;
@@ -367,12 +368,12 @@ export class DocumentValidationService {
             rule: 'ICAO_9303_CHECKSUM_FAILURE',
             severity: 'CRITICAL',
             title: 'Corrupted or Incomplete MRZ Block',
-            description: 'MRZ line length is insufficient for ICAO Type 3 standard verification.',
+            description: `MRZ line length is insufficient for ICAO ${normalizedType} standard verification.`,
             evidence: `MRZ Line 2 length: ${line2.length}`,
           });
           totalRiskImpact += 40;
         }
-      } else {
+      } else if (normalizedType === 'PASSPORT') {
         checks.mrzCheck = {
           status: 'FAILED',
           details: 'Mandatory ICAO Doc 9303 Machine Readable Zone (MRZ) could not be detected or is obscured by tampering/white-out.',
@@ -480,19 +481,20 @@ export class DocumentValidationService {
     }
 
     // --- 4. Cross-Field Consistency (MRZ vs Visual Zone) ---
-    // A. Passport Number
-    const mrzPass = getVal(extractedFields, 'passportNumber', 'passport_number', 'mrz_passport_number');
-    const visPass = getVal(extractedFields, 'visualPassportNumber', 'visual_passport_number', 'visPassportNumber');
-    if (mrzPass && visPass) {
-      const normMrz = mrzPass.replace(/[\s<]/g, '').toUpperCase();
-      const normVis = visPass.replace(/[\s<]/g, '').toUpperCase();
+    // A. Document Number (Passport / Visa)
+    const mrzDocNum = getVal(extractedFields, 'passportNumber', 'passport_number', 'mrz_passport_number', 'visaNumber', 'visa_number', 'mrz_visa_number');
+    const visDocNum = getVal(extractedFields, 'visualPassportNumber', 'visual_passport_number', 'visPassportNumber', 'visualVisaNumber', 'visual_visa_number', 'visVisaNumber');
+    if (mrzDocNum && visDocNum) {
+      const normMrz = mrzDocNum.replace(/[\s<]/g, '').toUpperCase();
+      const normVis = visDocNum.replace(/[\s<]/g, '').toUpperCase();
       if (normMrz !== normVis) {
+        const docLabel = normalizedType === 'VISA' ? 'Visa' : 'Passport';
         findings.push({
           rule: 'VISUAL_MRZ_NUMBER_MISMATCH',
           severity: 'CRITICAL',
-          title: 'Visual vs MRZ Passport Number Mismatch',
-          description: 'The passport number in the visual zone differs from the MRZ zone passport number.',
-          evidence: `Visual: ${visPass} | MRZ: ${mrzPass}`,
+          title: `Visual vs MRZ ${docLabel} Number Mismatch`,
+          description: `The ${docLabel.toLowerCase()} number in the visual zone differs from the MRZ zone ${docLabel.toLowerCase()} number.`,
+          evidence: `Visual: ${visDocNum} | MRZ: ${mrzDocNum}`,
         });
         totalRiskImpact += 30;
       }
