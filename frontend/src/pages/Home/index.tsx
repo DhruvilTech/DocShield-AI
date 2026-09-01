@@ -148,7 +148,7 @@ const FEATURES = [
     description: 'Generates immutable Merkle-tree proofs mapped to SOC 2 Type II, HIPAA, and OWASP LLM Top 10 frameworks.',
     badge: 'SOC 2 Ready',
     badgeVariant: 'safe' as const,
-    link: '/security',
+    link: '/reports',
   },
   {
     icon: '🏛️',
@@ -480,7 +480,7 @@ const Footer: React.FC = () => (
           {
             title: 'Trust & Governance',
             links: [
-              { name: 'Security Control Matrix', to: '/security' },
+              { name: 'Threat Network', to: '/threats' },
               { name: 'Encrypted Vault', to: '/vault' },
               { name: 'Intelligence Reports', to: '/reports' },
               { name: 'Enterprise VPC', to: '/enterprise' },
@@ -489,9 +489,9 @@ const Footer: React.FC = () => (
           {
             title: 'Standards',
             links: [
-              { name: 'SOC 2 Type II', to: '/security' },
-              { name: 'HIPAA Safe Harbor', to: '/security' },
-              { name: 'GDPR Article 9', to: '/security' },
+              { name: 'SOC 2 Type II', to: '/reports' },
+              { name: 'HIPAA Safe Harbor', to: '/reports' },
+              { name: 'GDPR Article 9', to: '/reports' },
               { name: 'FIPS 140-3 HSM', to: '/enterprise' },
             ],
           },

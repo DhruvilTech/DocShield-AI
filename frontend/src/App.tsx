@@ -17,7 +17,6 @@ const ScannerPage = lazy(() => import('./pages/Scanner'));
 const IntelligencePage = lazy(() => import('./pages/Intelligence'));
 const AnalysisPage = lazy(() => import('./pages/Analysis'));
 const ThreatsPage = lazy(() => import('./pages/Threats'));
-const SecurityPage = lazy(() => import('./pages/Security'));
 const VaultPage = lazy(() => import('./pages/Vault'));
 const ReportsPage = lazy(() => import('./pages/Reports'));
 const EnterprisePage = lazy(() => import('./pages/Enterprise'));
@@ -123,14 +122,6 @@ const AppRoutes: React.FC<{ theme: 'dark' | 'light'; onToggle: () => void }> = (
                 element={
                   <ProtectedRoute>
                     <PageWrapper><ThreatsPage /></PageWrapper>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/security"
-                element={
-                  <ProtectedRoute>
-                    <PageWrapper><SecurityPage /></PageWrapper>
                   </ProtectedRoute>
                 }
               />
