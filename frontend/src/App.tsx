@@ -82,7 +82,7 @@ const AppRoutes: React.FC<{ theme: 'dark' | 'light'; onToggle: () => void }> = (
         <Suspense fallback={<PageLoader />}>
           <AnimatePresence mode="wait">
             <Routes location={location} key={location.pathname}>
-              {/* Public Core Routes */}
+              {/* Public Core Route */}
               <Route path="/" element={<PageWrapper><HomePage /></PageWrapper>} />
 
               {/* Authentication & Invitation Routes */}
