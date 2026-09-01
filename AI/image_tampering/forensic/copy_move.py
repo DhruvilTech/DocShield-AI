@@ -170,9 +170,39 @@ def analyze_copy_move(
         inliers_mask = mask.ravel() == 1
         inlier_matches = [m for i, m in enumerate(remaining_matches) if inliers_mask[i]]
         
-        # Verify cluster using NCC
+        # Check spatial overlap between source and destination clusters
+        src_coords_cand = np.array([kp[m.queryIdx].pt for m in inlier_matches])
+        dst_coords_cand = np.array([kp[m.trainIdx].pt for m in inlier_matches])
+        
+        min_sx, min_sy = np.min(src_coords_cand, axis=0)
+        max_sx, max_sy = np.max(src_coords_cand, axis=0)
+        min_dx, min_dy = np.min(dst_coords_cand, axis=0)
+        max_dx, max_dy = np.max(dst_coords_cand, axis=0)
+        
+        sw = max_sx - min_sx
+        sh = max_sy - min_sy
+        dw = max_dx - min_dx
+        dh = max_dy - min_dy
+        
+        # Calculate IoU and overlap ratio to ensure source and destination are distinct regions
+        ix1 = max(min_sx, min_dx)
+        iy1 = max(min_sy, min_dy)
+        ix2 = min(max_sx, max_dx)
+        iy2 = min(max_sy, max_dy)
+        inter_area = max(0.0, ix2 - ix1) * max(0.0, iy2 - iy1)
+        union_area = (sw * sh) + (dw * dh) - inter_area
+        iou = inter_area / union_area if union_area > 0 else 0.0
+        min_area = min(sw * sh, dw * dh)
+        overlap_ratio = (inter_area / min_area) if min_area > 0 else 0.0
+        
+        # Filter thin rules / borders
+        is_thin_line = (sw < 12 and sh > 60) or (sh < 12 and sw > 60) or (dw < 12 and dh > 60) or (dh < 12 and dw > 60)
+
+        # Verify cluster using NCC with adaptive threshold based on match count
         cluster_ncc = _calculate_cluster_ncc(inlier_matches, kp, gray)
-        if cluster_ncc >= 0.45:
+        min_required_ncc = 0.60 if len(inlier_matches) < 12 else 0.50
+
+        if iou < 0.20 and overlap_ratio < 0.25 and not is_thin_line and cluster_ncc >= min_required_ncc:
             # Calculate geometric projection error (residual)
             inlier_src = src_pts[inliers_mask]
             inlier_dst = dst_pts[inliers_mask]

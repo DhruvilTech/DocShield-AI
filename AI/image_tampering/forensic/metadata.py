@@ -64,6 +64,15 @@ def analyze_metadata(
                         software_name = f"{field_key}: {val.strip()}"
                         break
 
+        # Also inspect raw PDF byte header / comments / XMP stream for software signatures
+        if not software_present:
+            raw_header = image_bytes[:4096].decode('latin1', errors='ignore').lower()
+            for editor in EDITORS:
+                if editor in raw_header:
+                    software_present = True
+                    software_name = f"Header/XMP: {editor.capitalize()}"
+                    break
+
         # Parse CreationDate / ModDate (PDF dates typically formatted like D:YYYYMMDDHHmmSS...)
         def parse_pdf_date(d_str):
             if not d_str or not isinstance(d_str, str):

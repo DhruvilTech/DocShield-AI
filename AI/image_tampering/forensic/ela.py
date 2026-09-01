@@ -72,11 +72,11 @@ def analyze_ela(
     score = float(min(max(score, 0.0), 1.0))
 
     # 6. Suspicious Region Detection
-    # Threshold the amplified grayscale ELA map (threshold = 40)
-    _, thresh = cv2.threshold(ela_gray, 40, 255, cv2.THRESH_BINARY)
+    # Threshold the amplified grayscale ELA map (threshold = 65 to isolate true compression anomalies)
+    _, thresh = cv2.threshold(ela_gray, 65, 255, cv2.THRESH_BINARY)
     
     # Morphological cleanup to merge nearby pixels and filter out stray speckles
-    morph_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+    morph_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
     morphed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, morph_kernel)
     morphed = cv2.morphologyEx(morphed, cv2.MORPH_OPEN, morph_kernel)
     
@@ -84,47 +84,49 @@ def analyze_ela(
     contours, _ = cv2.findContours(morphed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     
     regions = []
-    min_region_dim = 15  # Ignore small isolated compression artifacts
+    min_region_dim = 25  # Require substantial continuous patch area
     working_area = working_image_rgb.shape[0] * working_image_rgb.shape[1]
     
     for contour in contours:
         x, y, w, h = cv2.boundingRect(contour)
-        # Filter out large page-wide boxes (e.g. > 30% of page area) such as document boundaries
-        if w >= min_region_dim and h >= min_region_dim and (w * h < 0.3 * working_area):
+        # Filter out large page-wide boxes (e.g. > 35% of page area) such as document boundaries
+        if w >= min_region_dim and h >= min_region_dim and (w * h < 0.35 * working_area):
             # Regional error analysis
             roi = ela_gray[y:y+h, x:x+w]
             roi_mean = float(np.mean(roi))
+            fill_ratio = float(np.mean(roi > 50))
             
-            # Severity thresholds based on ELA regional intensity
-            if roi_mean > 100.0:
-                severity = "HIGH"
-            elif roi_mean > 55.0:
-                severity = "MEDIUM"
-            else:
-                severity = "LOW"
+            # Anomaly condition: genuine area-wide error inconsistency (> 90 raw error across solid patch)
+            if roi_mean >= 90.0 and fill_ratio >= 0.25:
+                if roi_mean > 140.0 and fill_ratio >= 0.40:
+                    severity = "HIGH"
+                elif roi_mean > 105.0:
+                    severity = "MEDIUM"
+                else:
+                    severity = "LOW"
+                    
+                region_score = float(min(roi_mean / 255.0 * (1.2 + fill_ratio), 1.0))
                 
-            region_score = float(min(roi_mean / 255.0 * 2.0, 1.0))
-            
-            # Translate coordinates back to original image
-            if coordinate_mapper:
-                orig_x, orig_y, orig_w, orig_h = coordinate_mapper.box_to_original(x, y, w, h)
-                orig_x = int(round(orig_x))
-                orig_y = int(round(orig_y))
-                orig_w = int(round(orig_w))
-                orig_h = int(round(orig_h))
-            else:
-                orig_x, orig_y, orig_w, orig_h = x, y, w, h
-                
-            regions.append(SuspiciousRegion(
-                x=orig_x,
-                y=orig_y,
-                width=orig_w,
-                height=orig_h,
-                score=region_score,
-                severity=severity,
-                source="ela",
-                reason=f"Localized compression inconsistency (regional mean error: {roi_mean:.1f})"
-            ))
+                # Translate coordinates back to original image
+                if coordinate_mapper:
+                    orig_x, orig_y, orig_w, orig_h = coordinate_mapper.box_to_original(x, y, w, h)
+                    orig_x = int(round(orig_x))
+                    orig_y = int(round(orig_y))
+                    orig_w = int(round(orig_w))
+                    orig_h = int(round(orig_h))
+                else:
+                    orig_x, orig_y, orig_w, orig_h = x, y, w, h
+                    
+                regions.append(SuspiciousRegion(
+                    x=orig_x,
+                    y=orig_y,
+                    width=orig_w,
+                    height=orig_h,
+                    score=region_score,
+                    severity=severity,
+                    source="ela",
+                    reason=f"Localized compression inconsistency (regional mean error: {roi_mean:.1f})"
+                ))
 
     # Sort regions by regional score descending
     regions.sort(key=lambda r: r.score, reverse=True)
@@ -132,7 +134,11 @@ def analyze_ela(
     # Document-wide ELA score combines global baseline error with peak regional anomaly
     peak_regional_score = regions[0].score if regions else 0.0
     global_score = 0.4 * (mean_err / 8.0) + 0.4 * (std_err / 6.0) + 0.2 * (high_err_ratio / 0.10)
-    score = float(min(max(max(global_score, 0.75 * peak_regional_score), 0.0), 1.0))
+    if len(regions) > 0:
+        score = float(min(max(max(global_score, 0.75 * peak_regional_score), 0.0), 1.0))
+    else:
+        # Uniform document compression (scale down global error on uniform pages)
+        score = float(min(max(global_score * 0.45, 0.0), 0.25))
 
     # 7. Generate False-Color Heatmap
     heatmap = cv2.applyColorMap(ela_gray, cv2.COLORMAP_JET)

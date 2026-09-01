@@ -67,30 +67,28 @@ def _extract_text_candidates(
 ) -> List[Tuple[int, int, int, int]]:
     """
     Extract candidate text glyph and word bounding boxes using gradient and morphological profiling.
-    Filters out colored stamps and graphical elements.
+    Filters out colored stamps, barcodes, and page-wide border elements.
     """
     grad_x = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
-    grad_y = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
-    grad_mag = cv2.magnitude(grad_x, grad_y)
-    grad_norm = cv2.normalize(grad_mag, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+    grad_abs = np.abs(grad_x).astype(np.uint8)
+    _, binary = cv2.threshold(grad_abs, 18, 255, cv2.THRESH_BINARY)
 
-    _, binary = cv2.threshold(grad_norm, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 2))
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 3))
     connected = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
 
-    contours, _ = cv2.findContours(connected, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # Use RETR_LIST to capture text lines nested inside document border frames
+    contours, _ = cv2.findContours(connected, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 
     sat = hsv[:, :, 1]
     candidates = []
     for cnt in contours:
         x, y, w, h = cv2.boundingRect(cnt)
         
-        if w < 6 or h < 6:
+        if w < 8 or h < 6:
             continue
-        if w > 0.95 * img_w or h > 0.50 * img_h:
+        if w > 0.90 * img_w or h > 0.40 * img_h:
             continue
-        if w * h < 35 or w * h > 0.25 * img_w * img_h:
+        if w * h < 45 or w * h > 0.20 * img_w * img_h:
             continue
         if _is_table_rule_or_border(w, h, img_w, img_h):
             continue
@@ -99,9 +97,9 @@ def _extract_text_candidates(
         if roi_gray.size == 0 or _is_barcode_or_qr(roi_gray, w, h):
             continue
 
-        # Stamp / high chroma filter (stamps belong to stamp detector, not text tampering)
+        # Saturated official ink stamp filter (only reject strong localized red/purple/blue stamp inks, not tinted substrate)
         roi_sat = sat[y:y+h, x:x+w]
-        if roi_sat.size > 0 and (float(np.mean(roi_sat)) > 45.0 or float(np.max(roi_sat)) > 190.0):
+        if roi_sat.size > 0 and (float(np.mean(roi_sat)) > 130.0 and float(np.max(roi_sat)) > 200.0):
             continue
 
         candidates.append((x, y, w, h))

@@ -32,19 +32,30 @@ def analyze_noise(
         raise ValueError("Input image must be a valid 3D RGB image array.")
 
     # 1. Reuse or Calculate Noise Residual
+    grayscale = cv2.cvtColor(working_image_rgb, cv2.COLOR_RGB2GRAY)
     if noise_residual is None:
-        grayscale = cv2.cvtColor(working_image_rgb, cv2.COLOR_RGB2GRAY)
         # Apply 5x5 low-pass Gaussian blur
         low_pass = cv2.GaussianBlur(grayscale, (5, 5), 0)
         noise_residual = cv2.absdiff(grayscale, low_pass)
 
+    # Edge suppression mask to prevent sharp character strokes and table borders from inflating noise variance
+    grad_x = cv2.Sobel(grayscale, cv2.CV_32F, 1, 0, ksize=3)
+    grad_y = cv2.Sobel(grayscale, cv2.CV_32F, 0, 1, ksize=3)
+    grad_mag = np.sqrt(grad_x**2 + grad_y**2)
+    
+    edge_mask = (grad_mag > 40.0).astype(np.float32)
+    kernel_edge = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    edge_mask_dilated = cv2.dilate(edge_mask, kernel_edge)
+    non_edge_weight = 1.0 - edge_mask_dilated
+
     # Convert residual to float32 for high precision math
     I = noise_residual.astype(np.float32)
-    I_sq = cv2.multiply(I, I)
+    I_filtered = I * (0.20 + 0.80 * non_edge_weight)
+    I_sq = cv2.multiply(I_filtered, I_filtered)
 
     # 2. Compute Local Standard Deviation (Vectorized & CPU friendly)
-    ksize = 7
-    mean_I = cv2.boxFilter(I, -1, (ksize, ksize))
+    ksize = 11
+    mean_I = cv2.boxFilter(I_filtered, -1, (ksize, ksize))
     mean_I_sq = cv2.boxFilter(I_sq, -1, (ksize, ksize))
     local_var = cv2.subtract(mean_I_sq, cv2.multiply(mean_I, mean_I))
     # Eliminate minor rounding errors leading to negative variance
@@ -52,7 +63,7 @@ def analyze_noise(
     std_small = np.sqrt(local_var)
 
     # 3. Compute Contextual Noise Characteristics (Large window)
-    large_ksize = 31
+    large_ksize = 45
     std_large = cv2.boxFilter(std_small, -1, (large_ksize, large_ksize))
 
     # 4. Compute Raw Anomaly (Local Consistency difference)
@@ -62,13 +73,13 @@ def analyze_noise(
     # Calculate global variation (standard deviation) of noise levels across the page
     global_std_variation = float(np.std(std_small))
     # Set a sensible lower bound for page-wide variation to handle noise-free documents
-    global_std_variation = max(global_std_variation, 4.0)
+    global_std_variation = max(global_std_variation, 6.0)
 
-    # An anomaly is defined as a region deviating by more than 3 standard deviations from page-wide variation
-    anomaly_map = np.clip(anomaly_raw / (3.0 * global_std_variation + 1e-5), 0.0, 1.0)
+    # An anomaly is defined as a region deviating significantly from page-wide variation
+    anomaly_map = np.clip(anomaly_raw / (3.5 * global_std_variation + 1e-5), 0.0, 1.0)
 
     # 6. Smoothing Anomaly Map for Stable Measurements
-    smoothed_anomaly = cv2.GaussianBlur(anomaly_map, (7, 7), 0)
+    smoothed_anomaly = cv2.GaussianBlur(anomaly_map, (9, 9), 0)
 
     # 7. Calculate Statistics
     mean_noise = float(np.mean(noise_residual))
@@ -89,11 +100,11 @@ def analyze_noise(
 
     # 9. Suspicious Region Segmentation
     anomaly_uint8 = (smoothed_anomaly * 255).astype(np.uint8)
-    _, thresh = cv2.threshold(anomaly_uint8, int(0.4 * 255), 255, cv2.THRESH_BINARY)
+    _, thresh = cv2.threshold(anomaly_uint8, int(0.45 * 255), 255, cv2.THRESH_BINARY)
     
-    # Morphological cleanups: 5x5 CLOSE to bridge small gaps, 3x3 OPEN to remove speckles
-    close_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-    open_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    # Morphological cleanups: 9x9 CLOSE to bridge gaps, 5x5 OPEN to remove speckles
+    close_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))
+    open_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
     morphed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, close_kernel)
     morphed = cv2.morphologyEx(morphed, cv2.MORPH_OPEN, open_kernel)
     
@@ -101,53 +112,53 @@ def analyze_noise(
     contours, _ = cv2.findContours(morphed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     
     regions = []
-    min_region_dim = 30  # Filter out tiny contours to capture structural blocks
+    min_region_dim = 35  # Filter out tiny contours to capture structural blocks
     working_area = working_image_rgb.shape[0] * working_image_rgb.shape[1]
     
     for contour in contours:
         x, y, w, h = cv2.boundingRect(contour)
-        # Filter out large page-wide boxes (e.g. > 30% of page area) such as document borders
-        if w >= min_region_dim and h >= min_region_dim and (w * h < 0.3 * working_area):
+        # Filter out large page-wide boxes (e.g. > 35% of page area) such as document borders
+        if w >= min_region_dim and h >= min_region_dim and (w * h < 0.35 * working_area):
             # Regional error analysis
             roi = smoothed_anomaly[y:y+h, x:x+w]
-            # Use the 95th percentile of the ROI to capture peak anomaly intensity
-            region_score = float(np.percentile(roi, 95))
-            
-            # Severity thresholds based on regional anomaly intensity
-            if region_score > 0.7:
-                severity = "HIGH"
-            elif region_score > 0.4:
-                severity = "MEDIUM"
-            else:
-                severity = "LOW"
+            fill_ratio = float(np.mean(roi > 0.40))
+            if fill_ratio >= 0.20:
+                # Use the 95th percentile of the ROI to capture peak anomaly intensity
+                region_score = float(np.percentile(roi, 95))
                 
-            # Translate coordinates back to original image
-            if coordinate_mapper:
-                orig_x, orig_y, orig_w, orig_h = coordinate_mapper.box_to_original(x, y, w, h)
-                orig_x = int(round(orig_x))
-                orig_y = int(round(orig_y))
-                orig_w = int(round(orig_w))
-                orig_h = int(round(orig_h))
-            else:
-                orig_x, orig_y, orig_w, orig_h = x, y, w, h
-                
-            regions.append(SuspiciousRegion(
-                x=orig_x,
-                y=orig_y,
-                width=orig_w,
-                height=orig_h,
-                score=region_score,
-                severity=severity,
-                source="noise",
-                reason=f"Localized noise inconsistency (regional peak anomaly: {region_score:.2f})"
-            ))
+                # Severity thresholds based on regional anomaly intensity
+                if region_score > 0.70 and fill_ratio >= 0.35:
+                    severity = "HIGH"
+                elif region_score > 0.45:
+                    severity = "MEDIUM"
+                else:
+                    severity = "LOW"
+                    
+                # Translate coordinates back to original image
+                if coordinate_mapper:
+                    orig_x, orig_y, orig_w, orig_h = coordinate_mapper.box_to_original(x, y, w, h)
+                    orig_x = int(round(orig_x))
+                    orig_y = int(round(orig_y))
+                    orig_w = int(round(orig_w))
+                    orig_h = int(round(orig_h))
+                else:
+                    orig_x, orig_y, orig_w, orig_h = x, y, w, h
+                    
+                regions.append(SuspiciousRegion(
+                    x=orig_x,
+                    y=orig_y,
+                    width=orig_w,
+                    height=orig_h,
+                    score=region_score,
+                    severity=severity,
+                    source="noise",
+                    reason=f"Localized noise inconsistency (regional peak anomaly: {region_score:.2f})"
+                ))
 
     # Sort regions by region score descending
     regions.sort(key=lambda r: r.score, reverse=True)
 
     # 8. Deterministic Anomaly Score (0.0 to 1.0)
-    # The document score is defined as the maximum region score among localized anomalies.
-    # If no localized anomalies exist, the score is 0.0.
     score = float(regions[0].score) if len(regions) > 0 else 0.0
 
     # Sort regions by region score descending
