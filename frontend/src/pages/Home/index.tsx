@@ -1,9 +1,21 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Button, Badge, Card, SectionHeader, cn, CountUp, Reveal, RevealTilt } from '../../components/ui';
+import {
+  Button,
+  Badge,
+  Card,
+  SectionHeader,
+  cn,
+  CountUp,
+  Reveal,
+  RevealTilt,
+  CyberTextScramble,
+  CyberHUDCard,
+  HolographicRadar,
+} from '../../components/ui';
 import { DocShieldLogo } from '../../components/common/DocShieldLogo';
-import { ThreatNode, SecurityRing, VerificationAnimation, ScanLine, Interactive3DScanHero, HeroScanner } from '../../components/security';
+import { Interactive3DScanHero, HeroScanner } from '../../components/security';
 
 /* ---- Animation variants ---- */
 const fadeUp = (delay = 0) => ({
@@ -11,10 +23,10 @@ const fadeUp = (delay = 0) => ({
   animate: { opacity: 1, y: 0, transition: { duration: 0.5, delay, ease: [0.16, 1, 0.3, 1] as const } },
 });
 
-/* ---- Live status ticker ---- */
+/* ---- Live status ticker with Holographic Radar & Real-time Attestation ---- */
 const LiveTicker: React.FC = () => {
   return (
-    <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border border-[var(--border-accent)] bg-[var(--surface)] text-xs text-[var(--text-2)] font-mono shadow-[var(--shadow-sm)]">
+    <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border border-[var(--border-accent)] bg-[var(--surface)] text-xs text-[var(--text-2)] font-mono shadow-[0_0_20px_rgba(45,212,191,0.15)] animate-cyber-pulse">
       <span className="relative flex h-2 w-2">
         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--safe)] opacity-75" />
         <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--safe)]" />
@@ -28,23 +40,23 @@ const LiveTicker: React.FC = () => {
   );
 };
 
-/* ---- Hero Section with Cinematic Live Document Security Scanner ---- */
+/* ---- Hero Section with Futuristic Holographic Scanning Matrix ---- */
 const Hero: React.FC = () => {
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden pt-16 pb-12">
+    <section className="relative min-h-screen flex items-center overflow-hidden pt-20 pb-12">
       {/* Background ambient lighting vignette */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: 'radial-gradient(circle at 50% 30%, rgba(0,184,169,0.07) 0%, transparent 65%)',
+          background: 'radial-gradient(circle at 50% 25%, rgba(45,212,191,0.09) 0%, transparent 65%)',
         }}
       />
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 w-full">
         <div className="grid lg:grid-cols-12 gap-10 items-center">
-          {/* Left Column: Copy & Command Callouts (PRESERVED INTACT) */}
+          {/* Left Column: Copy, Cryptographic Decrypt Effect, & Action CTAs */}
           <div className="lg:col-span-6">
-            <motion.div {...fadeUp(0)} className="mb-6">
+            <motion.div {...fadeUp(0)} className="mb-6 flex flex-wrap items-center gap-3">
               <LiveTicker />
             </motion.div>
 
@@ -54,18 +66,23 @@ const Hero: React.FC = () => {
             >
               Document security
               <br />
-              <span className="accent-text">built for AI</span>
+              <span className="accent-text">
+                <CyberTextScramble text="built for AI threats" />
+              </span>
               <br />
-              <span className="text-[var(--text-2)] text-3xl sm:text-4xl xl:text-5xl font-normal">threats.</span>
+              <span className="text-[var(--text-2)] text-3xl sm:text-4xl xl:text-5xl font-normal">
+                in real time.
+              </span>
             </motion.h1>
 
             <motion.p {...fadeUp(0.14)} className="text-base sm:text-lg text-[var(--text-2)] leading-relaxed max-w-xl mb-8">
-              DocShield AI intercepts prompt injections, sensitive PII/PHI exposures, credential leaks, and document fraud before they reach LLMs, employees, or third parties.
+              DocShield AI intercepts adversarial prompt injections, sensitive PII/PHI disclosures, credential leaks, and document fraud inside hardware-isolated confidential enclaves.
             </motion.p>
 
             <motion.div {...fadeUp(0.2)} className="flex flex-wrap items-center gap-3">
               <Link to="/scanner">
-                <Button size="lg" variant="primary">
+                <Button size="lg" variant="primary" className="relative group overflow-hidden">
+                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                     <polyline points="17 8 12 3 7 8" />
@@ -76,7 +93,7 @@ const Hero: React.FC = () => {
               </Link>
 
               <a href="#interactive-sandbox">
-                <Button size="lg" variant="secondary">
+                <Button size="lg" variant="secondary" className="hover:border-[var(--accent)] hover:shadow-[0_0_20px_rgba(45,212,191,0.25)]">
                   <svg className="w-4 h-4 text-[var(--accent)]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <polygon points="5 3 19 12 5 21 5 3" />
                   </svg>
@@ -85,10 +102,10 @@ const Hero: React.FC = () => {
               </a>
             </motion.div>
 
-            {/* Compliance certifications strip */}
+            {/* Compliance certifications strip with Holographic Radar Mini */}
             <motion.div {...fadeUp(0.28)} className="mt-10 flex flex-wrap items-center gap-4 text-xs text-[var(--text-3)] font-mono">
               {['SOC 2 Type II Certified', 'HIPAA 18 PHI Safe Harbor', 'GDPR Article 9', 'FIPS 140-3 Hardware TEE'].map((cert) => (
-                <span key={cert} className="flex items-center gap-1.5">
+                <span key={cert} className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--surface-raised)]/60 border border-[var(--border)]">
                   <svg className="w-3.5 h-3.5 text-[var(--safe)]" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
@@ -108,8 +125,7 @@ const Hero: React.FC = () => {
   );
 };
 
-
-/* ---- Features Grid Section with Laser-Border Hover Effects ---- */
+/* ---- Features Grid Section with Futuristic CyberHUD Cards & Laser Runners ---- */
 const FEATURES = [
   {
     icon: '🛡️',
@@ -117,6 +133,7 @@ const FEATURES = [
     description: 'Intercepts hidden LLM jailbreaks, recursive prompt escapes, and adversarial zero-width unicode before ingestion.',
     badge: 'AI Security',
     badgeVariant: 'ai' as const,
+    glow: 'violet' as const,
     link: '/scanner',
   },
   {
@@ -125,6 +142,7 @@ const FEATURES = [
     description: 'Detects 140+ international identifier formats and replaces sensitive cleartext with cryptographically secure tokens.',
     badge: 'GDPR / HIPAA',
     badgeVariant: 'info' as const,
+    glow: 'teal' as const,
     link: '/analysis',
   },
   {
@@ -133,6 +151,7 @@ const FEATURES = [
     description: 'Embeds invisible forensic fingerprints into documents that survive OCR, print-scan cycles, and screenshot attacks.',
     badge: 'Forensics',
     badgeVariant: 'accent' as const,
+    glow: 'teal' as const,
     link: '/analysis',
   },
   {
@@ -141,6 +160,7 @@ const FEATURES = [
     description: 'Calculates Shannon entropy to identify hardcoded RSA private keys, AWS tokens, and database credentials.',
     badge: 'Secrets',
     badgeVariant: 'threat' as const,
+    glow: 'red' as const,
     link: '/threats',
   },
   {
@@ -149,6 +169,7 @@ const FEATURES = [
     description: 'Generates immutable Merkle-tree proofs mapped to SOC 2 Type II, HIPAA, and OWASP LLM Top 10 frameworks.',
     badge: 'SOC 2 Ready',
     badgeVariant: 'safe' as const,
+    glow: 'amber' as const,
     link: '/reports',
   },
   {
@@ -157,42 +178,55 @@ const FEATURES = [
     description: 'Stores sanitized documents in hardware-isolated enclave storage protected by role-bound ephemeral keys.',
     badge: 'Zero-Trust',
     badgeVariant: 'accent' as const,
+    glow: 'teal' as const,
     link: '/vault',
   },
 ];
 
 const FeaturesSection: React.FC = () => (
-  <section className="py-20 bg-transparent border-y border-[var(--border)]">
-    <Reveal className="max-w-7xl mx-auto px-4 sm:px-6">
+  <section className="py-24 bg-transparent border-y border-[var(--border)] relative overflow-hidden">
+    {/* Subtle grid accent */}
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
       <SectionHeader
         eyebrow="Intelligence Layer"
-        title={<>6 security engines,<br /><span className="text-[var(--text-2)] font-normal">one unified platform<span className="text-[var(--accent)]">.</span></span></>}
+        title={
+          <>
+            6 security engines,
+            <br />
+            <span className="text-[var(--text-2)] font-normal">
+              one unified platform<span className="text-[var(--accent)]">.</span>
+            </span>
+          </>
+        }
         description="Every document upload passes through six specialized neural models running simultaneously in hardware-isolated TEE memory."
       />
 
-      <RevealTilt className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {FEATURES.map((f, i) => (
-          <div key={f.label} data-tilt-card="">
-            <Link to={f.link} className="block h-full">
-              <Card interactive className="p-5 h-full flex flex-col justify-between group/card">
-                <div>
-                  <div className="flex items-start justify-between mb-3">
-                    <span className="text-2xl card-icon">{f.icon}</span>
-                    <Badge variant={f.badgeVariant} size="sm">{f.badge}</Badge>
-                  </div>
-                  <h3 className="text-sm font-bold text-[var(--text-1)] mb-2 transition-colors group-hover/card:text-[var(--text-1)]">{f.label}</h3>
-                  <p className="text-xs text-[var(--text-2)] leading-relaxed">{f.description}</p>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {FEATURES.map((f) => (
+          <Link key={f.label} to={f.link} className="block h-full group">
+            <CyberHUDCard glowColor={f.glow} className="p-6 h-full flex flex-col justify-between">
+              <div>
+                <div className="flex items-start justify-between mb-4">
+                  <span className="text-3xl filter drop-shadow-[0_0_8px_rgba(45,212,191,0.3)]">{f.icon}</span>
+                  <Badge variant={f.badgeVariant} size="sm">
+                    {f.badge}
+                  </Badge>
                 </div>
-                <div className="mt-4 pt-3 border-t border-[var(--border)] flex items-center justify-between text-[11px] font-mono text-[var(--accent)] font-semibold">
-                  <span>Explore Module</span>
-                  <span className="card-arrow text-sm">→</span>
-                </div>
-              </Card>
-            </Link>
-          </div>
+                <h3 className="text-sm font-bold text-[var(--text-1)] mb-2 group-hover:text-[var(--accent)] transition-colors">
+                  <CyberTextScramble text={f.label} triggerOnHover />
+                </h3>
+                <p className="text-xs text-[var(--text-2)] leading-relaxed">{f.description}</p>
+              </div>
+
+              <div className="mt-5 pt-3 border-t border-[var(--border)] flex items-center justify-between text-[11px] font-mono text-[var(--accent)] font-semibold">
+                <span>Launch Engine</span>
+                <span className="transform transition-transform duration-200 group-hover:translate-x-1">→</span>
+              </div>
+            </CyberHUDCard>
+          </Link>
         ))}
-      </RevealTilt>
-    </Reveal>
+      </div>
+    </div>
   </section>
 );
 
@@ -204,7 +238,7 @@ const InteractiveSandboxSection: React.FC = () => {
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: 'radial-gradient(circle at 50% 50%, rgba(45,212,191,0.06) 0%, transparent 70%)',
+          background: 'radial-gradient(circle at 50% 50%, rgba(45,212,191,0.07) 0%, transparent 70%)',
         }}
       />
 
@@ -227,8 +261,22 @@ const InteractiveSandboxSection: React.FC = () => {
             <Interactive3DScanHero />
           </div>
 
-          {/* Side Explanatory Guidance Cards */}
+          {/* Side Explanatory Guidance Cards with Radar */}
           <div className="lg:col-span-4 space-y-3">
+            {/* Live Holographic Threat Radar Widget */}
+            <CyberHUDCard glowColor="teal" showTelemetry={false} className="p-4 flex items-center gap-4 bg-[var(--surface)]/90">
+              <HolographicRadar size={92} />
+              <div>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="w-2 h-2 rounded-full bg-[var(--safe)] animate-pulse" />
+                  <span className="text-[11px] font-mono font-bold text-[var(--accent)]">LIVE THREAT RADAR</span>
+                </div>
+                <p className="text-[10px] text-[var(--text-3)] font-mono leading-relaxed">
+                  Real-time neural sweep monitoring active memory allocations.
+                </p>
+              </div>
+            </CyberHUDCard>
+
             {[
               {
                 step: '01',
@@ -259,7 +307,7 @@ const InteractiveSandboxSection: React.FC = () => {
                 badgeVariant: 'safe' as const,
               },
             ].map((item) => (
-              <Card key={item.step} interactive className="p-4 transition-all">
+              <CyberHUDCard key={item.step} glowColor="teal" className="p-4 transition-all">
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-mono font-bold text-[var(--accent)] bg-[var(--accent-muted)] px-1.5 py-0.5 rounded">
@@ -272,7 +320,7 @@ const InteractiveSandboxSection: React.FC = () => {
                   </Badge>
                 </div>
                 <p className="text-[11px] text-[var(--text-2)] leading-relaxed">{item.desc}</p>
-              </Card>
+              </CyberHUDCard>
             ))}
 
             <Link to="/scanner" className="block pt-2">
@@ -316,12 +364,12 @@ const WorkflowSection: React.FC = () => {
               return (
                 <motion.div
                   key={step.num}
-                  whileHover={{ x: 3 }}
+                  whileHover={{ x: 4 }}
                   onClick={() => setActiveStep(i)}
                   className={cn(
                     'p-4 rounded-xl border cursor-pointer transition-all duration-200 flex items-start gap-4',
                     isSelected
-                      ? 'border-[var(--border-accent)] bg-[var(--surface)] shadow-[var(--shadow-md)]'
+                      ? 'border-[var(--border-accent)] bg-[var(--surface)] shadow-[0_0_25px_rgba(45,212,191,0.2)]'
                       : 'border-[var(--border)] bg-[var(--surface-alt)] opacity-70 hover:opacity-100'
                   )}
                 >
@@ -346,7 +394,7 @@ const WorkflowSection: React.FC = () => {
 
           {/* Active Stage Interactive Telemetry Card */}
           <div className="lg:col-span-6">
-            <Card className="p-6 border-[var(--border-accent)]">
+            <CyberHUDCard glowColor="teal" className="p-6">
               <div className="flex items-center justify-between mb-4 border-b border-[var(--border)] pb-3">
                 <span className="text-xs font-mono font-bold uppercase text-[var(--accent)]">
                   Pipeline Telemetry · Stage {WORKFLOW[activeStep].num}
@@ -373,7 +421,7 @@ const WorkflowSection: React.FC = () => {
                   Test Live Pipeline in Scanner →
                 </Button>
               </Link>
-            </Card>
+            </CyberHUDCard>
           </div>
         </div>
       </Reveal>
@@ -414,10 +462,10 @@ const StatsBar: React.FC = () => (
 const CTASection: React.FC = () => (
   <section className="py-24">
     <Reveal className="max-w-6xl mx-auto px-4 sm:px-6">
-      <div className="relative overflow-hidden rounded-2xl border border-[var(--border-accent)] bg-[var(--surface)]/80 backdrop-blur-xl p-10 sm:p-14 text-center shadow-[var(--shadow-lg)]">
+      <CyberHUDCard glowColor="teal" className="p-10 sm:p-14 text-center">
         <div
           className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse 60% 40% at 50% 0%, rgba(0,184,169,0.12), transparent)' }}
+          style={{ background: 'radial-gradient(ellipse 60% 40% at 50% 0%, rgba(0,184,169,0.14), transparent)' }}
         />
         <div className="relative z-10">
           <Badge variant="accent" size="md" className="mb-5">
@@ -425,7 +473,9 @@ const CTASection: React.FC = () => (
           </Badge>
           <h2 className="text-3xl sm:text-4xl font-bold text-[var(--text-1)] mb-4 tracking-tight">
             Protect your documents with<br />
-            <span className="accent-text">verifiable AI security intelligence.</span>
+            <span className="accent-text">
+              <CyberTextScramble text="verifiable AI security intelligence." />
+            </span>
           </h2>
           <p className="text-sm text-[var(--text-2)] max-w-md mx-auto mb-8 leading-relaxed">
             Upload your first document to decompile, scan, and sanitize in under 2 seconds. No credit card required.
@@ -443,7 +493,7 @@ const CTASection: React.FC = () => (
             </Link>
           </div>
         </div>
-      </div>
+      </CyberHUDCard>
     </Reveal>
   </section>
 );
@@ -526,16 +576,18 @@ const Footer: React.FC = () => (
   </footer>
 );
 
-export const HomePage: React.FC = () => (
-  <div>
-    <Hero />
-    <StatsBar />
-    <FeaturesSection />
-    <InteractiveSandboxSection />
-    <WorkflowSection />
-    <CTASection />
-    <Footer />
-  </div>
-);
+export const HomePage: React.FC = () => {
+  return (
+    <div className="relative min-h-screen">
+      <Hero />
+      <StatsBar />
+      <FeaturesSection />
+      <InteractiveSandboxSection />
+      <WorkflowSection />
+      <CTASection />
+      <Footer />
+    </div>
+  );
+};
 
 export default HomePage;

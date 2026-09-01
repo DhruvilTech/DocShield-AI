@@ -727,6 +727,47 @@ h3 {
   }
 }
 
+/* ---- Futuristic Cyber Animations ---- */
+@keyframes laser-runner {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-laser-runner {
+  animation: laser-runner 2.2s linear infinite;
+}
+
+@keyframes radar-sweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-radar-sweep {
+  animation: radar-sweep 4s linear infinite;
+}
+
+@keyframes cyber-glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(45, 212, 191, 0.2);
+    border-color: rgba(45, 212, 191, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 35px rgba(45, 212, 191, 0.45);
+    border-color: rgba(45, 212, 191, 0.65);
+  }
+}
+
+.animate-cyber-pulse {
+  animation: cyber-glow-pulse 3s ease-in-out infinite;
+}
 
 /* ---- Reduced Motion ---- */
 @media (prefers-reduced-motion: reduce) {
@@ -738,3 +779,4 @@ h3 {
     transition-duration: 0.01ms !important;
   }
 }
+
