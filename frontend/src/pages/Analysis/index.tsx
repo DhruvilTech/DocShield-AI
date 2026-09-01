@@ -387,7 +387,7 @@ export const AnalysisPage: React.FC = () => {
                 </div>
 
                 {/* Scrollable Target List Container */}
-                <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1.5 custom-scrollbar">
+                <div data-lenis-prevent className="space-y-1.5 max-h-72 overflow-y-auto pr-1.5 custom-scrollbar">
                   {filteredDocuments.map((d) => {
                     const isDocPdf = d.mime_type === 'application/pdf' || d.name.endsWith('.pdf');
                     return (
@@ -521,7 +521,7 @@ export const AnalysisPage: React.FC = () => {
                 )}
 
                 {/* Scrollable Indicator List */}
-                <div className="space-y-2 max-h-72 overflow-y-auto pr-1.5 custom-scrollbar">
+                <div data-lenis-prevent className="space-y-2 max-h-72 overflow-y-auto pr-1.5 custom-scrollbar">
                   {filteredIndicators.length > 0 ? (
                     filteredIndicators.map((ind, idx) => {
                       const isSelected = selectedIndicatorIdx === idx;
@@ -897,7 +897,7 @@ export const AnalysisPage: React.FC = () => {
                     </div>
 
                     {findings.length > 0 ? (
-                      <div className="space-y-2 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
+                      <div data-lenis-prevent className="space-y-2 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
                         {findings.map((f, idx) => (
                           <div
                             key={idx}

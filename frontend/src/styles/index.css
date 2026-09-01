@@ -589,19 +589,28 @@ h3 {
 }
 
 /* Custom Slim Scrollbars */
+.custom-scrollbar,
+[data-lenis-prevent],
+.overflow-y-auto,
+.overflow-x-auto {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
 .custom-scrollbar::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--surface);
   border-radius: 6px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: var(--border-strong);
   border-radius: 6px;
+  border: 1px solid var(--border);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {

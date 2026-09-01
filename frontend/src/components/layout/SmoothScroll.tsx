@@ -14,6 +14,13 @@ export const SmoothScroll: React.FC<{ children: React.ReactNode }> = ({ children
       lerp: 0.09,
       smoothWheel: true,
       wheelMultiplier: 0.95,
+      prevent: (node: any) => {
+        if (!node || typeof (node as HTMLElement).closest !== 'function') return false;
+        const el = node as HTMLElement;
+        return !!el.closest(
+          '[data-lenis-prevent], .custom-scrollbar, .overflow-y-auto, .overflow-x-auto, [data-scrollable]'
+        );
+      },
     });
 
     lenis.on('scroll', ScrollTrigger.update);

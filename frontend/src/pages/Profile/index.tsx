@@ -140,7 +140,7 @@ export const ProfilePage: React.FC = () => {
               <span className="w-2 h-2 rounded-full bg-[var(--accent)]" />
               Active System Permissions ({user.permissions.length})
             </h4>
-            <div className="flex flex-wrap gap-1.5 max-h-56 overflow-y-auto pr-1">
+            <div data-lenis-prevent className="flex flex-wrap gap-1.5 max-h-56 overflow-y-auto pr-1 custom-scrollbar">
               {user.permissions.map((p) => (
                 <span
                   key={p}

@@ -352,7 +352,7 @@ export const ReportsPage: React.FC = () => {
             </span>
           </div>
 
-          <div className="space-y-2 max-h-72 overflow-y-auto pr-1 custom-scrollbar font-mono text-xs">
+          <div data-lenis-prevent className="space-y-2 max-h-72 overflow-y-auto pr-1 custom-scrollbar font-mono text-xs">
             {documents.slice(0, 10).map((d) => {
               const hasThreat = isDocThreat(d);
               return (

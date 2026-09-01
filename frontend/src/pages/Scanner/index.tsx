@@ -814,7 +814,7 @@ export const ScannerPage: React.FC = () => {
                 <p className="text-xs text-[var(--accent)] font-mono">{getPhaseInfo(phase, docType).detail}</p>
 
                 {/* Live log stream */}
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-3 font-mono text-[10px] text-[var(--text-3)] max-h-56 overflow-y-auto space-y-1.5">
+                <div data-lenis-prevent className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-3 font-mono text-[10px] text-[var(--text-3)] max-h-56 overflow-y-auto space-y-1.5 custom-scrollbar">
                   <div className="text-[9px] uppercase font-bold text-[var(--text-2)] border-b border-[var(--border)] pb-1 mb-1 flex items-center justify-between">
                     <span>BORDER SECURITY TELEMETRY STREAM</span>
                     {isVerifyingFace && <span className="text-[var(--accent)] animate-pulse">● BIOMETRICS MATCHING...</span>}
@@ -1273,7 +1273,7 @@ export const ScannerPage: React.FC = () => {
                         <span className="text-xs font-bold font-mono uppercase text-[var(--text-1)] block">
                           Localized Anomaly Regions ({tampering.indicators.length})
                         </span>
-                        <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                        <div data-lenis-prevent className="max-h-48 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
                           {tampering.indicators.map((ind, idx) => (
                             <div
                               key={idx}

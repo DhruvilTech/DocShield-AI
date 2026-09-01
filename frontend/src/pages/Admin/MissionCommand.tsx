@@ -495,7 +495,7 @@ export const MissionCommandPage: React.FC = () => {
                       </Badge>
                     </div>
 
-                    <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                    <div data-lenis-prevent className="space-y-2.5 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
                       {(overview?.recentAudits || []).slice(0, 5).map((log, i) => (
                         <div
                           key={i}
@@ -680,7 +680,7 @@ export const MissionCommandPage: React.FC = () => {
                 <div className="p-3 bg-[var(--surface-raised)] border-b border-[var(--border)] text-[10px] text-[var(--text-3)] uppercase font-bold">
                   Recent Security Events
                 </div>
-                <div className="divide-y divide-[var(--border)] max-h-96 overflow-y-auto">
+                <div data-lenis-prevent className="divide-y divide-[var(--border)] max-h-96 overflow-y-auto custom-scrollbar">
                   {(auditLogs.length > 0 ? auditLogs : overview?.recentAudits || []).map((a: any) => (
                     <div key={a.id} className="p-3 flex items-center justify-between gap-4">
                       <div>
