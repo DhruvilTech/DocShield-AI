@@ -170,7 +170,7 @@ export const AdminUsersPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-wrap gap-1">
-                        {u.roles.map((r) => (
+                        {(u.roles || []).map((r) => (
                           <Badge key={r} variant="accent" size="sm">
                             {r}
                           </Badge>

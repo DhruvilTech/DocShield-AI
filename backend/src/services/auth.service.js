@@ -1,7 +1,7 @@
 // src/services/auth.service.js
 import { v4 as uuidv4 } from 'uuid';
+import { db } from '../database/db.js';
 import { userRepository } from '../repositories/user.repository.js';
-import { roleRepository } from '../repositories/role.repository.js';
 import { tokenRepository } from '../repositories/token.repository.js';
 import { auditService } from './audit.service.js';
 import { emailService } from './email.service.js';
@@ -11,13 +11,10 @@ import { AppError } from '../errors/AppError.js';
 import { env } from '../config/env.js';
 import { organizationRepository } from '../repositories/organization.repository.js';
 import { membershipRepository } from '../repositories/membership.repository.js';
-import { SYSTEM_ROLES, AUDIT_ACTIONS } from '../config/constants.js';
+import { AUDIT_ACTIONS } from '../config/constants.js';
 
 export class AuthService {
-  async getSanitizedUser(user) {
-    const roles = await roleRepository.getUserRoleSlugs(user.id);
-    const permissions = await roleRepository.getUserPermissions(user.id);
-
+  getSanitizedUser(user) {
     return {
       id: user.id,
       name: user.name,
@@ -28,8 +25,8 @@ export class AuthService {
       lastLoginAt: user.last_login_at ? new Date(user.last_login_at).toISOString() : null,
       createdAt: new Date(user.created_at).toISOString(),
       updatedAt: new Date(user.updated_at).toISOString(),
-      roles,
-      permissions,
+      roles: [],
+      permissions: [],
     };
   }
 
@@ -38,8 +35,6 @@ export class AuthService {
     const tokenPayload = {
       userId: user.id,
       email: user.email,
-      roles: user.roles,
-      permissions: user.permissions,
     };
 
     const accessToken = JwtUtil.generateAccessToken(tokenPayload);
@@ -84,30 +79,21 @@ export class AuthService {
       emailVerified: false,
     });
 
-    const targetRoleSlug = data.role || SYSTEM_ROLES.SCREENING_OFFICER;
-    const role = await roleRepository.findBySlug(targetRoleSlug);
-    let assignedRoleId = role ? role.id : null;
-    if (role) {
-      await roleRepository.assignRoleToUser(user.id, role.id);
-    } else {
-      const defaultRole = await roleRepository.findBySlug(SYSTEM_ROLES.SCREENING_OFFICER);
-      if (defaultRole) {
-        assignedRoleId = defaultRole.id;
-        await roleRepository.assignRoleToUser(user.id, defaultRole.id);
-      }
-    }
-
     // Auto-join to default security organization
     try {
       const defaultOrg = await organizationRepository.findBySlug('global-security');
-      if (defaultOrg && assignedRoleId) {
-        await membershipRepository.addMember({
-          id: uuidv4(),
-          organizationId: defaultOrg.id,
-          userId: user.id,
-          roleId: assignedRoleId,
-          status: 'ACTIVE',
-        });
+      if (defaultOrg) {
+        const defaultRoleRows = await db.query('SELECT id FROM roles LIMIT 1');
+        const defaultRoleId = defaultRoleRows[0]?.id;
+        if (defaultRoleId) {
+          await membershipRepository.addMember({
+            id: uuidv4(),
+            organizationId: defaultOrg.id,
+            userId: user.id,
+            roleId: defaultRoleId,
+            status: 'ACTIVE',
+          });
+        }
       }
     } catch {
       // ignore if already joined or org not found
@@ -126,7 +112,7 @@ export class AuthService {
 
     emailService.sendVerificationEmail(user.email, rawVerificationToken).catch(() => {});
 
-    const sanitizedUser = await this.getSanitizedUser(user);
+    const sanitizedUser = this.getSanitizedUser(user);
     const tokens = await this.issueTokens(sanitizedUser, null, meta);
 
     await auditService.log({
@@ -136,7 +122,7 @@ export class AuthService {
       resourceId: user.id,
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
-      metadata: { email: user.email, assignedRole: targetRoleSlug },
+      metadata: { email: user.email },
     });
 
     return { user: sanitizedUser, tokens };

@@ -16,7 +16,7 @@ export const createUserAdminSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(100),
   email: z.string().email('Please provide a valid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters').regex(PASSWORD_REGEX, PASSWORD_REQUIREMENT_MSG),
-  roles: z.array(z.string()).min(1, 'At least one role must be assigned'),
+  roles: z.array(z.string()).optional(),
   status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION']).optional(),
   emailVerified: z.boolean().optional(),
 });

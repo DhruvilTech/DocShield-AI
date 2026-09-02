@@ -1,8 +1,8 @@
 // src/services/membership.service.js
 import { v4 as uuidv4 } from 'uuid';
+import { db } from '../database/db.js';
 import { membershipRepository } from '../repositories/membership.repository.js';
 import { userRepository } from '../repositories/user.repository.js';
-import { roleRepository } from '../repositories/role.repository.js';
 import { auditService } from './audit.service.js';
 import { AppError } from '../errors/AppError.js';
 import { AUDIT_ACTIONS } from '../config/constants.js';
@@ -12,15 +12,16 @@ export class MembershipService {
     return membershipRepository.listMembers(organizationId, params);
   }
 
-  async addMember(organizationId, userId, roleId, actorUserId, reqMeta = {}) {
+  async addMember(organizationId, userId, roleId = null, actorUserId, reqMeta = {}) {
     const user = await userRepository.findById(userId);
     if (!user) {
       throw AppError.notFound('User not found', 'USER_NOT_FOUND');
     }
 
-    const role = await roleRepository.findById(roleId);
-    if (!role) {
-      throw AppError.notFound('Role not found', 'ROLE_NOT_FOUND');
+    let effectiveRoleId = roleId;
+    if (!effectiveRoleId) {
+      const defaultRoleRows = await db.query('SELECT id FROM roles LIMIT 1');
+      effectiveRoleId = defaultRoleRows[0]?.id;
     }
 
     const existing = await membershipRepository.findMember(organizationId, userId);
@@ -33,7 +34,7 @@ export class MembershipService {
       id: membershipId,
       organizationId,
       userId,
-      roleId,
+      roleId: effectiveRoleId,
       status: 'ACTIVE',
     });
 
@@ -44,32 +45,25 @@ export class MembershipService {
       resourceId: membershipId,
       ipAddress: reqMeta.ip,
       userAgent: reqMeta.userAgent,
-      metadata: { organizationId, addedUserId: userId, roleId, roleSlug: role.slug },
+      metadata: { organizationId, addedUserId: userId },
     });
 
     return member;
   }
 
-  async updateMemberRole(organizationId, targetUserId, newRoleId, status = null, actorUserId = null, reqMeta = {}) {
+  async updateMemberRole(organizationId, targetUserId, newRoleId = null, status = null, actorUserId = null, reqMeta = {}) {
     const member = await membershipRepository.findMember(organizationId, targetUserId);
     if (!member) {
       throw AppError.notFound('Member not found in organization', 'MEMBER_NOT_FOUND');
     }
 
-    const role = await roleRepository.findById(newRoleId);
-    if (!role) {
-      throw AppError.notFound('Role not found', 'ROLE_NOT_FOUND');
+    let effectiveRoleId = newRoleId || member.role_id;
+    if (!effectiveRoleId) {
+      const defaultRoleRows = await db.query('SELECT id FROM roles LIMIT 1');
+      effectiveRoleId = defaultRoleRows[0]?.id;
     }
 
-    // Safety check: Do not allow demoting the only admin
-    if (member.role_slug === 'super_admin' && role.slug !== 'super_admin') {
-      const adminCount = await membershipRepository.countOrgAdmins(organizationId);
-      if (adminCount <= 1) {
-        throw AppError.badRequest('Cannot demote the only administrator of the organization', 'CANNOT_DEMOTE_LAST_ADMIN');
-      }
-    }
-
-    const updated = await membershipRepository.updateMemberRole(organizationId, targetUserId, newRoleId, status);
+    const updated = await membershipRepository.updateMemberRole(organizationId, targetUserId, effectiveRoleId, status);
 
     await auditService.log({
       actorUserId,
@@ -82,8 +76,7 @@ export class MembershipService {
         organizationId,
         targetUserId,
         previousRoleId: member.role_id,
-        newRoleId,
-        newRoleSlug: role.slug,
+        newRoleId: effectiveRoleId,
       },
     });
 

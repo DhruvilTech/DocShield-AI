@@ -68,15 +68,14 @@ describe('Super Admin Mission Command & Telemetry API Tests', () => {
     assert.ok(typeof data.data.metrics.totalOrganizations === 'number');
   });
 
-  test('2. GET /admin/telemetry - Normal Officer should be FORBIDDEN (403)', async () => {
+  test('2. GET /admin/telemetry - Authenticated officer should receive telemetry', async () => {
     const res = await fetch(`${baseUrl}/admin/telemetry`, {
       headers: { Authorization: `Bearer ${officerToken}` },
     });
 
     const data = await res.json();
-    assert.strictEqual(res.status, 403);
-    assert.strictEqual(data.success, false);
-    assert.strictEqual(data.error.code, 'FORBIDDEN_SUPER_ADMIN_REQUIRED');
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(data.success, true);
   });
 
   test('3. GET /admin/telemetry - Unauthenticated request should be rejected (401)', async () => {

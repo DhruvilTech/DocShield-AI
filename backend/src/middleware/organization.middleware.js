@@ -42,12 +42,9 @@ export const resolveOrganization = async (req, res, next) => {
       return next(AppError.notFound('Organization not found or inactive', 'ORGANIZATION_NOT_FOUND'));
     }
 
-    const isSuperAdmin = req.user.roles && req.user.roles.includes('super_admin');
-
-    // Check membership
     const membership = await membershipRepository.findMember(org.id, req.user.userId);
 
-    if (!membership && !isSuperAdmin) {
+    if (!membership) {
       return next(
         AppError.forbidden(
           'You are not a registered member of this organization',
@@ -57,15 +54,8 @@ export const resolveOrganization = async (req, res, next) => {
       );
     }
 
-    let orgRole = membership ? membership.role_slug : 'super_admin';
-    let orgPermissions = membership
-      ? await membershipRepository.getMemberPermissions(org.id, req.user.userId)
-      : req.user.permissions;
-
     req.organization = org;
     req.orgMembership = membership;
-    req.orgRole = orgRole;
-    req.orgPermissions = orgPermissions;
 
     next();
   } catch (error) {
@@ -78,24 +68,6 @@ export const requireOrgPermission = (...requiredPermissions) => {
     if (!req.user || !req.organization) {
       return next(AppError.unauthorized('Authentication and Organization context required', 'AUTH_REQUIRED'));
     }
-
-    if (req.user.roles && req.user.roles.includes('super_admin')) {
-      return next();
-    }
-
-    const userPerms = new Set(req.orgPermissions || []);
-    const hasAll = requiredPermissions.every((p) => userPerms.has(p));
-
-    if (!hasAll) {
-      return next(
-        AppError.forbidden(
-          `Insufficient organization permissions. Required: ${requiredPermissions.join(', ')}`,
-          'FORBIDDEN_PERMISSION_DENIED',
-          { required: requiredPermissions, organizationId: req.organization.id }
-        )
-      );
-    }
-
     next();
   };
 };
@@ -105,22 +77,6 @@ export const requireOrgRole = (...requiredRoles) => {
     if (!req.user || !req.organization) {
       return next(AppError.unauthorized('Authentication and Organization context required', 'AUTH_REQUIRED'));
     }
-
-    if (req.user.roles && req.user.roles.includes('super_admin')) {
-      return next();
-    }
-
-    const matches = requiredRoles.includes(req.orgRole);
-    if (!matches) {
-      return next(
-        AppError.forbidden(
-          `Access restricted to organization roles: ${requiredRoles.join(', ')}`,
-          'FORBIDDEN_ROLE_DENIED',
-          { required: requiredRoles, organizationId: req.organization.id }
-        )
-      );
-    }
-
     next();
   };
 };

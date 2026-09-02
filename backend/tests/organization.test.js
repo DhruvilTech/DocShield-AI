@@ -153,11 +153,6 @@ describe('Phase 3: Organization & Membership API Tests', () => {
 
   test('POST /organizations/:id/invitations - should create an invitation token for a new member', async () => {
     const inviteEmail = `invitee.${Date.now()}@docshield.ai`;
-    const rolesRes = await fetch(`${baseUrl}/roles`, {
-      headers: { Authorization: `Bearer ${adminToken}` },
-    });
-    const rolesData = await rolesRes.json();
-    const officerRoleId = rolesData.data.roles.find((r) => r.slug === 'screening_officer').id;
 
     const res = await fetch(`${baseUrl}/organizations/${createdOrgId}/invitations`, {
       method: 'POST',
@@ -168,7 +163,6 @@ describe('Phase 3: Organization & Membership API Tests', () => {
       },
       body: JSON.stringify({
         email: inviteEmail,
-        roleId: officerRoleId,
       }),
     });
 

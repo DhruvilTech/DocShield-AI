@@ -23,7 +23,7 @@ export const updateOrganizationSchema = z.object({
 
 export const addMemberSchema = z.object({
   userId: z.string().uuid('Invalid User ID'),
-  roleId: z.string().uuid('Invalid Role ID'),
+  roleId: z.string().uuid('Invalid Role ID').optional(),
   status: z.enum(Object.values(ORGANIZATION_STATUSES)).optional(),
 });
 
@@ -34,5 +34,5 @@ export const updateMemberRoleSchema = z.object({
 
 export const inviteMemberSchema = z.object({
   email: z.string().email('Invalid email address'),
-  roleId: z.string().uuid('Invalid Role ID'),
+  roleId: z.string().uuid('Invalid Role ID').optional(),
 });

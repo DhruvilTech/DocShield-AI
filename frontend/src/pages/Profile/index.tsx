@@ -81,7 +81,7 @@ export const ProfilePage: React.FC = () => {
                 <h3 className="text-lg font-bold text-[var(--text-1)]">{user.name}</h3>
                 <p className="text-xs font-mono text-[var(--text-2)]">{user.email}</p>
                 <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                  {user.roles.map((role) => (
+                  {(user.roles || []).map((role) => (
                     <Badge key={role} variant="accent" size="sm">
                       {role.replace('_', ' ').toUpperCase()}
                     </Badge>
@@ -134,14 +134,14 @@ export const ProfilePage: React.FC = () => {
             </div>
           </Card>
 
-          {/* RBAC Clearances */}
+          {/* Clearances */}
           <Card className="p-6">
             <h4 className="text-xs font-mono uppercase tracking-wider text-[var(--text-2)] font-bold mb-3 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-[var(--accent)]" />
-              Active System Permissions ({user.permissions.length})
+              Active System Permissions ({(user.permissions || []).length})
             </h4>
             <div data-lenis-prevent className="flex flex-wrap gap-1.5 max-h-56 overflow-y-auto pr-1 custom-scrollbar">
-              {user.permissions.map((p) => (
+              {(user.permissions || []).map((p) => (
                 <span
                   key={p}
                   className="px-2 py-0.5 rounded bg-[var(--surface-raised)] border border-[var(--border)] text-[11px] font-mono text-[var(--text-2)]"

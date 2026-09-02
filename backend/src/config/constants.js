@@ -15,83 +15,6 @@ export const REFRESH_COOKIE_CONFIG = {
 export const PASSWORD_REGEX = /^.{8,}$/;
 export const PASSWORD_REQUIREMENT_MSG = 'Password must be at least 8 characters long.';
 
-export const SYSTEM_ROLES = {
-  SUPER_ADMIN: 'super_admin',
-  SCREENING_OFFICER: 'screening_officer',
-  INVESTIGATOR: 'investigator',
-  ANALYST_VIEWER: 'analyst_viewer',
-};
-
-export const SYSTEM_PERMISSIONS = {
-  // Users
-  USERS_READ: 'users:read',
-  USERS_CREATE: 'users:create',
-  USERS_UPDATE: 'users:update',
-  USERS_DELETE: 'users:delete',
-  
-  // Roles & Permissions
-  ROLES_READ: 'roles:read',
-  ROLES_ASSIGN: 'roles:assign',
-  PERMISSIONS_READ: 'permissions:read',
-
-  // Organizations
-  ORGANIZATIONS_READ: 'organizations:read',
-  ORGANIZATIONS_CREATE: 'organizations:create',
-  ORGANIZATIONS_UPDATE: 'organizations:update',
-  ORGANIZATIONS_DELETE: 'organizations:delete',
-  ORGANIZATIONS_MANAGE_MEMBERS: 'organizations:manage_members',
-  ORGANIZATIONS_INVITE: 'organizations:invite',
-  
-  // Documents, Processing & Screening
-  DOCUMENTS_READ: 'documents:read',
-  DOCUMENTS_CREATE: 'documents:create',
-  DOCUMENTS_UPDATE: 'documents:update',
-  DOCUMENTS_DELETE: 'documents:delete',
-  DOCUMENTS_DOWNLOAD: 'documents:download',
-  DOCUMENTS_UPLOAD_VERSION: 'documents:upload_version',
-  DOCUMENTS_VIEW_VERSIONS: 'documents:view_versions',
-  DOCUMENTS_ARCHIVE: 'documents:archive',
-  DOCUMENTS_PROCESS: 'documents:process',
-  DOCUMENTS_VIEW_EXTRACTION: 'documents:view_extraction',
-  SCREENING_RUN: 'screening:run',
-  SCREENING_READ: 'screening:read',
-  
-  // AI & Document Intelligence
-  ANALYSIS_READ: 'analysis:read',
-  ANALYSIS_RUN: 'analysis:run',
-  FINDINGS_READ: 'findings:read',
-  
-  // Phase 7: Tampering & Face Verification
-  TAMPERING_RUN: 'tampering:run',
-  TAMPERING_READ: 'tampering:read',
-  FACE_VERIFICATION_RUN: 'face_verification:run',
-  FACE_VERIFICATION_READ: 'face_verification:read',
-
-  // Phase 8: Risk Scoring & Screening Intelligence
-  RISK_RUN: 'risk:run',
-  RISK_READ: 'risk:read',
-  
-  // Forensics & Threats
-  FORENSICS_READ: 'forensics:read',
-  FORENSICS_ANALYZE: 'forensics:analyze',
-  THREATS_READ: 'threats:read',
-  THREATS_MANAGE: 'threats:manage',
-
-  // Watchlist Management
-  WATCHLIST_READ: 'watchlist:read',
-  WATCHLIST_CREATE: 'watchlist:create',
-  WATCHLIST_DELETE: 'watchlist:delete',
-  
-  // Vault & Reports
-  VAULT_READ: 'vault:read',
-  VAULT_MANAGE: 'vault:manage',
-  REPORTS_READ: 'reports:read',
-  REPORTS_CREATE: 'reports:create',
-  
-  // Audit Trail
-  AUDIT_LOGS_READ: 'audit_logs:read',
-};
-
 export const TAMPERING_CATEGORIES = {
   PHOTO_SUBSTITUTION: 'PHOTO_SUBSTITUTION',
   TEXT_ALTERATION: 'TEXT_ALTERATION',
@@ -238,13 +161,6 @@ export const AUDIT_ACTIONS = {
   WATCHLIST_ENTRY_CREATED: 'WATCHLIST_ENTRY_CREATED',
   WATCHLIST_ENTRY_DELETED: 'WATCHLIST_ENTRY_DELETED',
   DOCUMENT_VALIDATION_COMPLETED: 'DOCUMENT_VALIDATION_COMPLETED',
-
-  // RBAC
-  ROLE_ASSIGNED: 'ROLE_ASSIGNED',
-  ROLE_REMOVED: 'ROLE_REMOVED',
-  ROLE_CREATED: 'ROLE_CREATED',
-  ROLE_UPDATED: 'ROLE_UPDATED',
-  ROLE_PERMISSIONS_UPDATED: 'ROLE_PERMISSIONS_UPDATED',
 
   // Screening & Forensics
   SCREENING_EXECUTED: 'SCREENING_EXECUTED',
