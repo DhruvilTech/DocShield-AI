@@ -182,9 +182,9 @@ DocShield AI delivers a complete, production-grade identity screening and docume
 
 ## 📸 Product Preview
 
-### Landing Experience & 3D Security Enclave
+### Home Page & 3D Security Enclave
 <div align="center">
-  <img src="docs/screenshots/01_landing_hero.png" alt="DocShield AI Landing Experience" width="900" />
+  <img src="docs/screenshots/01_landing_hero.png" alt="DocShield AI Home Experience" width="900" />
   <p><i>Real-time 3D interactive hero, live threat neutralization counter, and confidential hardware enclave simulation.</i></p>
 </div>
 
@@ -233,7 +233,7 @@ DocShield AI delivers a complete, production-grade identity screening and docume
 ### Cryptographic Document Vault
 <div align="center">
   <img src="docs/screenshots/08_document_vault.png" alt="Cryptographic Document Vault" width="900" />
-  <p><i>Tenant-isolated local storage vault with SHA-256 integrity hashing, status filtering, and version histories.</i></p>
+  <p><i>Cloudinary-backed encrypted vault with SHA-256 integrity hashing, status filtering, and version histories.</i></p>
 </div>
 
 ---
@@ -514,7 +514,7 @@ DocShield-AI/
 
 ### Database & Storage
 - **Relational Database:** MySQL 8.0+
-- **Database Schema:** 27 relational migration files covering Users, Roles, Permissions, Organizations, Documents, Versions, Extractions, Tampering, Biometrics, Risk Scores, and Watchlists
+- **Database Schema:** 27 relational migration files covering Users, Organizations, Documents, Versions, Extractions, Tampering, Biometrics, Risk Scores, and Watchlists
 - **File Storage:** Cloudinary Storage Vault (`CLOUDINARY_URL` / `CLOUDINARY_CLOUD_NAME`) with client-side/in-memory AES-256-GCM encryption
 
 ---
@@ -587,9 +587,9 @@ DocShield-AI/
 │   │   │   └── ui/                      # HUD Cards, Buttons, Badges, Modals
 │   │   ├── context/                     # AuthContext, OrganizationContext, SceneContext
 │   │   ├── pages/                       # Application Pages
-│   │   │   ├── Home/                    # Landing page with 3D WebGL scanner
+│   │   │   ├── Home/                    # Home page with 3D WebGL scanner
 │   │   │   ├── Scanner/                 # Document screening HUD & camera capture
-│   │   │   ├── Analysis/                # Deep forensic tampering analysis & heatmaps
+│   │   │   ├── Analysis/                # Forensics studio with deep tampering analysis & heatmaps (/forensics)
 │   │   │   ├── Intelligence/            # 4-Engine telemetry & architecture overview
 │   │   │   ├── Threats/                 # Watchlist threats matrix & alert feed
 │   │   │   ├── Vault/                   # Document vault with version history
@@ -773,7 +773,7 @@ npm install
 # 2. Run database migrations (001-028)
 npm run migrate
 
-# 3. Seed initial roles, permissions, watchlists & admin accounts
+# 3. Seed initial records, watchlists & admin accounts
 npm run seed
 
 # 4. Start backend in development mode
@@ -782,12 +782,9 @@ npm run dev
 
 - **Backend Health Check:** [http://localhost:5000/api/v1/health](http://localhost:5000/api/v1/health)
 
-#### Default Test Credentials:
-| Account | Email | Password | Access Scope |
-| :--- | :--- | :--- | :--- |
-| **Primary User / Admin** | `admin123@gmail.com` | `Admin@123` | Full document screening, verification & forensic analysis |
-| **Standard User** | `officer@docshield.ai` | `OfficerPassword123!` | Full document screening, verification & forensic analysis |
-| **Alternative User** | `admin@docshield.ai` | `AdminPassword123!` | Test suite & system screening access |
+#### Default Test Account:
+- **Email:** `admin123@gmail.com`
+- **Password:** `Admin@123`
 
 ---
 
@@ -815,13 +812,13 @@ Follow this 5-minute walkthrough to evaluate DocShield AI:
 
 ```
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐     ┌──────────────────┐
-│ 1. Launch & Auth│ ──> │ 2. Screening HUD │ ──> │ 3. Run Pipeline │ ──> │ 4. Deep Analysis │
+│ 1. Launch & Auth│ ──> │ 2. Screening HUD │ ──> │ 3. Run Pipeline │ ──> │ 4. Forensics HUD │
 └─────────────────┘     └──────────────────┘     └─────────────────┘     └──────────────────┘
 ```
 
 ### Step 1: Access & Authentication
 1. Open [http://localhost:5173](http://localhost:5173) in your browser.
-2. Experience the cinematic 3D landing page and interactive enclave laser scanner.
+2. Experience the interactive 3D home page and enclave laser scanner.
 3. Click **Sign In** in the top navigation bar.
 4. Enter `admin123@gmail.com` and `Admin@123`, then click **Sign In**.
 
@@ -841,8 +838,8 @@ Follow this 5-minute walkthrough to evaluate DocShield AI:
 3. Review the consolidated verdict: **PASSED**, **REVIEW_REQUIRED**, or **REJECTED**.
 
 ### Step 4: Inspect Forensic Evidence & Heatmaps
-1. Navigate to **Analysis** (`/analysis`) to inspect the document.
-2. Toggle between visual filters:
+1. Navigate to **Forensics** (`/forensics`) or inspect directly in the **Tampering AI** tab within the **Scanner** page (`/scanner`).
+2. Toggle between visual filters in the Forensics Studio:
    - **Normal View:** Original document preview.
    - **ELA Heatmap:** Error level compression anomalies.
    - **Noise Residual:** High-frequency substrate noise discrepancies.

@@ -143,7 +143,7 @@ const FEATURES = [
     badge: 'GDPR / HIPAA',
     badgeVariant: 'info' as const,
     glow: 'teal' as const,
-    link: '/analysis',
+    link: '/forensics',
   },
   {
     icon: '🧬',
@@ -152,7 +152,7 @@ const FEATURES = [
     badge: 'Forensics',
     badgeVariant: 'accent' as const,
     glow: 'teal' as const,
-    link: '/analysis',
+    link: '/forensics',
   },
   {
     icon: '🔑',
@@ -519,7 +519,7 @@ const Footer: React.FC = () => (
             links: [
               { name: 'Document Scanner', to: '/scanner' },
               { name: 'Neural Intelligence', to: '/intelligence' },
-              { name: 'Forensics Lab', to: '/analysis' },
+              { name: 'Forensics Lab', to: '/forensics' },
               { name: 'Threat Network', to: '/threats' },
             ],
           },

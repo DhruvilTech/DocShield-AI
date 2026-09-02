@@ -111,6 +111,14 @@ const AppRoutes: React.FC<{ theme: 'dark' | 'light'; onToggle: () => void }> = (
                 }
               />
               <Route
+                path="/forensics"
+                element={
+                  <ProtectedRoute>
+                    <PageWrapper><AnalysisPage /></PageWrapper>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/analysis"
                 element={
                   <ProtectedRoute>
