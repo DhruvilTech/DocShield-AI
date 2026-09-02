@@ -10,7 +10,7 @@ import type { Theme } from '../../types';
 const NAV_LINKS = [
   { label: 'Scanner', path: '/scanner' },
   { label: 'Vault', path: '/vault' },
-  { label: 'Forensics', path: '/analysis' },
+  { label: 'Forensics', path: '/forensics' },
   { label: 'Intelligence', path: '/intelligence' },
   { label: 'Threats', path: '/threats' },
   { label: 'Reports', path: '/reports' },

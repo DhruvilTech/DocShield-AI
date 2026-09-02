@@ -385,7 +385,7 @@ export const ReportsPage: React.FC = () => {
                         size="sm"
                         variant="outline"
                         className="text-[10px] py-0.5 px-2 h-7"
-                        onClick={() => navigate(`/analysis?documentId=${d.id}`)}
+                        onClick={() => navigate(`/forensics?documentId=${d.id}`)}
                       >
                         Forensics 🔬
                       </Button>

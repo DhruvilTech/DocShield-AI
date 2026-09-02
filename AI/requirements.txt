@@ -13,9 +13,7 @@ rapidocr-onnxruntime>=1.2.0
 pytesseract>=0.3.10
 pyclipper>=1.3.0
 shapely>=2.0.0
-# Optional: Full PaddleOCR engine (requires Python <= 3.11 for paddlepaddle wheels)
-# paddleocr>=2.7.3
-# paddlepaddle>=2.6.1
+
 
 # ── Image Processing & Forensic Tampering Engine ─────────────────────────────
 opencv-python>=4.9.0

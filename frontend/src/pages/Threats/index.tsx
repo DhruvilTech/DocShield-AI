@@ -388,7 +388,7 @@ export const ThreatsPage: React.FC = () => {
                           size="sm"
                           variant="outline"
                           className="text-xs"
-                          onClick={() => navigate(`/analysis?documentId=${doc.id}`)}
+                          onClick={() => navigate(`/forensics?documentId=${doc.id}`)}
                         >
                           Deep Forensic Studio 🔬
                         </Button>
