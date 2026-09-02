@@ -7,27 +7,48 @@
 
 <div align="center">
 
-  <img src="docs/assets/docshield-logo.svg" alt="DocShield AI Logo" width="130" />
+  <!-- Cyber Neon Divider Header -->
+  <img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/aqua.png" width="100%" alt="Cyber Line Divider" />
+
+  <br /><br />
+
+  <a href="#-product-preview">
+    <img src="docs/assets/docshield-logo.svg" alt="DocShield AI Holographic Shield Emblem" width="145" />
+  </a>
 
   <br />
 
-  <h1>DOCSHIELD AI</h1>
-  <h3>AI-Based Identity & Document Screening System</h3>
-  <p><b>Detect. Verify. Protect.</b></p>
+  <h1>🛡️ DOCSHIELD AI</h1>
+  <h3>⚡ ENTERPRISE IDENTITY & DOCUMENT SCREENING ENCLAVE ⚡</h3>
+  <p><b>Automated Tampering Forensics · ICAO 9303 Checksum Engine · 1:1 ArcFace Biometrics</b></p>
 
-  <p>
-    An enterprise-grade, on-premise document screening and identity forensics platform engineered to detect digital manipulation, verify biometric authenticity, validate ICAO 9303 checksums, and prevent identity fraud inside hardware-isolated security enclaves.
+  <p align="center">
+    <b>Detect. Verify. Protect.</b>
   </p>
 
-  <!-- Technical Badges -->
+  <!-- Executive Cyber Badges Grid -->
   <p>
-    <a href="#technology-stack"><img src="https://img.shields.io/badge/Frontend-React_19_%7C_TypeScript_%7C_Vite_8-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="Frontend" /></a>
-    <a href="#technology-stack"><img src="https://img.shields.io/badge/Backend-Node.js_v22_%7C_Express_4_%7C_Pure_SQL-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Backend" /></a>
-    <a href="#technology-stack"><img src="https://img.shields.io/badge/AI_Engine-FastAPI_%7C_Python_3.13-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="AI Engine" /></a>
-    <a href="#technology-stack"><img src="https://img.shields.io/badge/Database-MySQL_8.0_%7C_Prepared_Statements-4479A1?style=for-the-badge&logo=mysql&logoColor=white" alt="Database" /></a>
-    <a href="#security--privacy-considerations"><img src="https://img.shields.io/badge/Security-Air--Gapped_Local_Storage_%7C_AES--256--GCM-0D9488?style=for-the-badge&logo=auth0&logoColor=white" alt="Security" /></a>
-    <a href="#forensic-analysis-pipeline"><img src="https://img.shields.io/badge/Forensics-8_Multi--Signal_Detectors-EC4899?style=for-the-badge&logo=opencv&logoColor=white" alt="Forensic Detectors" /></a>
+    <a href="#-security--privacy-safeguards"><img src="https://img.shields.io/badge/Security-AES--256--GCM_Pre--Upload_Encryption-0D9488?style=for-the-badge&logo=auth0&logoColor=white" alt="Security" /></a>
+    <a href="#-multi-signal-forensic-tampering-pipeline"><img src="https://img.shields.io/badge/Forensics-Multi--Signal_Tampering_Pipeline-EC4899?style=for-the-badge&logo=opencv&logoColor=white" alt="Forensic Pipeline" /></a>
+    <a href="#-technology-stack"><img src="https://img.shields.io/badge/Stack-React_19_%2B_Node_%2B_FastAPI-0284C7?style=for-the-badge&logo=react&logoColor=white" alt="Tech Stack" /></a>
+    <a href="#-security--privacy-safeguards"><img src="https://img.shields.io/badge/Storage-Cloudinary_Encrypted_Vault-10B981?style=for-the-badge&logo=cloudinary&logoColor=white" alt="Storage" /></a>
+    <a href="#-technical-highlights--engineering-decisions"><img src="https://img.shields.io/badge/Database-MySQL_8.0_Pure_SQL-F59E0B?style=for-the-badge&logo=mysql&logoColor=white" alt="Database" /></a>
   </p>
+
+  <p>
+    <i>Next-generation digital document forensics & identity verification platform engineered for border control checkpoints, immigration authorities, and high-assurance KYC workflows. Intercepts adversarial forgeries, altered credentials, and fraudulent documents with military-grade encryption and deep forensic scrutiny.</i>
+  </p>
+
+  <p>
+    <a href="#-getting-started--installation">🚀 <b>Quickstart Guide</b></a> •
+    <a href="#-implemented-features--core-capabilities-in-short">⚡ <b>Features Matrix</b></a> •
+    <a href="#-product-preview">📸 <b>Product Preview</b></a> •
+    <a href="#-multi-signal-forensic-tampering-pipeline">🔬 <b>Forensic Engine</b></a> •
+    <a href="#-system-architecture">🏗️ <b>Architecture</b></a> •
+    <a href="#-api-overview">📡 <b>API Reference</b></a>
+  </p>
+
+  <img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/aqua.png" width="100%" alt="Cyber Line Divider" />
 
 </div>
 
@@ -43,7 +64,7 @@
 - [Product Preview](#-product-preview)
 - [System Architecture](#-system-architecture)
 - [How DocShield Works](#-how-docshield-works)
-- [Forensic Analysis Pipeline (8 Detectors)](#-forensic-analysis-pipeline-8-detectors)
+- [Multi-Signal Forensic Tampering Pipeline](#-multi-signal-forensic-tampering-pipeline)
 - [Technical Highlights & Engineering Decisions](#-technical-highlights--engineering-decisions)
 - [Technology Stack](#-technology-stack)
 - [Project Structure](#-project-structure)
@@ -73,11 +94,11 @@
 | **Architecture** | Client-Server Decoupled Microservices (React Frontend + Node.js Backend API + FastAPI AI Engine) |
 | **Frontend Stack** | React 19.2, TypeScript 7, Vite 8, Tailwind CSS v4, Three.js / R3F, Framer Motion |
 | **Backend Stack** | Node.js v22, Express 4.21, pure `mysql2` connection pooling (zero ORM overhead), JWT auth, Multer |
-| **AI / ML Services** | Python 3.13, FastAPI 0.111, Uvicorn, OpenCV, PaddleOCR, InsightFace / ArcFace, PyPDFium2, NumPy, SciPy |
-| **Forensic Signals** | 8 Reference-Free Detectors: ELA, Noise Residual, SIFT Copy-Move, Splicing, Defacement, Text Tampering, Stamp/Seal, Metadata/EXIF |
+| **AI / ML Services** | Python 3.13, FastAPI 0.111, Uvicorn, RapidOCR (ONNX Runtime) / PaddleOCR, InsightFace / ArcFace, OpenCV (Contrib), SciPy, scikit-image, PyPDFium2 |
+| **Forensic Signals** | Multi-Signal Detectors: ELA, Noise Residual, SIFT Copy-Move, Splicing, Defacement, Text Tampering, Stamp/Seal, Metadata/EXIF |
 | **Evidence Fusion** | Bounding Box Clustering, Spatial IoU Correlation, Weighted Score Aggregation, Human-Readable Narrative Engine |
 | **Supported Inputs** | JPEG, JPG, PNG, WEBP, Multi-page PDF (Passports, Visas, National IDs, Driver's Licenses, Permits) |
-| **Storage Enclave** | 100% On-Premise Local Storage, Tenant Isolation (`storage/<orgId>/<fileId>`), SHA-256 Verification, AES-256-GCM |
+| **Storage Architecture** | Encrypted Cloud Storage: Cloudinary Vault with Pre-Upload AES-256-GCM Application Encryption & SHA-256 Verification |
 | **Status** | Fully Functional Hackathon Prototype & Operational Screening System |
 
 ---
@@ -104,7 +125,7 @@ Digital identity screening across border checkpoints, financial KYC onboarding, 
 ├─────────────────┬──────────────────┬───────────────────┬────────────────────┤
 │    MODULE 1     │     MODULE 2     │     MODULE 3      │      MODULE 4      │
 │ OCR Extraction  │ Validation Rules │ Forensic Analysis │ Biometric Matching │
-│   & MRZ Parser  │   & SLTD Check   │  (8 Detectors)    │   & Liveness Check │
+│   & MRZ Parser  │   & SLTD Check   │ Tampering Engine  │   & Liveness Check │
 └────────┬────────┴────────┬─────────┴─────────┬─────────┴──────────┬─────────┘
          │                 │                   │                    │
          └─────────────────┼───────────────────┼────────────────────┘
@@ -115,18 +136,18 @@ Digital identity screening across border checkpoints, financial KYC onboarding, 
                   └─────────────────────────────────────┘
 ```
 
-- **Module 1 (OCR Extraction):** PaddleOCR-powered visual extraction and ICAO Doc 9303 MRZ parsing (Type 1, 2, and 3) for Passports, Visas, National IDs, and Driver's Licenses.
+- **Module 1 (OCR Extraction):** RapidOCR (ONNX Runtime) & PaddleOCR-powered visual extraction and ICAO Doc 9303 MRZ parsing (Type 1, 2, and 3) for Passports, Visas, National IDs, and Driver's Licenses.
 - **Module 2 (Document Validation):** Algorithmic verification of ICAO 7-3-1 check digits, Verhoeff dihedral D5 checksums, expiration bounds, and cross-checks against an internal Interpol Stolen and Lost Travel Documents (SLTD) watchlist.
-- **Module 3 (Multi-Signal Tampering Forensics):** 8 independent, reference-free image and PDF forensic detectors coupled with spatial correlation clustering and human-readable forensic explanations.
+- **Module 3 (Multi-Signal Tampering Forensics):** Multi-signal, reference-free image and PDF forensic detectors coupled with spatial correlation clustering and human-readable forensic explanations.
 - **Module 4 (Biometric Face Verification):** 1:1 facial feature extraction using ArcFace / InsightFace, cosine similarity comparison against live officer camera feeds, and active challenge liveness validation.
-- **100% On-Premise Data Enclave:** Third-party cloud uploads have been completely eliminated. All uploaded credentials reside in encrypted, tenant-isolated local hardware storage with strict SHA-256 cryptographic verification.
+- **AES-256-GCM Encrypted Cloud Storage (Cloudinary):** Documents are never stored in plaintext. The backend encrypts all documents using AES-256-GCM in application memory before storing the raw ciphertext in Cloudinary, guaranteeing zero-knowledge cloud persistence and SHA-256 integrity verification.
 
 ---
 
 ## 🌟 Why DocShield AI?
 
 ### 1. Multi-Signal Corroboration Over Blind Classifiers
-Single deep-learning "black-box" classifiers frequently generate unexplainable false positives due to normal compression artifacts. DocShield AI runs **8 distinct forensic detectors** and corroborates findings across spatial and statistical domains.
+Single deep-learning "black-box" classifiers frequently generate unexplainable false positives due to normal compression artifacts. DocShield AI runs multiple independent forensic detectors and corroborates findings across spatial and statistical domains.
 
 ### 2. Spatial Correlation & Evidence Fusion
 Independent anomalies that overlap in the same physical coordinate space (e.g., an ELA compression anomaly co-located with high noise residual and sharp edge gradients around a passport photo) are fused into high-confidence detections, while isolated single-detector noise is de-weighted.
@@ -135,8 +156,8 @@ Independent anomalies that overlap in the same physical coordinate space (e.g., 
 DocShield does not simply output a raw number. The built-in **Explanation Engine** generates plain-English reasoning for screening officers:  
 > *"Suspicious region R001 exhibits severe JPEG recompression inconsistency (ELA score: 86) corroborated by high-pass noise variance (81) and edge discontinuity along the right portrait boundary."*
 
-### 4. Zero Cloud Dependency & Air-Gapped Security
-All OCR engines, neural face embeddings, and image processing algorithms run locally on the host machine. Documents never leave the local environment, satisfying border security and national enclave requirements.
+### 4. Application-Level AES-256-GCM Encryption with Cloudinary Storage
+All document payloads are encrypted in application memory with military-grade AES-256-GCM (256-bit key with random IVs and authentication tags) *before* being transmitted to Cloudinary. Because only raw binary ciphertext is stored on Cloudinary, third-party cloud infrastructure never sees plaintext credentials or PII, ensuring zero-knowledge cloud persistence with complete confidentiality.
 
 ---
 
@@ -147,14 +168,14 @@ DocShield AI delivers a complete, production-grade identity screening and docume
 | Capability Domain | Implemented Features in Repository | Technical Mechanism |
 | :--- | :--- | :--- |
 | **1. Multi-Credential Ingestion** | Passports, Visas, National IDs, Driving Licenses, Border Permits | Drag-and-drop file upload, live webcam capture with face-guide overlay, multi-page PDF rendering (`pypdfium2`), and immediate SHA-256 integrity hashing |
-| **2. Module 1: OCR & Credential Decompilation** | Automated visual zone text extraction & ICAO Doc 9303 MRZ parsing | PaddleOCR (`paddleocr`), MRZ Type 1 (TD1), Type 2 (TD2), and Type 3 (TD3) regex automata, structured JSON field mappings |
+| **2. Module 1: OCR & Credential Decompilation** | Automated visual zone text extraction & ICAO Doc 9303 MRZ parsing | RapidOCR (`rapidocr-onnxruntime`) & PaddleOCR (`paddleocr`), MRZ Type 1 (TD1), Type 2 (TD2), and Type 3 (TD3) regex automata, structured JSON field mappings |
 | **3. Module 2: Validation & Checksum Rules** | ICAO 7-3-1 modulus-10 check digits & Verhoeff dihedral D5 math algorithms | Mathematical check digit calculation across passport/visa fields, 6-month travel validity rules, and Interpol SLTD alert cross-checks |
-| **4. Module 3: 8-Detector Tampering Forensics** | 8 reference-free forensic detectors: ELA, Noise, SIFT, Splicing, Defacement, Text Tampering, Stamp, Metadata | OpenCV image filters, JPEG recompression error mapping, high-pass wavelet residual SNR, SIFT keypoints + RANSAC homography |
+| **4. Module 3: Multi-Signal Tampering Forensics** | Reference-free forensic tampering pipeline: ELA, Noise, SIFT, Splicing, Defacement, Text Tampering, Stamp, Metadata | OpenCV image filters, JPEG recompression error mapping, high-pass wavelet residual SNR, SIFT keypoints + RANSAC homography |
 | **5. Evidence Fusion & Spatial Correlation** | Multi-signal spatial clustering & 0–100 weighted risk score fusion | Bounding box Intersection-over-Union (IoU) clustering, conflicting-signal detection, and human-readable forensic narrative generator |
 | **6. Module 4: 1:1 Face Biometrics & Liveness** | Facial portrait matching & active challenge liveness validation | InsightFace / ArcFace 512-d deep feature embeddings, cosine similarity comparison ($\ge 0.75$), and video challenge analysis |
 | **7. Multi-Factor Risk Scoring & Verdicts** | Automated decision engine producing `PASSED`, `REVIEW_REQUIRED`, `REJECTED` | Weighted risk scoring model combining extraction confidence, check digit validity, tampering severity, and watchlist hits |
-| **8. 100% Local Enclave Storage** | Zero cloud dependencies; on-premise hardware-isolated encrypted file store | At-rest AES-256-GCM application encryption, tenant organization partitioning (`storage/<orgId>/<fileId>`), and SHA-256 verification |
-| **9. Enterprise RBAC & Security Data Layer** | Pure SQL data layer across 27 migrations, JWT auth with cookie rotation | Express 4, pure `mysql2` connection pooling (no ORM overhead), 4 system roles (`Super Admin`, `Officer`, `Investigator`, `Analyst`), immutable audit trail |
+| **8. Encrypted Cloud Storage (Cloudinary)** | Zero-knowledge cloud persistence with pre-upload AES-256-GCM document encryption | In-memory 256-bit AES-256-GCM encryption, ephemeral IVs, authentication tags, raw binary ciphertext upload to Cloudinary, and SHA-256 verification |
+| **9. Authentication & Security Data Layer** | Pure SQL data layer across 27 migrations, JWT auth with secure session tokens | Express 4, pure `mysql2` connection pooling (no ORM overhead), secure HTTP-only cookies, access token rotation, and immutable audit trail |
 | **10. Forensic PDF Reports & 3D HUD** | Real-time 3D WebGL scanner HUD, live camera stream, and audit PDF export | React 19, Three.js / React Three Fiber, Framer Motion, Tailwind CSS v4, and tamper-evident official PDF report generation (`jspdf`) |
 
 ---
@@ -233,10 +254,10 @@ flowchart TB
 
     subgraph BackendTier["Application & Orchestration Tier (Node.js + Express :5000)"]
         API["Express 4 REST API Gateway"]
-        Auth["JWT Auth & Strict RBAC Engine"]
+        Auth["JWT Authentication & Session Engine"]
         Orch["Document Screening Pipeline Coordinator"]
         Bridge["Python Subprocess CLI Bridge (Fallback)"]
-        Vault["Local Tenant Storage (AES-256-GCM / SHA-256)"]
+        Vault["Storage Service (In-Memory AES-256-GCM)"]
         
         API --> Auth
         API --> Orch
@@ -246,9 +267,9 @@ flowchart TB
 
     subgraph AITier["Forensic & AI Engine Tier (FastAPI + Python :8000)"]
         FastAPI["FastAPI High-Performance Engine"]
-        M1["Module 1: PaddleOCR & MRZ Extractor"]
+        M1["Module 1: RapidOCR / PaddleOCR & MRZ Extractor"]
         M2["Module 2: Checksum & Validator Registry"]
-        M3["Module 3: Multi-Signal Tampering Pipeline (8 Detectors)"]
+        M3["Module 3: Multi-Signal Tampering Pipeline"]
         M4["Module 4: InsightFace Biometrics & Active Liveness"]
         Fusion["Spatial Correlation & Explanation Engine"]
         
@@ -261,13 +282,13 @@ flowchart TB
 
     subgraph DataTier["Data & Storage Tier"]
         MySQL[("MySQL 8.0 Database\n(27 Relational Migrations\nPure SQL Prepared Statements)")]
-        Disk[("Local Storage Enclave\nbackend/storage/<orgId>/<fileId>\nSHA-256 Verified")]
+        Cloudinary[("Cloudinary Storage Vault\n(Raw AES-256-GCM Ciphertext\nSHA-256 Verified)")]
     end
 
     UI -->|"HTTP / REST (Bearer JWT)"| API
     Orch -->|"HTTP REST (:8000)"| FastAPI
     API -->|"mysql2 connection pool"| MySQL
-    Vault -->|"Direct File I/O"| Disk
+    Vault -->|"Raw Ciphertext Upload"| Cloudinary
 ```
 
 ---
@@ -287,7 +308,7 @@ sequenceDiagram
 
     Officer->>FE: Uploads Document (Passport / ID / Visa)
     FE->>BE: POST /api/v1/documents (multipart/form-data)
-    BE->>BE: Compute SHA-256 & Encrypt to Local Enclave
+    BE->>BE: Compute SHA-256, In-Memory AES-256-GCM Encryption & Upload to Cloudinary
     BE->>DB: INSERT into documents & document_versions
     
     Officer->>FE: Triggers Screening Pipeline
@@ -296,12 +317,12 @@ sequenceDiagram
     rect rgb(13, 148, 136, 0.1)
     Note over BE,AI: Step 1: Document OCR & Validation
     BE->>AI: POST /api/v1/document/screen-document
-    AI->>AI: Run PaddleOCR + ICAO MRZ Parser + Checksum Validator
+    AI->>AI: Run RapidOCR / PaddleOCR + ICAO MRZ Parser + Checksum Validator
     AI-->>BE: Returns Extracted Fields, Checksum Passes, & Confidence
     end
 
     rect rgb(236, 72, 153, 0.1)
-    Note over BE,AI: Step 2: 8-Detector Forensic Analysis
+    Note over BE,AI: Step 2: Multi-Signal Forensic Analysis
     BE->>AI: POST /api/v1/tampering/analyze
     AI->>AI: Run ELA + Noise + SIFT Copy-Move + Splicing + Defacement + Fusion
     AI-->>BE: Returns Tampering Score, Risk Level, Regions & Narrative
@@ -327,9 +348,9 @@ sequenceDiagram
 
 ---
 
-## 🔬 Forensic Analysis Pipeline (8 Detectors)
+## 🔬 Multi-Signal Forensic Tampering Pipeline
 
-The DocShield AI Tampering Engine (`AI/image_tampering/forensic/`) executes 8 independent, reference-free detectors on every document:
+The DocShield AI Tampering Engine (`AI/image_tampering/forensic/`) executes a multi-signal, reference-free forensic suite on every document:
 
 ```mermaid
 graph TD
@@ -337,7 +358,7 @@ graph TD
         raw["Original Image / PDF"] --> pre["preprocessing.py<br/>RGB, Grayscale, HSV, LAB Conversion"]
     end
 
-    subgraph Detectors["2. 8 Independent Forensic Detectors"]
+    subgraph Detectors["2. Multi-Signal Forensic Detectors"]
         pre --> D1["1. ELA (Error Level Analysis)<br/>JPEG Recompression Residuals"]
         pre --> D2["2. Noise Residual Analysis<br/>High-Pass Wavelet SNR Variance"]
         pre --> D3["3. SIFT Copy-Move Detection<br/>Scale-Invariant Keypoints + RANSAC"]
@@ -359,7 +380,7 @@ graph TD
     end
 ```
 
-### Detailed Breakdown of the 8 Detectors
+### Detailed Breakdown of Forensic Detectors
 
 #### 1. Error Level Analysis (ELA) (`ela.py`)
 - **Physics Principle:** Lossy JPEG compression saves images on an 8x8 discrete cosine transform (DCT) block grid. When an image is modified and re-saved, the modified region is compressed under a different error curve than the untouched substrate.
@@ -485,16 +506,16 @@ DocShield-AI/
 - **Upload & Storage:** Multer 2.2 (memory storage buffering), crypto (AES-256-GCM)
 
 ### AI, Forensics & Computer Vision
-- **Framework:** FastAPI 0.111, Uvicorn 0.35, Pydantic v2 (2.11.7)
-- **OCR Engine:** PaddleOCR 3.7.0, PaddlePaddle 3.3.1
-- **Computer Vision & Image Processing:** OpenCV (`opencv-python` 5.0, `opencv-contrib-python`), Pillow 12.2, NumPy 2.2, SciPy 1.17, scikit-image 0.26
-- **Biometric Face Verification:** InsightFace 0.7.3, ArcFace, ONNX Runtime 1.24, MediaPipe 1.0.1
-- **Document & PDF Processing:** PyPDFium2 5.10.1, PyMuPDF 1.26.7, pdfplumber
+- **Framework:** FastAPI 0.111, Uvicorn 0.35, Pydantic v2 (2.11.7), pydantic-settings 2.2
+- **OCR Engines:** RapidOCR (`rapidocr-onnxruntime` 1.2+), PyTesseract 0.3 (Optional: PaddleOCR 3.7 / PaddlePaddle)
+- **Computer Vision & Forensic Processing:** OpenCV (`opencv-python` 4.9+, `opencv-contrib-python`), Pillow 12.2, NumPy 2.2, SciPy 1.17, scikit-image 0.26, imageio, tifffile
+- **Biometric Face Verification:** InsightFace 0.7.3, ArcFace, ONNX Runtime 1.24, MediaPipe 1.0.1, ONNX 1.15
+- **Document & PDF Processing:** PyPDFium2 5.10.1, PyYAML 6.0, python-dateutil, pyclipper, shapely
 
 ### Database & Storage
 - **Relational Database:** MySQL 8.0+
 - **Database Schema:** 27 relational migration files covering Users, Roles, Permissions, Organizations, Documents, Versions, Extractions, Tampering, Biometrics, Risk Scores, and Watchlists
-- **File Storage:** Local Hardware-Isolated Enclave (`backend/storage/<orgId>/<fileId>`)
+- **File Storage:** Cloudinary Storage Vault (`CLOUDINARY_URL` / `CLOUDINARY_CLOUD_NAME`) with client-side/in-memory AES-256-GCM encryption
 
 ---
 
@@ -510,12 +531,12 @@ DocShield-AI/
 │   │   └── schemas.py                   # Pydantic request/response schemas
 │   ├── core/                            # Configuration, logging & custom exceptions
 │   ├── document_detection/              # Module 1 & 2: OCR & Validation Engines
-│   │   ├── ocr/                         # PaddleOCR engine & document field extractors
+│   │   ├── ocr/                         # RapidOCR & PaddleOCR engines & document field extractors
 │   │   ├── preprocessing/               # Contrast & safe scaling preprocessors
 │   │   └── validation/                  # ICAO 9303, Verhoeff D5, & national ID validators
 │   ├── face/                            # Module 4: Biometric Face Engine
 │   │   └── service.py                   # ArcFace feature extraction & cosine similarity
-│   ├── image_tampering/                 # Module 3: 8-Detector Tampering Engine
+│   ├── image_tampering/                 # Module 3: Multi-Signal Tampering Engine
 │   │   ├── forensic/                    # ELA, Noise, SIFT, Splicing, Defacement, Stamp, Metadata
 │   │   │   ├── cli.py                   # Standalone CLI bridge executable
 │   │   │   ├── ela.py                   # Error Level Analysis detector
@@ -534,26 +555,24 @@ DocShield-AI/
 │   │   └── schemas/                     # ForensicResult Pydantic definitions
 │   ├── tests/                           # Automated pytest test suites (120+ tests)
 │   ├── app.py                           # Unified FastAPI application entrypoint
-│   ├── requirements.txt                 # Python dependencies
-│   └── .env.example                     # AI engine environment template
+│   └── requirements.txt                 # Python dependencies
 │
 ├── backend/                             # Node.js + Express + MySQL Backend (:5000)
 │   ├── src/
-│   │   ├── config/                      # Environment variables (Zod) & RBAC roles
+│   │   ├── config/                      # Environment variables & schema (Zod)
 │   │   ├── controllers/                 # HTTP controllers (Auth, Documents, Tampering, Screening)
 │   │   ├── database/                    # Database connection pool, migrations & seeds
 │   │   │   ├── migrations/              # 27 SQL migration files (001-028)
 │   │   │   ├── migrate.js               # Migration runner script
-│   │   │   └── seed.js                  # RBAC permissions & default user seed script
-│   │   ├── middleware/                  # JWT auth, RBAC permissions, rate limiters
+│   │   │   └── seed.js                  # Default user & organization seed script
+│   │   ├── middleware/                  # JWT auth middleware, error handlers, rate limiters
 │   │   ├── routes/                      # Express route definitions (/api/v1/...)
 │   │   ├── services/                    # Business logic & external service bridges
 │   │   │   ├── ai/                      # AI client calling FastAPI (:8000)
 │   │   │   ├── tampering/               # Python CLI bridge service
-│   │   │   ├── storage.service.js       # AES-256-GCM local enclave storage
+│   │   │   ├── storage.service.js       # AES-256-GCM Cloudinary encrypted cloud storage
 │   │   │   ├── processingPipeline.service.js # Screening coordinator
 │   │   │   └── watchlist.service.js     # Interpol SLTD watchlist matching
-│   │   ├── storage/                     # Local document storage enclave (Git-ignored)
 │   │   ├── app.js                       # Express app configuration
 │   │   └── server.js                    # HTTP server startup
 │   ├── package.json                     # Node.js dependencies
@@ -599,10 +618,10 @@ DocShield-AI/
 | Method | Endpoint | Description | Request Body / Params |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/health` | Engine liveness probe | None |
-| `GET` | `/ready` | Engine readiness probe (checks PaddleOCR warmup) | None |
+| `GET` | `/ready` | Engine readiness probe (checks OCR service warmup) | None |
 | `GET` | `/api/v1/document/document-types` | List accepted document types | None |
 | `POST` | `/api/v1/document/screen-document` | Screen credential, extract OCR fields & validate checksums | `file` (Multipart), `document_type` (`passport`, `visa`, etc.) |
-| `POST` | `/api/v1/tampering/analyze` | Run 8-detector forensic analysis pipeline | `file` (Multipart image/PDF), `save_debug` (bool) |
+| `POST` | `/api/v1/tampering/analyze` | Run multi-signal forensic analysis pipeline | `file` (Multipart image/PDF), `save_debug` (bool) |
 | `GET` | `/api/v1/tampering/health` | Tampering module status | None |
 | `POST` | `/api/v1/face/detect` | Detect faces in image & return bounding boxes | `file` (Multipart image) |
 | `POST` | `/api/v1/face/verify` | 1:1 face verification between document and live capture | `doc_image` (Multipart), `live_image` (Multipart), `threshold` |
@@ -679,35 +698,16 @@ JWT_REFRESH_EXPIRATION=7d
 FRONTEND_URL=http://localhost:5173
 
 # Application Document Encryption (AES-256-GCM 256-bit Key)
-DOC_ENCRYPTION_KEY=c3ab8e6f10274a589dc2e4b8593a1df048291be059c3817f649204859a1bcdef
+# Generate via: node -e "console.log(crypto.randomBytes(32).toString('hex'))"
+DOC_ENCRYPTION_KEY=your_64_character_hex_encryption_key_here
 
 # Unified AI Backend Service URL
 AI_SERVICE_URL=http://localhost:8000
 ```
 
-#### AI Engine Configuration (`AI/.env`)
-Create `AI/.env` based on `AI/.env.example`:
-
-```env
-APP_NAME=DocShield AI Engine
-APP_VERSION=1.0.0
-APP_ENV=development
-API_PREFIX=/api/v1
-CORS_ORIGINS=["http://localhost:5173","http://localhost:5000","http://127.0.0.1:5173"]
-
-# OCR Configuration
-OCR_LANGUAGE=en
-OCR_USE_GPU=false
-OCR_CONFIDENCE_THRESHOLD=0.75
-
-# File Limits
-MAX_FILE_SIZE_MB=15
-SUPPORTED_FILE_TYPES=["image/jpeg","image/png","image/webp","application/pdf"]
-
-# Biometrics
-FACE_MATCH_THRESHOLD=0.45
-FACE_LIVENESS_TIMEOUT=10.0
-```
+> [!TIP]
+> **Zero-Config Python AI Engine:**  
+> The Python AI Engine (`AI/`) requires **no `.env` file**. All modules (RapidOCR, ArcFace biometrics, and the multi-signal forensic pipeline) automatically initialize with production-ready built-in defaults on startup.
 
 ---
 
@@ -782,12 +782,12 @@ npm run dev
 
 - **Backend Health Check:** [http://localhost:5000/api/v1/health](http://localhost:5000/api/v1/health)
 
-#### Seeded Accounts:
-| Role | Email | Password | Permissions |
+#### Default Test Credentials:
+| Account | Email | Password | Access Scope |
 | :--- | :--- | :--- | :--- |
-| **Super Administrator** | `admin123@gmail.com` | `Admin@123` | Complete administrative & system access |
-| **Super Administrator (Alt)** | `admin@docshield.ai` | `AdminPassword123!` | Test suite & system administration |
-| **Screening Officer** | `officer@docshield.ai` | `OfficerPassword123!` | Document ingestion, screening & review |
+| **Primary User / Admin** | `admin123@gmail.com` | `Admin@123` | Full document screening, verification & forensic analysis |
+| **Standard User** | `officer@docshield.ai` | `OfficerPassword123!` | Full document screening, verification & forensic analysis |
+| **Alternative User** | `admin@docshield.ai` | `AdminPassword123!` | Test suite & system screening access |
 
 ---
 
@@ -836,7 +836,7 @@ Follow this 5-minute walkthrough to evaluate DocShield AI:
 2. Watch the real-time progress indicators:
    - `Module 1: OCR Extraction` decompiles visual fields and ICAO MRZ.
    - `Module 2: Doc Validation` verifies 7-3-1 check digits and expiry bounds.
-   - `Module 3: Tampering AI` executes the 8-detector forensic pipeline.
+   - `Module 3: Tampering AI` executes the multi-signal forensic pipeline.
    - `Module 4: Biometrics` extracts facial landmarks and calculates cosine similarity.
 3. Review the consolidated verdict: **PASSED**, **REVIEW_REQUIRED**, or **REJECTED**.
 
@@ -876,7 +876,7 @@ cd AI
 ```
 
 ### 3. Backend Test Suite
-Run the Node.js test suites across authentication, RBAC, document ingestion, and screening:
+Run the Node.js test suites across authentication, document ingestion, and screening:
 
 ```bash
 cd backend
@@ -885,8 +885,7 @@ npm test
 
 Or execute individual test suites:
 ```bash
-npm run test:auth        # JWT authentication & session rotation
-npm run test:rbac        # Role-based access control matrix
+npm run test:auth        # JWT authentication & session handling
 npm run test:tampering   # Python bridge & forensic response parser
 npm run test:screening   # Multi-factor risk engine & verdicts
 ```
@@ -895,12 +894,11 @@ npm run test:screening   # Multi-factor risk engine & verdicts
 
 ## 🔒 Security & Privacy Safeguards
 
-- **100% On-Premise Local Enclave:** Cloud storage providers (e.g., Cloudinary, S3) are completely removed. All files remain strictly on the host system.
-- **Tenant Isolation:** Document assets are segregated by organization ID (`storage/<organizationId>/<fileId>.<ext>`).
-- **Cryptographic Hashing:** Every incoming document receives a SHA-256 hash at the moment of ingestion. Any subsequent modification to the stored file is detected immediately.
-- **At-Rest Encryption:** Application-level encryption using **AES-256-GCM** ensures that document files cannot be read even if the storage disk is copied.
-- **Role-Based Access Control (RBAC):** Strict permissions map across 4 system roles: `Super Administrator`, `Screening Officer`, `Investigator`, and `Analyst/Viewer`.
-- **Git Protection:** All upload, cache, and storage folders (`AI/upload/`, `backend/storage/`, `.env`) are ignored in `.gitignore` to prevent any personal credential data from being committed to source control.
+- **Pre-Upload AES-256-GCM Encryption:** All document payloads are encrypted in application memory with military-grade 256-bit AES-256-GCM before transmission to Cloudinary. Cloudinary receives and stores only raw binary ciphertext (`.enc`), preventing third-party cloud infrastructure from accessing plaintext credentials or PII.
+- **Cryptographic Hashing:** Every incoming document receives a SHA-256 hash at the moment of ingestion. Any subsequent tampering or alteration is detected instantly.
+- **Zero-Knowledge Cloud Persistence:** Cloudinary operates strictly as an encrypted ciphertext vault. Decryption keys never leave the backend environment.
+- **Secure JWT Authentication:** Token-based authentication with secure HTTP-only cookies, password hashing via bcrypt (12 salt rounds), and continuous session rotation.
+- **Git Protection:** All sensitive credentials, environment files (`.env`), and upload caches are strictly ignored in `.gitignore`.
 
 ---
 
@@ -911,19 +909,19 @@ To maintain technical credibility and transparency, the following prototype boun
 1. **JPEG Compression Sensitivity:** Error Level Analysis (ELA) relies on lossy JPEG compression characteristics. PNG or lossless images converted to JPEG immediately prior to upload may display uniform compression levels that reduce ELA sensitivity.
 2. **Reference-Free Heuristics:** The system operates in a reference-free mode (without requiring pristine sample templates from issuing governments). Certain subtle, professional-grade vector edits may require official holographic physical inspection devices.
 3. **Decision-Support Orientation:** DocShield AI is designed as an **intelligence decision-support system** for trained officers and fraud investigators. Algorithmic risk scores should complement, rather than completely replace, final human judgment.
-4. **Hardware Requirements for Real-Time OCR:** PaddleOCR and ArcFace run on standard CPUs using ONNX Runtime, but high-concurrency throughput benefits significantly from CUDA-enabled NVIDIA GPUs.
+4. **Hardware Requirements for Real-Time OCR:** RapidOCR, PaddleOCR, and ArcFace run on standard CPUs using ONNX Runtime, but high-concurrency throughput benefits significantly from CUDA-enabled NVIDIA GPUs.
 
 ---
 
 ## 🗺️ Roadmap
 
 ### Current Version (Implemented)
-- [x] Unified FastAPI AI engine with PaddleOCR, ArcFace, and 8-detector forensic pipeline
-- [x] Pure SQL Node.js backend with 27 migrations, JWT auth, and RBAC
+- [x] Unified FastAPI AI engine with RapidOCR / PaddleOCR, ArcFace, and multi-signal forensic pipeline
+- [x] Pure SQL Node.js backend with 27 migrations, JWT auth, and secure sessions
 - [x] React 19 + TypeScript + Vite 8 frontend with 3D WebGL scanner HUD
 - [x] ICAO Doc 9303 MRZ parser and Verhoeff D5 check digit validation
 - [x] Multi-signal spatial clustering, IoU bounding box fusion, and narrative engine
-- [x] 100% on-premise local encrypted storage enclave with AES-256-GCM
+- [x] Pre-upload AES-256-GCM encrypted document storage with Cloudinary
 - [x] Tamper-evident PDF screening report generation
 
 ### Future Milestones
@@ -953,8 +951,8 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\.venv\Scripts\Activate.ps1
 ```
 
-### 3. PaddleOCR Model Weight Download
-On first startup, PaddleOCR automatically downloads detection and recognition weights to `~/.paddleocr/`. Ensure you have an active internet connection during the very first run. Subsequent executions run completely offline.
+### 3. OCR & ONNX Model Initialisation
+On first startup, RapidOCR / PaddleOCR automatically initializes detection and recognition weights. Ensure an active internet connection on the initial run if models need to be cached locally. Subsequent executions run completely offline.
 
 ### 4. MySQL Connection Refused
 If `npm run migrate` or `npm run dev` fails with `ECONNREFUSED 127.0.0.1:3306`:
@@ -970,7 +968,7 @@ Built with precision for enterprise border security and automated identity verif
 
 | Member / Role | Key Focus Areas |
 | :--- | :--- |
-| **DocShield Core Team** | System Architecture, React 19 Frontend, Three.js 3D WebGL HUD, Digital Image Forensics, PaddleOCR Integration, Node.js Backend API & SQL Data Enclave |
+| **DocShield Core Team** | System Architecture, React 19 Frontend, Three.js 3D WebGL HUD, Digital Image Forensics, RapidOCR & PaddleOCR Integration, Node.js Backend API & SQL Data Enclave |
 
 ---
 
@@ -978,12 +976,34 @@ Built with precision for enterprise border security and automated identity verif
 
 This project is licensed under the **ISC License**. See the `package.json` files for complete licensing disclosures.
 
----
-
 <div align="center">
-  <img src="docs/assets/docshield-logo.svg" alt="DocShield AI" width="48" />
+  <!-- Cyber Neon Divider Footer -->
+  <img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/aqua.png" width="100%" alt="Cyber Line Divider" />
+
+  <br /><br />
+
+  <img src="docs/assets/docshield-logo.svg" alt="DocShield AI" width="58" />
+  
+  <h3>🛡️ DOCSHIELD AI · BORDER SECURITY & IDENTITY ENCLAVE</h3>
+  <p><b>Detect. Verify. Protect.</b></p>
+  
+  <p>
+    <sub>Confidential Security Enclave · AES-256-GCM Zero-Knowledge Cloud Storage · Cloudinary Encrypted Vault</sub>
+  </p>
+
+  <p>
+    <a href="#-table-of-contents">⬆️ <b>Return to Top</b></a> •
+    <a href="#-implemented-features--core-capabilities-in-short">⚡ <b>Features Matrix</b></a> •
+    <a href="#-system-architecture">🏗️ <b>System Architecture</b></a> •
+    <a href="#-multi-signal-forensic-tampering-pipeline">🔬 <b>Forensic Pipeline</b></a> •
+    <a href="#-api-overview">📡 <b>API Endpoints</b></a>
+  </p>
+
   <br />
-  <b>DocShield AI © 2026. Enterprise Document Authenticity & Identity Screening.</b>
-  <br />
-  <sub>Confidential Security Enclave · All Credential Data Strictly On-Premise</sub>
+
+  <p>
+    <b>DocShield AI © 2026. Automated Document Authenticity & Identity Screening.</b>
+  </p>
+
+  <img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/aqua.png" width="100%" alt="Cyber Line Divider" />
 </div>
