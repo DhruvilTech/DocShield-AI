@@ -750,7 +750,6 @@ export const ScannerPage: React.FC = () => {
                   <span className="text-xs font-bold font-mono uppercase tracking-wider text-[var(--text-1)]">
                     1. Select Document Category
                   </span>
-                  <Badge variant="accent" size="sm">P8 Standard</Badge>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
@@ -996,57 +995,119 @@ export const ScannerPage: React.FC = () => {
             ) : (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
                 {/* 1. Executive Verdict Card */}
-                <Card className="p-5 border-[var(--border-accent)]" style={{ borderColor: `${verdictColor}50` }}>
-                  <div className="flex items-start justify-between flex-wrap gap-4 mb-4">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span
-                          className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold uppercase tracking-wider text-white shadow-sm"
-                          style={{ backgroundColor: verdictColor }}
-                        >
-                          {verdict === 'PASSED' ? '✓ CLEARANCE GRANTED' : verdict === 'REVIEW_REQUIRED' ? '⚠ SECONDARY INSPECTION' : '⛔ ENTRY REFUSED / FRAUD ALERT'}
+                {!faceVerification && !error && (phase === 'ready_for_biometrics' || phase === 'biometrics' || isVerifyingFace || phase !== 'complete') ? (
+                  <Card className="p-5 border-[var(--border-accent)] border-[var(--accent)]/50 bg-[var(--surface)]/90 shadow-[0_0_20px_rgba(0,184,169,0.08)]">
+                    <div className="flex items-start justify-between flex-wrap gap-4 mb-4">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold uppercase tracking-wider text-white shadow-sm bg-[var(--accent)] flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                            {isVerifyingFace || phase === 'biometrics'
+                              ? '⏳ BIOMETRIC VERIFICATION IN PROCESS...'
+                              : '⏳ AWAITING 1:1 BIOMETRIC VERIFICATION'}
+                          </span>
+                          <Badge variant="accent" size="sm">
+                            {isVerifyingFace || phase === 'biometrics' ? 'STEP 4 MATCHING' : 'STEP 4 PENDING'}
+                          </Badge>
+                        </div>
+
+                        <div className="text-2xl sm:text-3xl font-bold font-mono text-[var(--accent)] flex items-baseline gap-2">
+                          <span>--</span>
+                          <span className="text-sm text-[var(--text-3)] font-normal font-mono">
+                            / 100 Risk Score ({isVerifyingFace || phase === 'biometrics' ? 'Face Match In Progress' : 'Pending Face Match'})
+                          </span>
+                        </div>
+                        <p className="text-xs text-[var(--text-2)] mt-1.5 font-mono">
+                          {isVerifyingFace || phase === 'biometrics'
+                            ? 'Evaluating 1:1 ArcFace cosine similarity and active challenge liveness against document portrait... Final risk score locked until completion.'
+                            : 'Modules 1, 2 & 3 verified! Final clearance verdict and overall risk score will be computed once live traveler face match is performed.'}
+                        </p>
+                      </div>
+
+                      <SecurityRing
+                        progress={isVerifyingFace || phase === 'biometrics' ? 90 : 75}
+                        status="scanning"
+                        size={76}
+                        strokeWidth={4}
+                        label={isVerifyingFace || phase === 'biometrics' ? 'Matching' : 'Pending'}
+                      />
+                    </div>
+
+                    {/* Multi-Factor Score Breakdown */}
+                    <div className="grid grid-cols-4 gap-2 pt-3 border-t border-[var(--border)] text-center text-xs font-mono">
+                      <div className="p-2 rounded bg-[var(--surface-raised)] border border-[var(--border)]">
+                        <span className="text-[9px] text-[var(--text-3)] block">TAMPERING (40)</span>
+                        <span className="font-bold text-[var(--safe)]">{riskScore?.score_breakdown.tamperingScore ?? 0} pts</span>
+                      </div>
+                      <div className="p-2 rounded bg-[var(--surface-raised)] border border-[var(--border)]">
+                        <span className="text-[9px] text-[var(--text-3)] block">VALIDATION (45)</span>
+                        <span className="font-bold text-[var(--safe)]">{riskScore?.score_breakdown.validationScore ?? 0} pts</span>
+                      </div>
+                      <div className="p-2 rounded bg-[var(--accent)]/15 border border-[var(--accent)]/40 text-[var(--accent)] animate-pulse">
+                        <span className="text-[9px] text-[var(--accent)] block">BIOMETRIC (20)</span>
+                        <span className="font-bold">
+                          {isVerifyingFace || phase === 'biometrics' ? '● Matching...' : '⏳ Awaiting'}
                         </span>
-                        <Badge variant={verdict === 'PASSED' ? 'safe' : verdict === 'REVIEW_REQUIRED' ? 'warning' : 'threat'} size="sm">
-                          {screening?.overall_risk_level || 'EVALUATED'}
-                        </Badge>
+                      </div>
+                      <div className="p-2 rounded bg-[var(--surface-raised)] border border-[var(--border)]">
+                        <span className="text-[9px] text-[var(--text-3)] block">OCR QUALITY (10)</span>
+                        <span className="font-bold text-[var(--text-1)]">{riskScore?.score_breakdown.ocrQualityScore ?? 0} pts</span>
+                      </div>
+                    </div>
+                  </Card>
+                ) : (
+                  <Card className="p-5 border-[var(--border-accent)]" style={{ borderColor: `${verdictColor}50` }}>
+                    <div className="flex items-start justify-between flex-wrap gap-4 mb-4">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span
+                            className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold uppercase tracking-wider text-white shadow-sm"
+                            style={{ backgroundColor: verdictColor }}
+                          >
+                            {verdict === 'PASSED' ? '✓ CLEARANCE GRANTED' : verdict === 'REVIEW_REQUIRED' ? '⚠ SECONDARY INSPECTION' : '⛔ ENTRY REFUSED / FRAUD ALERT'}
+                          </span>
+                          <Badge variant={verdict === 'PASSED' ? 'safe' : verdict === 'REVIEW_REQUIRED' ? 'warning' : 'threat'} size="sm">
+                            {screening?.overall_risk_level || 'EVALUATED'}
+                          </Badge>
+                        </div>
+
+                        <div className="text-3xl font-bold font-mono" style={{ color: verdictColor }}>
+                          <CountUp value={risk} />
+                          <span className="text-sm text-[var(--text-3)] font-normal"> / 100 Risk Score</span>
+                        </div>
+                        <p className="text-xs text-[var(--text-2)] mt-1 font-mono">{screening?.summary || 'Screening intelligence completed.'}</p>
                       </div>
 
-                      <div className="text-3xl font-bold font-mono" style={{ color: verdictColor }}>
-                        <CountUp value={risk} />
-                        <span className="text-sm text-[var(--text-3)] font-normal"> / 100 Risk Score</span>
+                      <SecurityRing
+                        progress={100 - risk}
+                        status={verdict === 'PASSED' ? 'verified' : verdict === 'REVIEW_REQUIRED' ? 'scanning' : 'threat'}
+                        size={76}
+                        strokeWidth={4}
+                        label={verdict === 'PASSED' ? 'Authentic' : 'Threat'}
+                      />
+                    </div>
+
+                    {/* Multi-Factor Score Breakdown */}
+                    <div className="grid grid-cols-4 gap-2 pt-3 border-t border-[var(--border)] text-center text-xs font-mono">
+                      <div className="p-2 rounded bg-[var(--surface)]">
+                        <span className="text-[9px] text-[var(--text-3)] block">TAMPERING (40)</span>
+                        <span className="font-bold text-[var(--text-1)]">{riskScore?.score_breakdown.tamperingScore ?? 0} pts</span>
                       </div>
-                      <p className="text-xs text-[var(--text-2)] mt-1 font-mono">{screening?.summary || 'Screening intelligence completed.'}</p>
+                      <div className="p-2 rounded bg-[var(--surface)]">
+                        <span className="text-[9px] text-[var(--text-3)] block">VALIDATION (45)</span>
+                        <span className="font-bold text-[var(--text-1)]">{riskScore?.score_breakdown.validationScore ?? 0} pts</span>
+                      </div>
+                      <div className="p-2 rounded bg-[var(--surface)]">
+                        <span className="text-[9px] text-[var(--text-3)] block">BIOMETRIC (20)</span>
+                        <span className="font-bold text-[var(--text-1)]">{riskScore?.score_breakdown.biometricScore ?? 0} pts</span>
+                      </div>
+                      <div className="p-2 rounded bg-[var(--surface)]">
+                        <span className="text-[9px] text-[var(--text-3)] block">OCR QUALITY (10)</span>
+                        <span className="font-bold text-[var(--text-1)]">{riskScore?.score_breakdown.ocrQualityScore ?? 0} pts</span>
+                      </div>
                     </div>
-
-                    <SecurityRing
-                      progress={100 - risk}
-                      status={verdict === 'PASSED' ? 'verified' : verdict === 'REVIEW_REQUIRED' ? 'scanning' : 'threat'}
-                      size={76}
-                      strokeWidth={4}
-                      label={verdict === 'PASSED' ? 'Authentic' : 'Threat'}
-                    />
-                  </div>
-
-                  {/* Multi-Factor Score Breakdown */}
-                  <div className="grid grid-cols-4 gap-2 pt-3 border-t border-[var(--border)] text-center text-xs font-mono">
-                    <div className="p-2 rounded bg-[var(--surface)]">
-                      <span className="text-[9px] text-[var(--text-3)] block">TAMPERING (40)</span>
-                      <span className="font-bold text-[var(--text-1)]">{riskScore?.score_breakdown.tamperingScore ?? 0} pts</span>
-                    </div>
-                    <div className="p-2 rounded bg-[var(--surface)]">
-                      <span className="text-[9px] text-[var(--text-3)] block">VALIDATION (45)</span>
-                      <span className="font-bold text-[var(--text-1)]">{riskScore?.score_breakdown.validationScore ?? 0} pts</span>
-                    </div>
-                    <div className="p-2 rounded bg-[var(--surface)]">
-                      <span className="text-[9px] text-[var(--text-3)] block">BIOMETRIC (20)</span>
-                      <span className="font-bold text-[var(--text-1)]">{riskScore?.score_breakdown.biometricScore ?? 0} pts</span>
-                    </div>
-                    <div className="p-2 rounded bg-[var(--surface)]">
-                      <span className="text-[9px] text-[var(--text-3)] block">OCR QUALITY (10)</span>
-                      <span className="font-bold text-[var(--text-1)]">{riskScore?.score_breakdown.ocrQualityScore ?? 0} pts</span>
-                    </div>
-                  </div>
-                </Card>
+                  </Card>
+                )}
 
                 {/* 2. Interactive P8 Module Inspection Tabs */}
                 <div className="flex border-b border-[var(--border)] text-xs font-mono">

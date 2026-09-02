@@ -198,7 +198,7 @@ export const ScannerStandbyView: React.FC<ScannerStandbyViewProps> = ({
       {/* Bottom Telemetry Matrix (4 Engine Status Chips) */}
       <div className="relative z-10 pt-4 border-t border-[var(--border)]">
         <div className="text-[10px] font-mono text-[var(--text-3)] uppercase tracking-wider mb-2 font-bold flex items-center justify-between">
-          <span>Active Pipeline Enclave Engines (P8 Architecture)</span>
+          <span>Active Pipeline Enclave Engines</span>
           <span className="text-[var(--accent)]">4 of 4 Ready</span>
         </div>
 
