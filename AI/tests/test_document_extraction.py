@@ -331,6 +331,53 @@ def test_arunachal_pradesh_eilp_permit_extraction():
     assert fields["date_of_expiry"].value == "19-11-2022"
 
 
+def test_aadhaar_bilingual_dual_card_extraction():
+    from document_detection.ocr.models import BoundingBox
+
+    def make_box(x, y, w, h):
+        return BoundingBox(points=[[float(x), float(y)], [float(x+w), float(y)], [float(x+w), float(y+h)], [float(x), float(y+h)]])
+
+    texts_with_boxes = [
+        # Front Card (Left side)
+        ("Government of India", make_box(80, 50, 220, 25)),
+        ("પાઠક ધ્રુવ", make_box(160, 180, 120, 22)),
+        ("Pathak Dhruv", make_box(160, 210, 140, 22)),
+        ("જન્મ તારીખ/DOB: 17/01/2007", make_box(160, 240, 180, 22)),
+        ("પુરુષ/ MALE", make_box(160, 270, 100, 22)),
+        ("9291 5516 7527", make_box(150, 380, 200, 30)),
+        ("મારો આધાર, મારી ઓળખ", make_box(100, 420, 200, 20)),
+        # Back Card (Right side)
+        ("Unique Identification Authority of India", make_box(550, 50, 300, 25)),
+        ("સરનામું :", make_box(500, 160, 60, 20)),
+        ("S/O પાઠક બિપીનકુમાર, 201, ભારદ્વાજ...", make_box(500, 185, 250, 20)),
+        ("Address:", make_box(500, 230, 70, 20)),
+        ("S/O Pathak Bipinkumar, 201, bhardwaj", make_box(500, 255, 260, 20)),
+        ("heights, near aditya park, jambuva,", make_box(500, 280, 260, 20)),
+        ("Vadodara, PO: Makarpura, DIST: Vadodara,", make_box(500, 305, 270, 20)),
+        ("Gujarat - 390014", make_box(500, 330, 150, 20)),
+        ("9291 5516 7527", make_box(650, 380, 200, 30)),
+        ("VID : 9134 8166 4713 9809", make_box(650, 420, 220, 25)),
+    ]
+
+    regions = [TextRegion(text=t, bounding_box=b, confidence=0.96) for t, b in texts_with_boxes]
+    ocr = OCRResult(
+        raw_text="\n".join(t for t, _ in texts_with_boxes),
+        regions=regions,
+        confidence=0.96,
+        engine_used="paddleocr"
+    )
+
+    fields = NationalIDFieldExtractor().extract(ocr)
+    assert fields["name"].value == "Pathak Dhruv"
+    assert fields["id_number"].value == "929155167527"
+    assert fields["date_of_birth"].value == "17/01/2007"
+    assert fields["gender"].value == "MALE"
+    assert "Pathak Bipinkumar" in fields["address"].value
+    assert "390014" in fields["address"].value
+    assert fields["pin_code"].value == "390014"
+
+
+
 
 
 

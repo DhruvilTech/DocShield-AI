@@ -139,13 +139,31 @@ def analyze_text_tampering(
         _, doc_stroke = cv2.threshold(grayscale, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
         k_dilate = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
         doc_dilated_stroke = cv2.dilate(doc_stroke, k_dilate)
-        doc_bg_mask = (grayscale > 180) & (doc_dilated_stroke == 0)
+        doc_bg_mask = (grayscale > 175) & (doc_dilated_stroke == 0)
 
-        if np.sum(doc_bg_mask) > 500:
+        # Compute patch-based median local standard deviation across the document background
+        # This isolates true high-frequency paper/sensor noise from macro gradients and colored banners
+        patch_stds = []
+        p_sz = 24
+        for py in range(0, img_h - p_sz, p_sz):
+            for px in range(0, img_w - p_sz, p_sz):
+                pm = doc_bg_mask[py:py+p_sz, px:px+p_sz]
+                if np.sum(pm) >= (p_sz * p_sz * 0.5):
+                    patch = grayscale[py:py+p_sz, px:px+p_sz]
+                    patch_stds.append(float(np.std(patch[pm])))
+
+        if patch_stds:
+            doc_bg_noise_std = float(np.median(patch_stds))
+        elif np.sum(doc_bg_mask) > 500:
             doc_bg_noise_std = float(np.std(grayscale[doc_bg_mask]))
         else:
-            doc_bg_noise_std = float(np.std(grayscale))
+            doc_bg_noise_std = 0.5
         doc_bg_noise_std = max(0.1, doc_bg_noise_std)
+
+        doc_bg_mean = float(np.mean(grayscale[doc_bg_mask])) if np.sum(doc_bg_mask) > 500 else float(np.mean(grayscale))
+
+        # Check if the authentic document has physical scanner/paper sensor grain
+        doc_has_sensor_noise = (doc_bg_noise_std >= 2.2)
 
         # ── 2. Local ELA Compression Error Map ────────────────────────────────
         buf = io.BytesIO()
@@ -179,10 +197,13 @@ def analyze_text_tampering(
             roi_gray = grayscale[cy:cy+ch, cx:cx+cw]
             roi_ela = ela_gray[cy:cy+ch, cx:cx+cw]
             roi_sharp = local_sharpness[cy:cy+ch, cx:cx+cw]
-            roi_noise_res = noise_residual[cy:cy+ch, cx:cx+cw]
 
             # Binary mask of text strokes vs local background
-            _, stroke_mask = cv2.threshold(roi_gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+            bg_thresh = max(180, int(np.percentile(roi_gray, 85) - 6)) if np.sum(roi_gray > 180) >= 10 else 0
+            if bg_thresh > 0:
+                _, stroke_mask = cv2.threshold(roi_gray, bg_thresh, 255, cv2.THRESH_BINARY_INV)
+            else:
+                _, stroke_mask = cv2.threshold(roi_gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
             k_stroke = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
             dilated_stroke = cv2.dilate(stroke_mask, k_stroke)
             bg_mask = (dilated_stroke == 0)
@@ -207,11 +228,15 @@ def analyze_text_tampering(
             else:
                 stroke_sharp = float(np.mean(roi_sharp))
 
-            # Feature D: Outer perimeter border gradient (box / patch step)
+            # Feature D: Outer perimeter border gradient (box / patch step in stroke-free background only)
             border_mask = np.zeros((ch, cw), dtype=np.uint8)
             border_mask[:2, :] = 255; border_mask[-2:, :] = 255
             border_mask[:, :2] = 255; border_mask[:, -2:] = 255
-            border_grad = float(np.mean(roi_sharp[border_mask > 0]))
+            bg_border_mask = (border_mask > 0) & (dilated_stroke == 0) & (roi_gray > 160)
+            if np.sum(bg_border_mask) >= 12:
+                border_grad = float(np.mean(roi_sharp[bg_border_mask]))
+            else:
+                border_grad = 0.0
 
             candidate_features.append({
                 "box": (cx, cy, cw, ch),
@@ -229,41 +254,38 @@ def analyze_text_tampering(
             macro_feats = candidate_features
         all_sharpness = [f["stroke_sharp"] for f in macro_feats]
         med_doc_sharp = float(np.median(all_sharpness)) + 1e-5
-        max_doc_sharp = float(np.percentile(all_sharpness, 90)) + 1e-5
 
         all_ela = [f["mean_roi_ela"] for f in macro_feats]
         med_doc_ela = float(np.median(all_ela)) + 1e-5
-
-        doc_bg_mean = float(np.mean(grayscale[doc_bg_mask])) if np.sum(doc_bg_mask) > 500 else float(np.mean(grayscale))
 
         raw_suspicious_boxes = []
 
         for feat in candidate_features:
             cx, cy, cw, ch = feat["box"]
 
-            # Find neighboring text in the same horizontal text line (within 220px horizontally, 20px vertically)
+            # Find neighboring text in the same horizontal text line and similar height
             neighbors = [
                 f for f in candidate_features
-                if f != feat and abs(f["box"][1] - cy) < max(20, ch) and abs(f["box"][0] - cx) < 220
+                if f != feat and abs(f["box"][1] - cy) < max(20, ch) and abs(f["box"][0] - cx) < 220 and abs(f["box"][3] - ch) < max(8, 0.4 * ch)
             ]
 
             if neighbors:
                 neigh_sharp = float(np.median([f["stroke_sharp"] for f in neighbors])) + 1e-5
                 neigh_ela = float(np.median([f["mean_roi_ela"] for f in neighbors])) + 1e-5
+                local_sharp_disp = abs(feat["stroke_sharp"] - neigh_sharp) / neigh_sharp
+                ela_disparity = abs(feat["mean_roi_ela"] - neigh_ela) / neigh_ela
             else:
                 neigh_sharp = med_doc_sharp
                 neigh_ela = med_doc_ela
+                local_sharp_disp = 0.0
+                ela_disparity = abs(feat["mean_roi_ela"] - med_doc_ela) / med_doc_ela
 
-            # Disparity ratios
-            local_sharp_disp = abs(feat["stroke_sharp"] - neigh_sharp) / neigh_sharp
-            doc_sharp_disp = abs(feat["stroke_sharp"] - max_doc_sharp) / max_doc_sharp if feat["stroke_sharp"] < max_doc_sharp else 0.0
-            sharp_disparity = max(local_sharp_disp, doc_sharp_disp)
-            ela_disparity = abs(feat["mean_roi_ela"] - neigh_ela) / neigh_ela
+            sharp_disparity = local_sharp_disp
             bg_mean_diff = abs(feat["raw_bg_mean"] - doc_bg_mean)
 
-            # Noise void ratio relative to document substrate noise (only evaluated on sufficient background area on noisy scans)
-            if doc_bg_noise_std >= 2.5 and feat["bg_pixels"] >= 6 and cw >= 8 and ch >= 8:
-                noise_void = max(0.0, 1.0 - (feat["raw_bg_std"] / doc_bg_noise_std))
+            # Noise void ratio relative to authentic document substrate noise
+            if doc_has_sensor_noise and feat["bg_pixels"] >= 6 and cw >= 8 and ch >= 8:
+                noise_void = max(0.0, 1.0 - (feat["raw_bg_std"] / (doc_bg_noise_std + 1e-5)))
             else:
                 noise_void = 0.0
 
@@ -272,7 +294,7 @@ def analyze_text_tampering(
             reasons = []
 
             # 1. Background Noise Void (Inpainting / Erasure on noisy authentic paper)
-            if noise_void >= 0.55 and feat["raw_bg_std"] < 2.0 and doc_bg_noise_std >= 2.5:
+            if doc_has_sensor_noise and (noise_void >= 0.50 or (noise_void >= 0.40 and bg_mean_diff >= 3.0)) and feat["raw_bg_std"] < 3.5:
                 s_void = min(1.0, 0.45 + 0.55 * noise_void)
                 cue_scores.append(s_void)
                 reasons.append(f"Substrate noise void around text (void: {noise_void*100:.0f}%, local bg std: {feat['raw_bg_std']:.2f} vs doc: {doc_bg_noise_std:.2f})")
@@ -284,34 +306,37 @@ def analyze_text_tampering(
                 reasons.append(f"Local ELA compression disparity ({ela_disparity:.2f}x relative to neighboring text)")
 
             # 3. Stroke Sharpness / Antialiasing Disparity
-            if sharp_disparity >= 0.45 and (feat["stroke_sharp"] > 40.0 or neigh_sharp > 40.0) and (feat["mean_roi_ela"] >= 5.0 or noise_void >= 0.30 or bg_mean_diff >= 3.5):
+            if sharp_disparity >= 0.55 and (feat["stroke_sharp"] > 40.0 or neigh_sharp > 40.0) and (feat["mean_roi_ela"] >= 5.0 or noise_void >= 0.30 or bg_mean_diff >= 3.5):
                 s_sharp = min(1.0, 0.35 + 0.45 * sharp_disparity)
                 cue_scores.append(s_sharp)
                 reasons.append(f"Stroke rendering disparity ({sharp_disparity:.2f}x relative to neighboring text)")
 
             # 4. Substrate Brightness Disparity (Whiteout / Inpainting patch)
-            if (feat["raw_bg_mean"] - doc_bg_mean) >= 3.0 and doc_bg_noise_std >= 2.0 and cw >= 35 and ch >= 15 and feat["bg_pixels"] >= 60:
+            if (feat["raw_bg_mean"] - doc_bg_mean) >= 3.0 and doc_has_sensor_noise and cw >= 35 and ch >= 15 and feat["bg_pixels"] >= 60:
                 s_bg = min(1.0, 0.40 + 0.10 * (feat["raw_bg_mean"] - doc_bg_mean))
                 cue_scores.append(s_bg)
                 reasons.append(f"Substrate brightness step in text patch ({feat['raw_bg_mean']:.1f} vs doc: {doc_bg_mean:.1f})")
 
-            # 5. Border step
-            if feat["border_grad"] > 250.0 and cw >= 30 and ch >= 16 and feat["bg_pixels"] >= 35:
-                s_border = min(1.0, feat["border_grad"] / 500.0)
+            # 5. Border step (Paste / erasure patch boundary in background)
+            if feat["border_grad"] > 160.0 and cw >= 30 and ch >= 16 and feat["bg_pixels"] >= 35 and bg_mean_diff >= 3.0:
+                s_border = min(1.0, feat["border_grad"] / 400.0)
                 cue_scores.append(s_border)
                 reasons.append(f"Paste / erasure perimeter boundary step ({feat['border_grad']:.1f})")
 
             # Forensic Corroboration:
-            is_strong_void = (noise_void >= 0.60 and doc_bg_noise_std >= 2.5 and feat["raw_bg_std"] < 1.8)
+            is_strong_void = (doc_has_sensor_noise and (noise_void >= 0.55 or (noise_void >= 0.45 and bg_mean_diff >= 3.0)) and feat["raw_bg_std"] < 3.2)
             is_ela_anomaly = (feat["mean_roi_ela"] >= 14.0 and ela_disparity >= 2.5 and abs(feat["mean_roi_ela"] - neigh_ela) >= 8.0 and cw >= 30 and ch >= 14)
-            is_corroborated = (len(cue_scores) >= 2 and (noise_void >= 0.45 or (feat["raw_bg_mean"] - doc_bg_mean) >= 3.0 or (ela_disparity >= 1.5 and feat["mean_roi_ela"] >= 6.0)))
+            is_whiteout_patch = (doc_has_sensor_noise and (feat["raw_bg_mean"] - doc_bg_mean) >= 4.0 and cw >= 40 and ch >= 16 and feat["raw_bg_std"] <= doc_bg_noise_std)
+            is_corroborated = (len(cue_scores) >= 2 and (noise_void >= 0.40 or bg_mean_diff >= 3.0 or (ela_disparity >= 1.5 and feat["mean_roi_ela"] >= 6.0)))
 
-            if is_strong_void or is_ela_anomaly or is_corroborated:
+            if is_strong_void or is_ela_anomaly or is_whiteout_patch or is_corroborated:
                 base_score = float(np.mean(cue_scores)) if cue_scores else 0.70
                 if len(cue_scores) >= 2:
                     base_score = min(1.0, base_score + 0.12 * (len(cue_scores) - 1))
                 elif is_strong_void:
                     base_score = min(1.0, 0.45 + 0.55 * noise_void)
+                elif is_whiteout_patch:
+                    base_score = min(1.0, 0.50 + 0.10 * (feat["raw_bg_mean"] - doc_bg_mean))
 
                 raw_suspicious_boxes.append({
                     "box": (cx, cy, cw, ch),

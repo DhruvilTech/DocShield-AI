@@ -27,7 +27,7 @@ PASSPORT_FIELDS = [
     "date_of_birth", "date_of_expiry", "gender",
 ]
 VISA_FIELDS = ["visa_number", "visa_type", "entry_validation", "stay_duration"]
-NATIONAL_ID_FIELDS = ["id_number", "name", "date_of_birth", "gender", "pin_code"]
+NATIONAL_ID_FIELDS = ["id_number", "name", "date_of_birth", "gender", "pin_code", "address"]
 DRIVING_LICENSE_FIELDS = [
     "license_number", "name", "date_of_birth", "date_of_issue", "date_of_expiry", "vehicle_class",
 ]
@@ -908,16 +908,23 @@ class NationalIDFieldExtractor(BaseFieldExtractor):
     def extract(self, ocr_result: OCRResult) -> dict[str, ExtractedField]:
         raw = ocr_result.raw_text
         
-        # Sort regions vertically (top-to-bottom) using bounding box y-coordinates
-        def get_y_coord(r: TextRegion) -> float:
+        def get_coords(r: TextRegion) -> tuple[float, float, float, float]:
             if r.bounding_box and r.bounding_box.points:
-                return min(p[1] for p in r.bounding_box.points)
-            return 0.0
+                pts = r.bounding_box.points
+                min_x = min(p[0] for p in pts)
+                max_x = max(p[0] for p in pts)
+                min_y = min(p[1] for p in pts)
+                max_y = max(p[1] for p in pts)
+                return min_x, min_y, max_x - min_x, max_y - min_y
+            return 0.0, 0.0, 0.0, 0.0
+
+        def get_y_coord(r: TextRegion) -> float:
+            return get_coords(r)[1]
 
         regions = sorted(ocr_result.regions, key=get_y_coord)
         fields: dict[str, ExtractedField] = {}
 
-        # Aadhaar number (concatenate groups to get clean 12-digit string)
+        # 1. Aadhaar number (concatenate groups to get clean 12-digit string)
         m = self._AADHAAR_RE.search(raw)
         if m:
             id_val = m.group(1) + m.group(2) + m.group(3)
@@ -930,60 +937,115 @@ class NationalIDFieldExtractor(BaseFieldExtractor):
         else:
             fields["id_number"] = _empty("id_number")
 
-        # Name
-        name_val, name_conf, name_src = None, None, None
+        # Comprehensive blacklist of words that should never appear in a person's name
+        INVALID_NAME_WORDS = {
+            "INDIA", "BHARAT", "GOVERNMENT", "AUTHORITY", "UNIQUE", "IDENTIFICATION", "AADHAAR", "UIDAI",
+            "ENROLMENT", "DOWNLOAD", "ISSUE", "ISSUED", "VALID", "VALIDITY", "VID", "HELP", "HELPLINE", "WWW", "HTTP",
+            "GOV", "IN", "PROOF", "DOCUMENT", "CITIZEN", "CITIZENSHIP", "INFORMATION", "SUPPORTED", "REGULATION",
+            "NATIONAL", "IDENTITY", "CARD", "MERI", "PEHCHAN", "MERA", "MARO", "MARI", "OLAKH",
+            "ADDRESS", "SARNAMU", "PATA", "S/O", "D/O", "W/O", "C/O", "SON", "DAUGHTER", "WIFE", "CARE",
+            "HOUSE", "FLAT", "PLOT", "BLOCK", "BUILDING", "APARTMENT", "HEIGHTS", "RESIDENCY", "SOCIETY", "NAGAR",
+            "COLONY", "ENCLAVE", "PARK", "ROAD", "STREET", "MARG", "LANE", "NEAR", "BEHIND", "OPPOSITE", "OPP",
+            "VILLAGE", "POST", "PO", "TALUKA", "TA", "DIST", "DISTRICT", "STATE", "GUJARAT", "MAHARASHTRA",
+            "DELHI", "KARNATAKA", "TAMIL", "RAJASTHAN", "PUNJAB", "HARYANA", "UTTAR", "PRADESH", "BENGAL",
+            "KERALA", "TELANGANA", "ANDHRA", "JAMBUVA", "VADODARA", "AHMEDABAD", "SURAT", "RAJKOT", "MUMBAI",
+            "MALE", "FEMALE", "TRANSGENDER", "GENDER", "DOB", "DATE", "BIRTH", "YEAR", "YOB", "JANM", "TITHI",
+            "PURUSH", "STREE", "DETAIL", "DETAILS", "AS", "ON", "SIGNATURE", "HOLDER", "SCANNING", "QR", "CODE",
+            "OFFLINE", "XML", "ONLINE", "AUTHENTICATION", "VERIFICATION", "FREE", "TOLL"
+        }
 
         # Helper to validate a candidate name string
         def is_valid_name(s: str) -> bool:
             if not s:
                 return False
-            s_clean = s.strip()
+            s_clean = s.strip().strip(":").strip()
             if not s_clean:
                 return False
-            # Check for generic keywords
-            s_upper = s_clean.upper()
-            if any(h in s_upper for h in ["INDIA", "GOVERNMENT", "AUTHORITY", "UNIQUE", "IDENTIFICATION", "AADHAAR", "TO", "MOBILE", "PHONE", "TEL"]):
-                return False
-            # Names do not contain numbers
+            # Names do not contain digits
             if any(c.isdigit() for c in s_clean):
                 return False
             # Name must not be extremely short
             if len(s_clean) < 3:
                 return False
-            # Names on Aadhaar cards should not contain commas or slashes
-            if "," in s_clean or "\\" in s_clean or "/" in s_clean:
+            # Names should not contain colons, commas, slashes, or special punctuation
+            if any(sym in s_clean for sym in [":", ",", "\\", "/", "@", "#", "$", "%", "^", "&", "*", "=", "+", "<", ">", ";", "?"]):
+                return False
+            # Check for blacklisted words
+            tokens = re.findall(r"\b[A-Za-z]+\b", s_clean.upper())
+            if not tokens:
+                return False
+            if any(t in INVALID_NAME_WORDS for t in tokens):
                 return False
             # Name should primarily contain alphabetic characters and spaces
             letters_and_spaces = sum(c.isalpha() or c.isspace() or c == '.' for c in s_clean)
-            if letters_and_spaces < len(s_clean) * 0.85:
+            if letters_and_spaces < len(s_clean) * 0.80:
                 return False
             return True
 
-        # 1. Try label-proximity search first
+        # 2. Extract Name
+        name_val, name_conf, name_src = None, None, None
+
+        # Strategy 1: Label proximity search
         val, conf, src = _find_label_value(regions, ["NAME", "NAAM"])
         if val and is_valid_name(val):
-            name_val, name_conf, name_src = val, conf, src
+            name_val, name_conf, name_src = val.strip(), conf, src
 
-        # 2. Heuristic: Aadhaar front side usually has Name right before the DOB region
+        # Strategy 2: Spatial front-card search above DOB
+        if not name_val:
+            dob_region = None
+            for r in regions:
+                r_upper = r.text.upper()
+                if ("DOB" in r_upper or "DATE OF BIRTH" in r_upper or "JANM TITHI" in r_upper or self._DOB_RE.search(r.text)):
+                    if any(w in r_upper for w in ["PROOF", "DOCUMENT", "CITIZEN", "INFORMATION", "SUPPORTED", "REGULATION"]):
+                        continue
+                    dob_region = r
+                    break
+
+            if dob_region:
+                dob_x, dob_y, dob_w, dob_h = get_coords(dob_region)
+                # Find all text regions vertically above DOB on the same card half / column
+                above_candidates = []
+                for r in regions:
+                    if r == dob_region:
+                        continue
+                    rx, ry, rw, rh = get_coords(r)
+                    if ry < dob_y and (dob_y - ry) < 200:
+                        # Ensure horizontal proximity (same column or left side)
+                        if abs(rx - dob_x) < max(180.0, dob_w * 1.5):
+                            above_candidates.append((dob_y - ry, r))
+                
+                # Sort from closest above to furthest above
+                above_candidates.sort(key=lambda item: item[0])
+                for _, r in above_candidates[:4]:
+                    cand_text = r.text.strip()
+                    if is_valid_name(cand_text):
+                        name_val = cand_text
+                        name_conf = r.confidence
+                        name_src = r.text
+                        break
+
+        # Strategy 3: Fallback sequential search before DOB
         if not name_val:
             dob_idx = -1
             for idx, r in enumerate(regions):
                 r_upper = r.text.upper()
-                if "DOB" in r_upper or "DATE OF BIRTH" in r_upper or "JANM TITHI" in r_upper:
-                    # Ignore common disclaimer words in Aadhaar card
+                if "DOB" in r_upper or "DATE OF BIRTH" in r_upper or "JANM TITHI" in r_upper or self._DOB_RE.search(r.text):
                     if any(w in r_upper for w in ["PROOF", "DOCUMENT", "CITIZEN", "INFORMATION", "SUPPORTED", "REGULATION"]):
                         continue
                     dob_idx = idx
                     break
             if dob_idx > 0:
-                prev_region = regions[dob_idx - 1]
-                prev_text = prev_region.text.strip()
-                if is_valid_name(prev_text):
-                    name_val = prev_text
-                    name_conf = prev_region.confidence
-                    name_src = prev_region.text
+                for lookback in [1, 2, 3]:
+                    if dob_idx - lookback >= 0:
+                        prev_region = regions[dob_idx - lookback]
+                        prev_text = prev_region.text.strip()
+                        if is_valid_name(prev_text):
+                            name_val = prev_text
+                            name_conf = prev_region.confidence
+                            name_src = prev_region.text
+                            break
 
-        # 3. Heuristic: Aadhaar back side/address often starts with "To" or has "S/O", "D/O", "W/O", "C/O"
+        # Strategy 4: e-Aadhaar "To" or relative fallback
         if not name_val:
             for idx, r in enumerate(regions):
                 r_upper = r.text.upper()
@@ -991,27 +1053,17 @@ class NationalIDFieldExtractor(BaseFieldExtractor):
                     if idx + 1 < len(regions):
                         nxt_r = regions[idx + 1]
                         nxt_text = nxt_r.text.strip()
-                        if is_valid_name(nxt_text) and not any(h in nxt_text.upper() for h in ["S/O", "D/O", "W/O", "C/O", "CARE OF"]):
+                        if is_valid_name(nxt_text):
                             name_val = nxt_text
                             name_conf = nxt_r.confidence
                             name_src = nxt_r.text
                             break
-                elif any(x in r_upper for x in ["S/O", "D/O", "W/O", "C/O"]):
-                    if idx > 0:
-                        prev_r = regions[idx - 1]
-                        prev_text = prev_r.text.strip()
-                        if is_valid_name(prev_text):
-                            name_val = prev_text
-                            name_conf = prev_r.confidence
-                            name_src = prev_r.text
-                            break
 
         fields["name"] = ExtractedField(name="name", value=name_val, confidence=name_conf, source_text=name_src)
 
-        # Date of birth
+        # 3. Date of birth
         dob_val, dob_conf, dob_src = None, None, None
 
-        # 1. Find region containing "DOB" or "Birth" and a date/year (ignoring disclaimers)
         dob_pattern = re.compile(
             r"(?:DOB|Date of Birth|Birth|YOB|Year of Birth)[\s/:.-]*(\d{2}[/\-]\d{2}[/\-]\d{4}|\d{4})",
             re.IGNORECASE,
@@ -1027,7 +1079,6 @@ class NationalIDFieldExtractor(BaseFieldExtractor):
                 dob_src = region.text
                 break
 
-        # 2. Try to find a standalone date near a region containing "DOB" or "Date of Birth"
         if not dob_val:
             for i, region in enumerate(regions):
                 upper = region.text.upper()
@@ -1042,7 +1093,6 @@ class NationalIDFieldExtractor(BaseFieldExtractor):
                         break
                     if i + 1 < len(regions):
                         nxt = regions[i + 1]
-                        # check that the next region is not disclaimer
                         nxt_upper = nxt.text.upper()
                         if any(w in nxt_upper for w in ["PROOF", "DOCUMENT", "CITIZEN", "INFORMATION", "SUPPORTED", "REGULATION"]):
                             continue
@@ -1053,7 +1103,6 @@ class NationalIDFieldExtractor(BaseFieldExtractor):
                             dob_src = nxt.text
                             break
 
-        # 3. Fallback to searching raw text for a date
         if not dob_val:
             dm = self._DOB_RE.search(raw)
             if dm:
@@ -1065,7 +1114,7 @@ class NationalIDFieldExtractor(BaseFieldExtractor):
             name="date_of_birth", value=dob_val, confidence=dob_conf, source_text=dob_src
         )
 
-        # Gender
+        # 4. Gender
         gender_val, gender_conf = None, None
         for region in regions:
             gm = self._GENDER_RE.search(region.text)
@@ -1075,12 +1124,95 @@ class NationalIDFieldExtractor(BaseFieldExtractor):
                 break
         fields["gender"] = ExtractedField(name="gender", value=gender_val, confidence=gender_conf)
 
-        # PIN code (6-digit, first digit ≠ 0)
+        # 5. Address & PIN code Extraction
+        addr_val, addr_conf, addr_src = None, None, None
+        addr_region_idx = -1
+
+        # Search for region containing English "Address:" / "Address"
+        for idx, r in enumerate(regions):
+            r_strip = r.text.strip()
+            r_upper = r_strip.upper()
+            if r_upper.startswith("ADDRESS") or r_upper == "ADDRESS:":
+                addr_region_idx = idx
+                break
+
+        if addr_region_idx >= 0:
+            addr_r = regions[addr_region_idx]
+            ax, ay, aw, ah = get_coords(addr_r)
+            addr_lines = []
+            
+            # Check if address content starts on the same line after "Address:"
+            after_colon = re.sub(r"^ADDRESS\s*[:\-]?\s*", "", addr_r.text, flags=re.IGNORECASE).strip()
+            if after_colon:
+                addr_lines.append(after_colon)
+
+            # Collect subsequent lines in the address column
+            for nxt_r in regions[addr_region_idx + 1:]:
+                nxt_text = nxt_r.text.strip()
+                nxt_upper = nxt_text.upper()
+                nx, ny, nw, nh = get_coords(nxt_r)
+
+                # Stop if reaching barcode / VID / Helpline / Aadhaar 12-digit number / non-address boundaries
+                if any(w in nxt_upper for w in ["VID", "HELP@", "WWW.", "1947", "UNIQUE IDENTIFICATION"]):
+                    break
+                if self._AADHAAR_RE.search(nxt_text):
+                    break
+
+                # Accept line if horizontally aligned or subsequent in reading order
+                addr_lines.append(nxt_text)
+
+                # If this line contains the 6-digit PIN code, it completes the address
+                if self._PIN_RE.search(nxt_text):
+                    break
+
+            if addr_lines:
+                combined_addr = ", ".join(l.rstrip(",") for l in addr_lines if l)
+                combined_addr = re.sub(r"\s*,\s*", ", ", combined_addr).strip()
+                addr_val = combined_addr
+                addr_conf = addr_r.confidence
+                addr_src = "\n".join(addr_lines)
+
+        # Fallback 1: Regex on raw OCR text
+        if not addr_val:
+            addr_match = re.search(
+                r"(?:Address|Address\s*:)\s*([\s\S]+?)(?=(?:\bVID\b|\b[2-9][0-9]{3}\s[0-9]{4}\s[0-9]{4}\b|\b1947\b|\bhelp@uidai|\bwww\.uidai|\Z))",
+                raw,
+                re.IGNORECASE
+            )
+            if addr_match:
+                lines = [l.strip().rstrip(",") for l in addr_match.group(1).split("\n") if l.strip()]
+                if lines:
+                    addr_val = ", ".join(lines)
+                    addr_conf = 0.85
+                    addr_src = addr_match.group(0)
+
+        # Fallback 2: Address starting with S/O, D/O, W/O, C/O ending with PIN code
+        if not addr_val:
+            so_match = re.search(
+                r"((?:S/O|D/O|W/O|C/O|Care of|Son of|Daughter of|Wife of)[\s\S]+?\b[1-9][0-9]{5}\b)",
+                raw,
+                re.IGNORECASE
+            )
+            if so_match:
+                lines = [l.strip().rstrip(",") for l in so_match.group(1).split("\n") if l.strip()]
+                addr_val = ", ".join(lines)
+                addr_conf = 0.80
+                addr_src = so_match.group(0)
+
+        fields["address"] = ExtractedField(name="address", value=addr_val, confidence=addr_conf, source_text=addr_src)
+
+        # 6. PIN code (6-digit, first digit ≠ 0)
         pin_val, pin_conf = None, None
-        pm = self._PIN_RE.search(raw)
-        if pm:
-            pin_val = pm.group(0)
-            pin_conf = _get_confidence_for_match(pm.group(0), regions)
+        if addr_val:
+            pm = self._PIN_RE.search(addr_val)
+            if pm:
+                pin_val = pm.group(0)
+                pin_conf = addr_conf
+        if not pin_val:
+            pm = self._PIN_RE.search(raw)
+            if pm:
+                pin_val = pm.group(0)
+                pin_conf = _get_confidence_for_match(pm.group(0), regions)
         fields["pin_code"] = ExtractedField(name="pin_code", value=pin_val, confidence=pin_conf)
 
         for key in NATIONAL_ID_FIELDS:
