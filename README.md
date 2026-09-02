@@ -7,20 +7,21 @@
 
 <div align="center">
 
-  <!-- Cyber Neon Divider Header -->
-  <img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/aqua.png" width="100%" alt="Cyber Line Divider" />
-
-  <br /><br />
-
-  <a href="#-product-preview">
-    <img src="docs/assets/docshield-logo.svg" alt="DocShield AI Holographic Shield Emblem" width="145" />
-  </a>
+  <!-- Cyber Animated Wave Hero Header with Gradient Background -->
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:050814,40:022c22,80:0d9488,100:0284c7&height=220&section=header&text=🛡️%20DOCSHIELD%20AI&fontSize=42&fontColor=ffffff&fontAlignY=38&animation=twinkling&desc=⚡%20ENTERPRISE%20IDENTITY%20%26%20DOCUMENT%20SCREENING%20ENCLAVE%20⚡&descAlignY=60&descSize=15" width="100%" alt="DocShield AI Animated Cyber Banner" />
 
   <br />
 
-  <h1>🛡️ DOCSHIELD AI</h1>
-  <h3>⚡ ENTERPRISE IDENTITY & DOCUMENT SCREENING ENCLAVE ⚡</h3>
-  <p><b>Automated Tampering Forensics · ICAO 9303 Checksum Engine · 1:1 ArcFace Biometrics</b></p>
+  <a href="#-product-preview">
+    <img src="docs/assets/docshield-logo.svg" alt="DocShield AI Holographic Shield Emblem" width="135" />
+  </a>
+
+  <!-- Cyber Animated Telemetry Typing Subtitle -->
+  <p align="center">
+    <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=700&size=20&duration=3000&pause=1000&color=00F0FF&center=true&vCenter=true&multiline=false&width=700&height=45&lines=ENTERPRISE+IDENTITY+%26+DOCUMENT+SCREENING+ENCLAVE;MULTI-SIGNAL+TAMPERING+FORENSICS+%26+MRZ+PARSER;1%3A1+ARCFACE+BIOMETRICS+%C2%B7+CLOUDINARY+VAULT;ZERO-KNOWLEDGE+MILITARY-GRADE+AES-256-GCM" alt="DocShield AI Live Telemetry Banner" />
+  </p>
+
+  <p><b>Automated Tampering Forensics · ICAO 9303 Checksum Engine · 1:1 ArcFace Biometrics · Cloudinary Vault</b></p>
 
   <p align="center">
     <b>Detect. Verify. Protect.</b>
@@ -78,10 +79,8 @@
 - [Product Walkthrough & Evaluation Guide](#-product-walkthrough--evaluation-guide)
 - [Testing & Verification](#-testing--verification)
 - [Security & Privacy Safeguards](#-security--privacy-safeguards)
-- [Current Limitations](#-current-limitations)
 - [Roadmap](#-roadmap)
 - [Troubleshooting](#-troubleshooting)
-- [License](#-license)
 
 ---
 
@@ -94,7 +93,7 @@
 | **Architecture** | Client-Server Decoupled Microservices (React Frontend + Node.js Backend API + FastAPI AI Engine) |
 | **Frontend Stack** | React 19.2, TypeScript 7, Vite 8, Tailwind CSS v4, Three.js / R3F, Framer Motion |
 | **Backend Stack** | Node.js v22, Express 4.21, pure `mysql2` connection pooling (zero ORM overhead), JWT auth, Multer |
-| **AI / ML Services** | Python 3.13, FastAPI 0.111, Uvicorn, RapidOCR (ONNX Runtime) / PaddleOCR, InsightFace / ArcFace, OpenCV (Contrib), SciPy, scikit-image, PyPDFium2 |
+| **AI / ML Services** | Python >= 3.10, FastAPI 0.111, Uvicorn, RapidOCR (ONNX Runtime) / PaddleOCR, InsightFace / ArcFace, OpenCV (Contrib), SciPy, scikit-image, PyPDFium2 |
 | **Forensic Signals** | Multi-Signal Detectors: ELA, Noise Residual, SIFT Copy-Move, Splicing, Defacement, Text Tampering, Stamp/Seal, Metadata/EXIF |
 | **Evidence Fusion** | Bounding Box Clustering, Spatial IoU Correlation, Weighted Score Aggregation, Human-Readable Narrative Engine |
 | **Supported Inputs** | JPEG, JPG, PNG, WEBP, Multi-page PDF (Passports, Visas, National IDs, Driver's Licenses, Permits) |
@@ -486,7 +485,7 @@ DocShield implements strict mathematical checksum algorithms:
 DocShield-AI/
 ├── Frontend (React 19 + Vite 8 + Three.js)
 ├── Backend  (Node.js v22 + Express 4 + MySQL 8)
-└── AI/ML    (FastAPI + Python 3.13 + OpenCV + PaddleOCR + ArcFace)
+└── AI/ML    (FastAPI + Python >= 3.10 + OpenCV + PaddleOCR + ArcFace)
 ```
 
 ### Frontend
@@ -664,7 +663,7 @@ Follow these instructions to configure and run DocShield AI locally.
 | :--- | :--- | :--- |
 | **Node.js** | `v18.0.0+` (Tested on `v22.18.0`) | `node -v` |
 | **npm** | `v9.0.0+` | `npm -v` |
-| **Python** | `3.10` to `3.13` (Tested on `3.13.4`) | `python --version` |
+| **Python** | `>= 3.10` | `python --version` |
 | **MySQL** | `8.0+` | `mysql --version` |
 | **Git** | `2.x+` | `git --version` |
 
@@ -899,17 +898,6 @@ npm run test:screening   # Multi-factor risk engine & verdicts
 
 ---
 
-## ⚠️ Current Limitations
-
-To maintain technical credibility and transparency, the following prototype boundaries should be noted:
-
-1. **JPEG Compression Sensitivity:** Error Level Analysis (ELA) relies on lossy JPEG compression characteristics. PNG or lossless images converted to JPEG immediately prior to upload may display uniform compression levels that reduce ELA sensitivity.
-2. **Reference-Free Heuristics:** The system operates in a reference-free mode (without requiring pristine sample templates from issuing governments). Certain subtle, professional-grade vector edits may require official holographic physical inspection devices.
-3. **Decision-Support Orientation:** DocShield AI is designed as an **intelligence decision-support system** for trained officers and fraud investigators. Algorithmic risk scores should complement, rather than completely replace, final human judgment.
-4. **Hardware Requirements for Real-Time OCR:** RapidOCR, PaddleOCR, and ArcFace run on standard CPUs using ONNX Runtime, but high-concurrency throughput benefits significantly from CUDA-enabled NVIDIA GPUs.
-
----
-
 ## 🗺️ Roadmap
 
 ### Current Version (Implemented)
@@ -957,22 +945,6 @@ If `npm run migrate` or `npm run dev` fails with `ECONNREFUSED 127.0.0.1:3306`:
 2. Ensure database `docshield_ai` exists.
 3. Check credentials in `backend/.env`.
 
----
-
-## 👥 Development Team
-
-Built with precision for enterprise border security and automated identity verification:
-
-| Member / Role | Key Focus Areas |
-| :--- | :--- |
-| **DocShield Core Team** | System Architecture, React 19 Frontend, Three.js 3D WebGL HUD, Digital Image Forensics, RapidOCR & PaddleOCR Integration, Node.js Backend API & SQL Data Enclave |
-
----
-
-## 📄 License
-
-This project is licensed under the **ISC License**. See the `package.json` files for complete licensing disclosures.
-
 <div align="center">
   <!-- Cyber Neon Divider Footer -->
   <img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/aqua.png" width="100%" alt="Cyber Line Divider" />
@@ -982,7 +954,11 @@ This project is licensed under the **ISC License**. See the `package.json` files
   <img src="docs/assets/docshield-logo.svg" alt="DocShield AI" width="58" />
   
   <h3>🛡️ DOCSHIELD AI · BORDER SECURITY & IDENTITY ENCLAVE</h3>
-  <p><b>Detect. Verify. Protect.</b></p>
+
+  <!-- Cyber Animated Telemetry Footer -->
+  <p align="center">
+    <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=16&duration=3000&pause=1000&color=10B981&center=true&vCenter=true&width=600&height=40&lines=DETECT.+VERIFY.+PROTECT.;NEXT-GEN+DOCUMENT+AUTHENTICITY+SCREENING;AES-256-GCM+ZERO-KNOWLEDGE+PERSISTENCE" alt="DocShield AI Footer Typing Banner" />
+  </p>
   
   <p>
     <sub>Confidential Security Enclave · AES-256-GCM Zero-Knowledge Cloud Storage · Cloudinary Encrypted Vault</sub>
@@ -998,9 +974,6 @@ This project is licensed under the **ISC License**. See the `package.json` files
 
   <br />
 
-  <p>
-    <b>DocShield AI © 2026. Automated Document Authenticity & Identity Screening.</b>
-  </p>
-
-  <img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/aqua.png" width="100%" alt="Cyber Line Divider" />
+  <!-- Cyber Animated Wave Footer with Gradient Background -->
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:050814,40:022c22,80:0d9488,100:0284c7&height=160&section=footer&text=DOCSHIELD%20AI%20%C2%A9%202026&fontSize=20&fontColor=ffffff&fontAlignY=65&animation=twinkling" width="100%" alt="DocShield AI Animated Cyber Footer Wave" />
 </div>
