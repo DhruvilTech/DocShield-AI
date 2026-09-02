@@ -1,0 +1,245 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1200 270" width="100%" height="270">
+  <defs>
+    <!-- Background Linear Gradient -->
+    <linearGradient id="cyber-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#030712" />
+      <stop offset="35%" stop-color="#04201e" />
+      <stop offset="65%" stop-color="#062e29" />
+      <stop offset="100%" stop-color="#020d1a" />
+    </linearGradient>
+
+    <!-- Gentle Wave Gradient -->
+    <linearGradient id="wave-grad-1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00f0ff" stop-opacity="0.12" />
+      <stop offset="50%" stop-color="#10b981" stop-opacity="0.20" />
+      <stop offset="100%" stop-color="#0284c7" stop-opacity="0.12" />
+    </linearGradient>
+
+    <linearGradient id="wave-grad-2" x1="100%" y1="0%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.18" />
+      <stop offset="50%" stop-color="#00f0ff" stop-opacity="0.08" />
+      <stop offset="100%" stop-color="#0d9488" stop-opacity="0.18" />
+    </linearGradient>
+
+    <!-- Text Glow Filters -->
+    <filter id="glow-cyan" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <filter id="glow-strong" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="5" result="blur1" />
+      <feGaussianBlur stdDeviation="2" result="blur2" />
+      <feMerge>
+        <feMergeNode in="blur1" />
+        <feMergeNode in="blur2" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <!-- Grid Pattern -->
+    <pattern id="cyber-grid" width="36" height="36" patternUnits="userSpaceOnUse">
+      <path d="M 36 0 L 0 0 0 36" fill="none" stroke="#00f0ff" stroke-width="0.75" stroke-opacity="0.06" />
+    </pattern>
+
+    <!-- Original DocShield Logo Gradients & Filters -->
+    <linearGradient id="docshield-shield-grad" x1="18" y1="10" x2="102" y2="112" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2DD4BF" />
+      <stop offset="50%" stop-color="#14B8A6" />
+      <stop offset="100%" stop-color="#0D9488" />
+    </linearGradient>
+
+    <linearGradient id="docshield-check-grad" x1="10" y1="20" x2="115" y2="90" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#A7F3D0" />
+      <stop offset="25%" stop-color="#2DD4BF" />
+      <stop offset="70%" stop-color="#14B8A6" />
+      <stop offset="100%" stop-color="#0F766E" />
+    </linearGradient>
+
+    <linearGradient id="docshield-doc-lines" x1="35" y1="24" x2="80" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2DD4BF" stop-opacity="0.95" />
+      <stop offset="100%" stop-color="#0D9488" stop-opacity="0.75" />
+    </linearGradient>
+
+    <filter id="docshield-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="5" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+
+    <filter id="docshield-check-shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3.5" flood-color="#041E1A" flood-opacity="0.65" />
+    </filter>
+
+    <!-- ================= TYPEWRITER ANIMATION PATHS ================= -->
+    <path id="type-path-0">
+      <animate id="d0" attributeName="d" begin="0s;d3.end" dur="4000ms" fill="remove"
+        values="m0,208 h0 ; m0,208 h1200 ; m0,208 h1200 ; m0,208 h0"
+        keyTimes="0;0.48;0.88;1" />
+    </path>
+    <path id="type-path-1">
+      <animate id="d1" attributeName="d" begin="d0.end" dur="4000ms" fill="remove"
+        values="m0,208 h0 ; m0,208 h1200 ; m0,208 h1200 ; m0,208 h0"
+        keyTimes="0;0.48;0.88;1" />
+    </path>
+    <path id="type-path-2">
+      <animate id="d2" attributeName="d" begin="d1.end" dur="4000ms" fill="remove"
+        values="m0,208 h0 ; m0,208 h1200 ; m0,208 h1200 ; m0,208 h0"
+        keyTimes="0;0.48;0.88;1" />
+    </path>
+    <path id="type-path-3">
+      <animate id="d3" attributeName="d" begin="d2.end" dur="4000ms" fill="remove"
+        values="m0,208 h0 ; m0,208 h1200 ; m0,208 h1200 ; m0,208 h0"
+        keyTimes="0;0.48;0.88;1" />
+    </path>
+    <!-- ============================================================= -->
+  </defs>
+
+  <style>
+    .title-text {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-weight: 900;
+      letter-spacing: 5px;
+    }
+    .anim-typing {
+      font-family: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-weight: 700;
+      letter-spacing: 3px;
+      font-size: 16.5px;
+    }
+    .sub-text {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-weight: 500;
+      letter-spacing: 1.5px;
+      font-size: 13px;
+    }
+  </style>
+
+  <!-- Seamless Borderless Card Background -->
+  <rect x="0" y="0" width="1200" height="270" rx="16" fill="url(#cyber-bg)" />
+  <rect x="0" y="0" width="1200" height="270" rx="16" fill="url(#cyber-grid)" />
+
+  <!-- Animated Sinusoidal Wave 1 -->
+  <path fill="url(#wave-grad-1)" d="M 0,190 Q 300,150 600,195 T 1200,185 L 1200,270 L 0,270 Z">
+    <animate attributeName="d" dur="8s" repeatCount="indefinite"
+      values="M 0,190 Q 300,150 600,195 T 1200,185 L 1200,270 L 0,270 Z;
+              M 0,180 Q 300,210 600,170 T 1200,200 L 1200,270 L 0,270 Z;
+              M 0,190 Q 300,150 600,195 T 1200,185 L 1200,270 L 0,270 Z" />
+  </path>
+
+  <!-- Animated Sinusoidal Wave 2 -->
+  <path fill="url(#wave-grad-2)" d="M 0,210 Q 300,175 600,220 T 1200,205 L 1200,270 L 0,270 Z">
+    <animate attributeName="d" dur="6s" repeatCount="indefinite"
+      values="M 0,210 Q 300,175 600,220 T 1200,205 L 1200,270 L 0,270 Z;
+              M 0,195 Q 300,230 600,190 T 1200,215 L 1200,270 L 0,270 Z;
+              M 0,210 Q 300,175 600,220 T 1200,205 L 1200,270 L 0,270 Z" />
+  </path>
+
+  <!-- ================= ORIGINAL DOCSHIELD LOGO (CENTERED) ================= -->
+  <g transform="translate(558, 28) scale(0.70)">
+    <!-- Ambient Glow Behind Shield -->
+    <circle cx="60" cy="60" r="46" fill="url(#docshield-shield-grad)" opacity="0.18" filter="url(#docshield-glow)" />
+
+    <!-- Outer Shield Frame -->
+    <path
+      d="M60 10 L98 25 C98 68 81 99 60 110 C39 99 22 68 22 25 L60 10 Z"
+      fill="#041E1A"
+      fill-opacity="0.4"
+      stroke="url(#docshield-shield-grad)"
+      stroke-width="6.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+
+    <!-- Inner Document Body -->
+    <path
+      d="M38 30 H67 L79 42 V68 C79 68 70 68 60 68 C48 68 38 66 38 66 V30 Z"
+      fill="#0B2B26"
+      fill-opacity="0.4"
+      stroke="url(#docshield-doc-lines)"
+      stroke-width="3.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+
+    <!-- Folded Corner -->
+    <path
+      d="M67 30 V42 H79"
+      fill="none"
+      stroke="url(#docshield-doc-lines)"
+      stroke-width="3.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+
+    <!-- Document Micro-Data Lines -->
+    <line x1="45" y1="40" x2="61" y2="40" stroke="url(#docshield-doc-lines)" stroke-width="3.2" stroke-linecap="round" />
+    <line x1="45" y1="48" x2="69" y2="48" stroke="url(#docshield-doc-lines)" stroke-width="3.2" stroke-linecap="round" />
+    <line x1="45" y1="56" x2="59" y2="56" stroke="url(#docshield-doc-lines)" stroke-width="3.2" stroke-linecap="round" />
+
+    <!-- Verified Checkmark -->
+    <path
+      d="M13 55 L45 88 L108 19"
+      fill="none"
+      stroke="url(#docshield-check-grad)"
+      stroke-width="13.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      filter="url(#docshield-check-shadow)"
+    />
+
+    <!-- Inner Checkmark Specular Core Highlight -->
+    <path
+      d="M16 55 L45 84 L105 19"
+      fill="none"
+      stroke="#FFFFFF"
+      stroke-width="3.2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      opacity="0.9"
+    />
+  </g>
+  <!-- ====================================================================== -->
+
+  <!-- Main Title: DOCSHIELD AI -->
+  <text x="600" y="152" text-anchor="middle" fill="#ffffff" class="title-text" font-size="36" filter="url(#glow-strong)">
+    DOCSHIELD <tspan fill="#00f0ff">AI</tspan>
+  </text>
+
+  <!-- ================= REAL TYPEWRITER ANIMATION (TEXTPATH) ================= -->
+  <!-- Line 1 -->
+  <text class="anim-typing" fill="#00f0ff" dominant-baseline="middle" x="50%" text-anchor="middle">
+    <textPath xlink:href="#type-path-0">
+      ENTERPRISE IDENTITY &amp; DOCUMENT SCREENING ENCLAVE
+    </textPath>
+  </text>
+
+  <!-- Line 2 -->
+  <text class="anim-typing" fill="#2dd4bf" dominant-baseline="middle" x="50%" text-anchor="middle">
+    <textPath xlink:href="#type-path-1">
+      MULTI-SIGNAL TAMPERING FORENSICS &amp; MRZ PARSER
+    </textPath>
+  </text>
+
+  <!-- Line 3 -->
+  <text class="anim-typing" fill="#10b981" dominant-baseline="middle" x="50%" text-anchor="middle">
+    <textPath xlink:href="#type-path-2">
+      1:1 ARCFACE BIOMETRICS · CLOUDINARY VAULT
+    </textPath>
+  </text>
+
+  <!-- Line 4 -->
+  <text class="anim-typing" fill="#38bdf8" dominant-baseline="middle" x="50%" text-anchor="middle">
+    <textPath xlink:href="#type-path-3">
+      ZERO-KNOWLEDGE MILITARY-GRADE AES-256-GCM
+    </textPath>
+  </text>
+  <!-- ====================================================================== -->
+
+  <!-- Subtitle Core Capabilities -->
+  <text x="600" y="240" text-anchor="middle" fill="#94a3b8" class="sub-text">
+    Automated Tampering Forensics  ·  ICAO 9303 Checksum Engine  ·  1:1 ArcFace Biometrics  ·  Cloudinary Vault
+  </text>
+</svg>

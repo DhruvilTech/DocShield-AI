@@ -7,25 +7,12 @@
 
 <div align="center">
 
-  <!-- Cyber Animated Wave Hero Header with Gradient Background -->
-  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:050814,40:022c22,80:0d9488,100:0284c7&height=220&section=header&text=🛡️%20DOCSHIELD%20AI&fontSize=42&fontColor=ffffff&fontAlignY=38&animation=twinkling&desc=⚡%20ENTERPRISE%20IDENTITY%20%26%20DOCUMENT%20SCREENING%20ENCLAVE%20⚡&descAlignY=60&descSize=15" width="100%" alt="DocShield AI Animated Cyber Banner" />
-
-  <br />
-
+  <!-- Animated Cyber Banner Header (All-in-One: Logo, Title, Moving Animation, Badges) -->
   <a href="#-product-preview">
-    <img src="docs/assets/docshield-logo.svg" alt="DocShield AI Holographic Shield Emblem" width="135" />
+    <img src="docs/assets/header-banner.svg" width="100%" alt="DocShield AI - Enterprise Identity & Document Screening Enclave" />
   </a>
 
-  <!-- Cyber Animated Telemetry Typing Subtitle -->
-  <p align="center">
-    <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=700&size=20&duration=3000&pause=1000&color=00F0FF&center=true&vCenter=true&multiline=false&width=700&height=45&lines=ENTERPRISE+IDENTITY+%26+DOCUMENT+SCREENING+ENCLAVE;MULTI-SIGNAL+TAMPERING+FORENSICS+%26+MRZ+PARSER;1%3A1+ARCFACE+BIOMETRICS+%C2%B7+CLOUDINARY+VAULT;ZERO-KNOWLEDGE+MILITARY-GRADE+AES-256-GCM" alt="DocShield AI Live Telemetry Banner" />
-  </p>
-
-  <p><b>Automated Tampering Forensics · ICAO 9303 Checksum Engine · 1:1 ArcFace Biometrics · Cloudinary Vault</b></p>
-
-  <p align="center">
-    <b>Detect. Verify. Protect.</b>
-  </p>
+  <br /><br />
 
   <!-- Executive Cyber Badges Grid -->
   <p>
@@ -233,6 +220,14 @@ DocShield AI delivers a complete, production-grade identity screening and docume
 <div align="center">
   <img src="docs/screenshots/08_document_vault.png" alt="Cryptographic Document Vault" width="900" />
   <p><i>Cloudinary-backed encrypted vault with SHA-256 integrity hashing, status filtering, and version histories.</i></p>
+</div>
+
+---
+
+### Executive Border & Compliance Reports
+<div align="center">
+  <img src="docs/screenshots/05_compliance_reports.png" alt="Executive Border & Compliance Reports" width="900" />
+  <p><i>Cryptographically verifiable compliance telemetry, risk score distributions, and formal forensic PDF report export.</i></p>
 </div>
 
 ---
@@ -663,7 +658,7 @@ Follow these instructions to configure and run DocShield AI locally.
 | :--- | :--- | :--- |
 | **Node.js** | `v18.0.0+` (Tested on `v22.18.0`) | `node -v` |
 | **npm** | `v9.0.0+` | `npm -v` |
-| **Python** | `>= 3.10` | `python --version` |
+| **Python** | `>=3.10` | `python --version` |
 | **MySQL** | `8.0+` | `mysql --version` |
 | **Git** | `2.x+` | `git --version` |
 
@@ -782,8 +777,8 @@ npm run dev
 - **Backend Health Check:** [http://localhost:5000/api/v1/health](http://localhost:5000/api/v1/health)
 
 #### Default Test Account:
-- **Email:** `admin123@gmail.com`
-- **Password:** `Admin@123`
+- **Email:** `demo@gmail.com`
+- **Password:** `Demo@123`
 
 ---
 
@@ -819,7 +814,7 @@ Follow this 5-minute walkthrough to evaluate DocShield AI:
 1. Open [http://localhost:5173](http://localhost:5173) in your browser.
 2. Experience the interactive 3D home page and enclave laser scanner.
 3. Click **Sign In** in the top navigation bar.
-4. Enter `admin123@gmail.com` and `Admin@123`, then click **Sign In**.
+4. Enter `demo@gmail.com` and `Demo@123`, then click **Sign In**.
 
 ### Step 2: Ingest a Document in the Screening HUD
 1. Navigate to the **Scanner** tab (`/scanner`).
@@ -946,23 +941,12 @@ If `npm run migrate` or `npm run dev` fails with `ECONNREFUSED 127.0.0.1:3306`:
 3. Check credentials in `backend/.env`.
 
 <div align="center">
-  <!-- Cyber Neon Divider Footer -->
-  <img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/aqua.png" width="100%" alt="Cyber Line Divider" />
+  <!-- Cyber Animated Banner Footer (All-in-One: Logo, Title, Moving Animation, Enclave Specs) -->
+  <a href="#-table-of-contents">
+    <img src="docs/assets/footer-banner.svg" width="100%" alt="DocShield AI Enclave Footer" />
+  </a>
 
   <br /><br />
-
-  <img src="docs/assets/docshield-logo.svg" alt="DocShield AI" width="58" />
-  
-  <h3>🛡️ DOCSHIELD AI · BORDER SECURITY & IDENTITY ENCLAVE</h3>
-
-  <!-- Cyber Animated Telemetry Footer -->
-  <p align="center">
-    <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=16&duration=3000&pause=1000&color=10B981&center=true&vCenter=true&width=600&height=40&lines=DETECT.+VERIFY.+PROTECT.;NEXT-GEN+DOCUMENT+AUTHENTICITY+SCREENING;AES-256-GCM+ZERO-KNOWLEDGE+PERSISTENCE" alt="DocShield AI Footer Typing Banner" />
-  </p>
-  
-  <p>
-    <sub>Confidential Security Enclave · AES-256-GCM Zero-Knowledge Cloud Storage · Cloudinary Encrypted Vault</sub>
-  </p>
 
   <p>
     <a href="#-table-of-contents">⬆️ <b>Return to Top</b></a> •
@@ -973,7 +957,4 @@ If `npm run migrate` or `npm run dev` fails with `ECONNREFUSED 127.0.0.1:3306`:
   </p>
 
   <br />
-
-  <!-- Cyber Animated Wave Footer with Gradient Background -->
-  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:050814,40:022c22,80:0d9488,100:0284c7&height=160&section=footer&text=DOCSHIELD%20AI%20%C2%A9%202026&fontSize=20&fontColor=ffffff&fontAlignY=65&animation=twinkling" width="100%" alt="DocShield AI Animated Cyber Footer Wave" />
 </div>

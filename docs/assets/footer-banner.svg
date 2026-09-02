@@ -1,0 +1,188 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1200 170" width="100%" height="170">
+  <defs>
+    <!-- Background Linear Gradient -->
+    <linearGradient id="footer-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#020d1a" />
+      <stop offset="35%" stop-color="#04201e" />
+      <stop offset="70%" stop-color="#062e29" />
+      <stop offset="100%" stop-color="#030712" />
+    </linearGradient>
+
+    <!-- Wave Gradient -->
+    <linearGradient id="footer-wave" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00f0ff" stop-opacity="0.12" />
+      <stop offset="50%" stop-color="#10b981" stop-opacity="0.20" />
+      <stop offset="100%" stop-color="#0284c7" stop-opacity="0.12" />
+    </linearGradient>
+
+    <pattern id="footer-grid" width="36" height="36" patternUnits="userSpaceOnUse">
+      <path d="M 36 0 L 0 0 0 36" fill="none" stroke="#00f0ff" stroke-width="0.75" stroke-opacity="0.06" />
+    </pattern>
+
+    <!-- Original DocShield Logo Gradients & Filters -->
+    <linearGradient id="docshield-shield-grad-f" x1="18" y1="10" x2="102" y2="112" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2DD4BF" />
+      <stop offset="50%" stop-color="#14B8A6" />
+      <stop offset="100%" stop-color="#0D9488" />
+    </linearGradient>
+
+    <linearGradient id="docshield-check-grad-f" x1="10" y1="20" x2="115" y2="90" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#A7F3D0" />
+      <stop offset="25%" stop-color="#2DD4BF" />
+      <stop offset="70%" stop-color="#14B8A6" />
+      <stop offset="100%" stop-color="#0F766E" />
+    </linearGradient>
+
+    <linearGradient id="docshield-doc-lines-f" x1="35" y1="24" x2="80" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2DD4BF" stop-opacity="0.95" />
+      <stop offset="100%" stop-color="#0D9488" stop-opacity="0.75" />
+    </linearGradient>
+
+    <filter id="docshield-glow-f" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+
+    <filter id="docshield-check-shadow-f" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#041E1A" flood-opacity="0.65" />
+    </filter>
+
+    <!-- ================= TYPEWRITER ANIMATION PATHS (FOOTER) ================= -->
+    <path id="footer-type-0">
+      <animate id="f0" attributeName="d" begin="0s;f3.end" dur="3800ms" fill="remove"
+        values="m0,142 h0 ; m0,142 h1200 ; m0,142 h1200 ; m0,142 h0"
+        keyTimes="0;0.48;0.88;1" />
+    </path>
+    <path id="footer-type-1">
+      <animate id="f1" attributeName="d" begin="f0.end" dur="3800ms" fill="remove"
+        values="m0,142 h0 ; m0,142 h1200 ; m0,142 h1200 ; m0,142 h0"
+        keyTimes="0;0.48;0.88;1" />
+    </path>
+    <path id="footer-type-2">
+      <animate id="f2" attributeName="d" begin="f1.end" dur="3800ms" fill="remove"
+        values="m0,142 h0 ; m0,142 h1200 ; m0,142 h1200 ; m0,142 h0"
+        keyTimes="0;0.48;0.88;1" />
+    </path>
+    <path id="footer-type-3">
+      <animate id="f3" attributeName="d" begin="f2.end" dur="3800ms" fill="remove"
+        values="m0,142 h0 ; m0,142 h1200 ; m0,142 h1200 ; m0,142 h0"
+        keyTimes="0;0.48;0.88;1" />
+    </path>
+    <!-- ======================================================================= -->
+  </defs>
+
+  <style>
+    .footer-title {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-weight: 900;
+      letter-spacing: 4px;
+      font-size: 24px;
+    }
+    .footer-typing {
+      font-family: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-weight: 700;
+      letter-spacing: 2.5px;
+      font-size: 14px;
+    }
+  </style>
+
+  <!-- Seamless Borderless Card Background -->
+  <rect x="0" y="0" width="1200" height="170" rx="16" fill="url(#footer-bg)" />
+  <rect x="0" y="0" width="1200" height="170" rx="16" fill="url(#footer-grid)" />
+
+  <!-- Animated Wave -->
+  <path fill="url(#footer-wave)" d="M 0,110 Q 300,80 600,115 T 1200,105 L 1200,170 L 0,170 Z">
+    <animate attributeName="d" dur="7s" repeatCount="indefinite"
+      values="M 0,110 Q 300,80 600,115 T 1200,105 L 1200,170 L 0,170 Z;
+              M 0,100 Q 300,125 600,95 T 1200,115 L 1200,170 L 0,170 Z;
+              M 0,110 Q 300,80 600,115 T 1200,105 L 1200,170 L 0,170 Z" />
+  </path>
+
+  <!-- ================= ORIGINAL DOCSHIELD LOGO (CENTERED) ================= -->
+  <g transform="translate(568, 16) scale(0.54)">
+    <circle cx="60" cy="60" r="46" fill="url(#docshield-shield-grad-f)" opacity="0.16" filter="url(#docshield-glow-f)" />
+    <path
+      d="M60 10 L98 25 C98 68 81 99 60 110 C39 99 22 68 22 25 L60 10 Z"
+      fill="#041E1A"
+      fill-opacity="0.4"
+      stroke="url(#docshield-shield-grad-f)"
+      stroke-width="6.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M38 30 H67 L79 42 V68 C79 68 70 68 60 68 C48 68 38 66 38 66 V30 Z"
+      fill="#0B2B26"
+      fill-opacity="0.4"
+      stroke="url(#docshield-doc-lines-f)"
+      stroke-width="3.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M67 30 V42 H79"
+      fill="none"
+      stroke="url(#docshield-doc-lines-f)"
+      stroke-width="3.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <line x1="45" y1="40" x2="61" y2="40" stroke="url(#docshield-doc-lines-f)" stroke-width="3.2" stroke-linecap="round" />
+    <line x1="45" y1="48" x2="69" y2="48" stroke="url(#docshield-doc-lines-f)" stroke-width="3.2" stroke-linecap="round" />
+    <line x1="45" y1="56" x2="59" y2="56" stroke="url(#docshield-doc-lines-f)" stroke-width="3.2" stroke-linecap="round" />
+    <path
+      d="M13 55 L45 88 L108 19"
+      fill="none"
+      stroke="url(#docshield-check-grad-f)"
+      stroke-width="13.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      filter="url(#docshield-check-shadow-f)"
+    />
+    <path
+      d="M16 55 L45 84 L105 19"
+      fill="none"
+      stroke="#FFFFFF"
+      stroke-width="3.2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      opacity="0.9"
+    />
+  </g>
+  <!-- ====================================================================== -->
+
+  <!-- Title: DOCSHIELD AI -->
+  <text x="600" y="108" text-anchor="middle" fill="#ffffff" class="footer-title">
+    DOCSHIELD <tspan fill="#00f0ff">AI</tspan>
+  </text>
+  
+  <!-- ================= REAL TYPEWRITER ANIMATION (TEXTPATH) ================= -->
+  <!-- Line 1: Mission -->
+  <text class="footer-typing" fill="#10b981" dominant-baseline="middle" x="50%" text-anchor="middle">
+    <textPath xlink:href="#footer-type-0">
+      DETECT · VERIFY · PROTECT
+    </textPath>
+  </text>
+
+  <!-- Line 2: Purpose -->
+  <text class="footer-typing" fill="#00f0ff" dominant-baseline="middle" x="50%" text-anchor="middle">
+    <textPath xlink:href="#footer-type-1">
+      NEXT-GEN DOCUMENT AUTHENTICITY SCREENING
+    </textPath>
+  </text>
+
+  <!-- Line 3: Security -->
+  <text class="footer-typing" fill="#2dd4bf" dominant-baseline="middle" x="50%" text-anchor="middle">
+    <textPath xlink:href="#footer-type-2">
+      AES-256-GCM ZERO-KNOWLEDGE CLOUDINARY VAULT
+    </textPath>
+  </text>
+
+  <!-- Line 4: Copyright -->
+  <text class="footer-typing" fill="#38bdf8" dominant-baseline="middle" x="50%" text-anchor="middle">
+    <textPath xlink:href="#footer-type-3">
+      DOCSHIELD AI © 2026 · ALL RIGHTS RESERVED
+    </textPath>
+  </text>
+  <!-- ======================================================================= -->
+</svg>
