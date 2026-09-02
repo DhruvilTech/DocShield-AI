@@ -54,7 +54,6 @@ describe('Authentication & Security API Tests', () => {
     assert.strictEqual(body.data.user.email, testEmail);
     assert.ok(body.data.tokens.accessToken);
     assert.ok(body.data.tokens.refreshToken);
-    assert.ok(body.data.user.roles.includes('screening_officer'));
   });
 
   test('POST /auth/register - should reject duplicate email registration', async () => {

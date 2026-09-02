@@ -1,16 +1,12 @@
 // src/services/user.service.js
 import { userRepository } from '../repositories/user.repository.js';
-import { roleRepository } from '../repositories/role.repository.js';
 import { auditService } from './audit.service.js';
 import { CryptoUtil } from '../utils/crypto.js';
 import { AppError } from '../errors/AppError.js';
 import { AUDIT_ACTIONS } from '../config/constants.js';
 
 export class UserService {
-  async formatUser(user) {
-    const roles = await roleRepository.getUserRoleSlugs(user.id);
-    const permissions = await roleRepository.getUserPermissions(user.id);
-
+  formatUser(user) {
     return {
       id: user.id,
       name: user.name,
@@ -21,8 +17,8 @@ export class UserService {
       lastLoginAt: user.last_login_at ? new Date(user.last_login_at).toISOString() : null,
       createdAt: new Date(user.created_at).toISOString(),
       updatedAt: new Date(user.updated_at).toISOString(),
-      roles,
-      permissions,
+      roles: [],
+      permissions: [],
     };
   }
 
@@ -75,12 +71,7 @@ export class UserService {
 
   async listUsers(page = 1, limit = 10, search = null) {
     const { users, total } = await userRepository.list(page, limit, search);
-    const sanitizedUsers = [];
-
-    for (const u of users) {
-      sanitizedUsers.push(await this.formatUser(u));
-    }
-
+    const sanitizedUsers = users.map((u) => this.formatUser(u));
     return { users: sanitizedUsers, total };
   }
 
@@ -107,19 +98,12 @@ export class UserService {
       emailVerified: data.emailVerified ?? true,
     });
 
-    for (const roleSlug of data.roles) {
-      const role = await roleRepository.findBySlug(roleSlug);
-      if (role) {
-        await roleRepository.assignRoleToUser(user.id, role.id);
-      }
-    }
-
     await auditService.log({
       actorUserId: adminUserId,
       action: AUDIT_ACTIONS.USER_CREATED,
       resourceType: 'user',
       resourceId: user.id,
-      metadata: { roles: data.roles, email: user.email },
+      metadata: { email: user.email },
     });
 
     return this.formatUser(user);

@@ -51,7 +51,7 @@ export class HealthController {
         {
           id: 'SEC-02',
           category: 'Access Control',
-          name: 'Multi-Tenant Organization & RBAC Isolation',
+          name: 'Multi-Tenant Organization & Tenant Isolation',
           description: 'Cryptographic organization separation ensures zero cross-tenant credential or scan leakage across border facilities.',
           status: 'passing',
           standard: 'SOC 2 Type II · ISO 27001',

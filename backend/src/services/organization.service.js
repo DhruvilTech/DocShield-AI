@@ -3,10 +3,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { db } from '../database/db.js';
 import { organizationRepository } from '../repositories/organization.repository.js';
 import { membershipRepository } from '../repositories/membership.repository.js';
-import { roleRepository } from '../repositories/role.repository.js';
 import { auditService } from './audit.service.js';
 import { AppError } from '../errors/AppError.js';
-import { AUDIT_ACTIONS, SYSTEM_ROLES } from '../config/constants.js';
+import { AUDIT_ACTIONS } from '../config/constants.js';
 
 export class OrganizationService {
   /**
@@ -35,12 +34,6 @@ export class OrganizationService {
     const orgId = uuidv4();
     const membershipId = uuidv4();
 
-    // Get admin role for creator
-    const superAdminRole = await roleRepository.findBySlug(SYSTEM_ROLES.SUPER_ADMIN);
-    if (!superAdminRole) {
-      throw AppError.internal('Default admin role not configured', 'SYSTEM_ROLE_MISSING');
-    }
-
     return db.transaction(async (conn) => {
       // 1. Create Organization
       await organizationRepository.create(
@@ -56,13 +49,16 @@ export class OrganizationService {
         conn
       );
 
-      // 2. Assign creator as initial member with admin privileges
+      // 2. Assign creator as initial member
+      const [defaultRoleRows] = await conn.query('SELECT id FROM roles LIMIT 1');
+      const defaultRoleId = defaultRoleRows[0]?.id;
+
       await membershipRepository.addMember(
         {
           id: membershipId,
           organizationId: orgId,
           userId,
-          roleId: superAdminRole.id,
+          roleId: defaultRoleId,
           status: 'ACTIVE',
         },
         conn

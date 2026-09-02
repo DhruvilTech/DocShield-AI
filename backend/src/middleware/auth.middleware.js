@@ -1,6 +1,5 @@
 // src/middleware/auth.middleware.js
 import { JwtUtil } from '../utils/jwt.js';
-import { roleRepository } from '../repositories/role.repository.js';
 import { userRepository } from '../repositories/user.repository.js';
 import { AppError } from '../errors/AppError.js';
 
@@ -21,41 +20,18 @@ export const requireAuth = async (req, res, next) => {
 
     req.user = {
       userId: user.id,
+      id: user.id,
       email: user.email,
       name: user.name,
-      roles: ['user'],
-      permissions: ['*'],
+      status: user.status,
+      roles: [],
+      permissions: [],
     };
 
     next();
   } catch (error) {
     next(error);
   }
-};
-
-export const requirePermission = (...requiredPermissions) => {
-  return (req, res, next) => {
-    if (!req.user) {
-      return next(AppError.unauthorized('Authentication required', 'AUTH_REQUIRED'));
-    }
-    next();
-  };
-};
-
-export const requireRole = (...requiredRoles) => {
-  return (req, res, next) => {
-    if (!req.user) {
-      return next(AppError.unauthorized('Authentication required', 'AUTH_REQUIRED'));
-    }
-    next();
-  };
-};
-
-export const requireSuperAdmin = (req, res, next) => {
-  if (!req.user) {
-    return next(AppError.unauthorized('Authentication required', 'AUTH_REQUIRED'));
-  }
-  next();
 };
 
 export const optionalAuth = async (req, res, next) => {

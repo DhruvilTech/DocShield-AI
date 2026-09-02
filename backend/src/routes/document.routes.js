@@ -10,7 +10,7 @@ import { riskController } from '../controllers/risk.controller.js';
 import { screeningController } from '../controllers/screening.controller.js';
 import { verificationController } from '../controllers/verification.controller.js';
 import { requireAuth } from '../middleware/auth.middleware.js';
-import { resolveOrganization, requireOrgPermission } from '../middleware/organization.middleware.js';
+import { resolveOrganization } from '../middleware/organization.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 import { uploadLimiter } from '../middleware/rateLimiter.middleware.js';
 import { uploadDocumentSchema, updateDocumentSchema } from '../validators/document.validator.js';
@@ -20,7 +20,7 @@ import { runTamperingSchema } from '../validators/tampering.validator.js';
 import { faceVerificationSchema } from '../validators/faceVerification.validator.js';
 import { calculateRiskSchema } from '../validators/risk.validator.js';
 import { runScreeningSchema } from '../validators/screening.validator.js';
-import { SYSTEM_PERMISSIONS, UPLOAD_LIMITS } from '../config/constants.js';
+import { UPLOAD_LIMITS } from '../config/constants.js';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -34,7 +34,6 @@ router.post(
   '/',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.DOCUMENTS_CREATE),
   uploadLimiter,
   upload.single('file'),
   validate(uploadDocumentSchema),
@@ -46,7 +45,6 @@ router.get(
   '/',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.DOCUMENTS_READ),
   docController.listDocuments
 );
 
@@ -55,7 +53,6 @@ router.get(
   '/:id',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.DOCUMENTS_READ),
   docController.getDocumentById
 );
 
@@ -64,7 +61,6 @@ router.get(
   '/:id/download',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.DOCUMENTS_DOWNLOAD),
   docController.downloadDocument
 );
 
@@ -73,7 +69,6 @@ router.get(
   '/:id/preview',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.DOCUMENTS_READ),
   docController.previewDocument
 );
 
@@ -82,7 +77,6 @@ router.patch(
   '/:id',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.DOCUMENTS_UPDATE),
   validate(updateDocumentSchema),
   docController.updateMetadata
 );
@@ -92,7 +86,6 @@ router.delete(
   '/:id',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.DOCUMENTS_DELETE),
   docController.deleteDocument
 );
 
@@ -101,7 +94,6 @@ router.post(
   '/:id/versions',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.DOCUMENTS_UPLOAD_VERSION),
   uploadLimiter,
   upload.single('file'),
   docController.uploadNewVersion
@@ -112,7 +104,6 @@ router.get(
   '/:id/versions',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.DOCUMENTS_VIEW_VERSIONS),
   docController.listVersions
 );
 
@@ -121,7 +112,6 @@ router.get(
   '/:id/versions/:versionNumber/download',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.DOCUMENTS_DOWNLOAD),
   docController.downloadVersion
 );
 
@@ -130,7 +120,6 @@ router.post(
   '/:id/process',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.DOCUMENTS_PROCESS),
   validate(triggerProcessingSchema),
   processingController.triggerProcessing
 );
@@ -140,7 +129,6 @@ router.get(
   '/:id/processing-status',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.DOCUMENTS_READ),
   processingController.getProcessingStatus
 );
 
@@ -149,7 +137,6 @@ router.get(
   '/:id/extraction',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.DOCUMENTS_VIEW_EXTRACTION),
   processingController.getExtraction
 );
 
@@ -158,7 +145,6 @@ router.post(
   '/:id/analysis/run',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.ANALYSIS_RUN),
   validate(runAnalysisSchema),
   analysisController.runAnalysis
 );
@@ -168,7 +154,6 @@ router.get(
   '/:id/analysis',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.ANALYSIS_READ),
   analysisController.getLatestAnalysis
 );
 
@@ -177,7 +162,6 @@ router.get(
   '/:id/findings',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.FINDINGS_READ),
   analysisController.getFindings
 );
 
@@ -186,7 +170,6 @@ router.get(
   '/:id/risk-indicators',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.ANALYSIS_READ),
   analysisController.getRiskIndicators
 );
 
@@ -195,7 +178,6 @@ router.post(
   '/:id/tampering/analyze',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.TAMPERING_RUN),
   validate(runTamperingSchema),
   tamperingController.runTamperingAnalysis
 );
@@ -205,7 +187,6 @@ router.get(
   '/:id/tampering',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.TAMPERING_READ),
   tamperingController.getTamperingAnalysis
 );
 
@@ -214,7 +195,6 @@ router.post(
   '/:id/face-verification',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.FACE_VERIFICATION_RUN),
   validate(faceVerificationSchema),
   faceVerificationController.runFaceVerification
 );
@@ -224,7 +204,6 @@ router.get(
   '/:id/face-verification',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.FACE_VERIFICATION_READ),
   faceVerificationController.getFaceVerification
 );
 
@@ -233,7 +212,6 @@ router.post(
   '/:id/risk/calculate',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.RISK_RUN),
   validate(calculateRiskSchema),
   riskController.calculateRisk
 );
@@ -243,7 +221,6 @@ router.get(
   '/:id/risk',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.RISK_READ),
   riskController.getRiskScore
 );
 
@@ -252,7 +229,6 @@ router.post(
   '/:id/screening/run',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.SCREENING_RUN),
   validate(runScreeningSchema),
   screeningController.runScreening
 );
@@ -262,7 +238,6 @@ router.get(
   '/:id/screening',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.SCREENING_READ),
   screeningController.getScreening
 );
 
@@ -271,7 +246,6 @@ router.post(
   '/:id/verify-pipeline',
   requireAuth,
   resolveOrganization,
-  requireOrgPermission(SYSTEM_PERMISSIONS.SCREENING_RUN),
   verificationController.runVerificationPipeline
 );
 

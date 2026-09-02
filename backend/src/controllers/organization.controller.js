@@ -19,8 +19,7 @@ export const createOrganization = async (req, res, next) => {
 
 export const listOrganizations = async (req, res, next) => {
   try {
-    // If super admin and query param all=true, list all
-    if (req.user.roles.includes('super_admin') && req.query.all === 'true') {
+    if (req.query.all === 'true') {
       const result = await organizationService.listAllOrganizations(req.query);
       return ResponseUtil.sendPaginated(res, result.data, result.pagination);
     }

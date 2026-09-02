@@ -5,22 +5,22 @@ import { invitationRepository } from '../repositories/invitation.repository.js';
 import { organizationRepository } from '../repositories/organization.repository.js';
 import { membershipRepository } from '../repositories/membership.repository.js';
 import { userRepository } from '../repositories/user.repository.js';
-import { roleRepository } from '../repositories/role.repository.js';
 import { auditService } from './audit.service.js';
 import { CryptoUtil } from '../utils/crypto.js';
 import { AppError } from '../errors/AppError.js';
 import { AUDIT_ACTIONS } from '../config/constants.js';
 
 export class InvitationService {
-  async createInvitation(organizationId, email, roleId, actorUserId, reqMeta = {}) {
+  async createInvitation(organizationId, email, roleId = null, actorUserId, reqMeta = {}) {
     const org = await organizationRepository.findById(organizationId);
     if (!org) {
       throw AppError.notFound('Organization not found', 'ORGANIZATION_NOT_FOUND');
     }
 
-    const role = await roleRepository.findById(roleId);
-    if (!role) {
-      throw AppError.notFound('Role not found', 'ROLE_NOT_FOUND');
+    let effectiveRoleId = roleId;
+    if (!effectiveRoleId) {
+      const defaultRoleRows = await db.query('SELECT id FROM roles LIMIT 1');
+      effectiveRoleId = defaultRoleRows[0]?.id;
     }
 
     // Check if user already exists and is already a member
@@ -47,7 +47,7 @@ export class InvitationService {
       id: invitationId,
       organizationId,
       email: email.toLowerCase().trim(),
-      roleId,
+      roleId: effectiveRoleId,
       tokenHash,
       invitedBy: actorUserId,
       expiresAt,
@@ -60,7 +60,7 @@ export class InvitationService {
       resourceId: invitationId,
       ipAddress: reqMeta.ip,
       userAgent: reqMeta.userAgent,
-      metadata: { organizationId, invitedEmail: email, roleId, roleSlug: role.slug },
+      metadata: { organizationId, invitedEmail: email, roleId: effectiveRoleId },
     });
 
     return {

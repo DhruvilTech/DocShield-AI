@@ -81,8 +81,8 @@ export interface User {
   lastLoginAt: string | null;
   createdAt: string;
   updatedAt: string;
-  roles: string[];
-  permissions: string[];
+  roles?: string[];
+  permissions?: string[];
 }
 
 export interface AuthTokens {

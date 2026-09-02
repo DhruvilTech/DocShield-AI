@@ -79,7 +79,7 @@ export const OrganizationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return newOrg;
   };
 
-  const activeRole = activeOrganization?.role_slug || (user?.roles.includes('super_admin') ? 'super_admin' : null);
+  const activeRole = activeOrganization?.role_slug || (user?.roles?.includes('super_admin') ? 'super_admin' : 'member');
 
   return (
     <OrganizationContext.Provider
