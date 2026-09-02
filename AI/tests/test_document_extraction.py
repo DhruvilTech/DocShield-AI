@@ -328,7 +328,13 @@ def test_arunachal_pradesh_eilp_permit_extraction():
     assert fields["permit_number"].value == "0220353191611566"
     assert fields["name"].value == "Mohd Shabbir"
     assert fields["permit_type"].value in ["single", "temporary", "inner-line", "business"]
+    assert fields["place_of_visit"].value == "Lower Subansiri"
+    assert fields["destination"].value == "Lower Subansiri"
+    assert "Khemin" in fields["check_gate"].value
+    assert "Gumto" in fields["check_gate"].value
+    assert fields["authorized_port"].value == fields["check_gate"].value
     assert fields["date_of_expiry"].value == "19-11-2022"
+    assert fields["date_of_return"].value == "19-11-2022"
 
 
 def test_aadhaar_bilingual_dual_card_extraction():

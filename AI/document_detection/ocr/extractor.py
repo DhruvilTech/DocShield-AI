@@ -31,7 +31,11 @@ NATIONAL_ID_FIELDS = ["id_number", "name", "date_of_birth", "gender", "pin_code"
 DRIVING_LICENSE_FIELDS = [
     "license_number", "name", "date_of_birth", "date_of_issue", "date_of_expiry", "vehicle_class",
 ]
-PERMIT_FIELDS = ["permit_number", "name", "permit_type", "vehicle_no", "date_of_expiry"]
+PERMIT_FIELDS = [
+    "permit_number", "name", "permit_type", "place_of_visit", "check_gate",
+    "authorized_port", "destination", "date_of_visit", "date_of_return",
+    "date_of_expiry", "vehicle_no", "date_of_issue",
+]
 
 
 # ── Pydantic model ─────────────────────────────────────────────────────────────
@@ -1447,21 +1451,49 @@ class PermitFieldExtractor(BaseFieldExtractor):
         regions = ocr_result.regions
         fields: dict[str, ExtractedField] = {}
 
+        def _get_box(r):
+            if not r.bounding_box or not hasattr(r.bounding_box, "points") or not r.bounding_box.points:
+                return 0, 0, 0, 0
+            pts = r.bounding_box.points
+            xs = [p[0] for p in pts]
+            ys = [p[1] for p in pts]
+            return min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys)
+
         # 1. Permit / eILP Number
         p_num, p_conf, p_src = None, None, None
 
         # Check for eILP / ILP / Permit labels in regions
         for r in regions:
-            m_ilp = re.search(r"(?:eILP\s*No|ILP\s*No|Permit\s*(?:No|Number|#)?|Pass\s*No|Auth\s*No)\s*[:\s\-]*([0-9A-Z\-_/]{5,25})", r.text, re.IGNORECASE)
-            if m_ilp:
+            rx, ry, rw, rh = _get_box(r)
+            m_ilp = re.search(
+                r"(?:e[Il1|]LP\s*No\.?|[Il1|]LP\s*No\.?|Permit\s*(?:No\.?|Number|#)|Pass\s*No\.?|Auth\s*No\.?)\s*[:\s\-]*([0-9]{8,22}|[A-Z0-9\-_/]{6,25})",
+                r.text,
+                re.IGNORECASE
+            )
+            if m_ilp and not any(w in m_ilp.group(1).upper() for w in ["INDIAN", "NATIONAL", "GOVERNMENT", "TEMPORARY", "ARUNACHAL", "CAUTION", "COVID", "SINGLE", "PERMIT"]):
                 p_num = m_ilp.group(1).strip().upper()
                 p_conf = r.confidence
                 p_src = r.text
                 break
 
+            # If label on its own line (e.g. elLPNo / eILP No)
+            if re.search(r"^(?:e[Il1|]LP\s*No\.?|[Il1|]LP\s*No\.?|Permit\s*(?:No\.?|Number|#)|Pass\s*No\.?)$", r.text.strip(), re.IGNORECASE):
+                candidates = []
+                for v in regions:
+                    vx, vy, vw, vh = _get_box(v)
+                    if abs(vx + vw/2 - (rx + rw/2)) <= 80 and vy > ry and vy <= ry + 40:
+                        dm = re.search(r"\b([0-9]{10,22}|[A-Z0-9\-_/]{6,25})\b", v.text.strip())
+                        if dm and not any(w in dm.group(1).upper() for w in ["INDIAN", "NATIONAL", "GOVERNMENT", "TEMPORARY", "ARUNACHAL", "CAUTION", "COVID"]):
+                            candidates.append(v)
+                if candidates:
+                    p_num = candidates[0].text.strip().upper()
+                    p_conf = candidates[0].confidence
+                    p_src = candidates[0].text
+                    break
+
         if not p_num:
-            val, conf, src = _find_label_value(regions, ["EILP NO", "ILP NO", "PERMIT NO", "PERMIT NUMBER", "PERMIT #", "PASS NO"])
-            if val:
+            val, conf, src = _find_label_value(regions, ["EILP NO", "EILP NUMBER", "ILP NO", "ILP NUMBER", "PERMIT NO", "PERMIT NUMBER", "PERMIT #", "PASS NO"])
+            if val and not any(w in val.upper() for w in ["INDIAN", "NATIONAL", "GOVERNMENT", "TEMPORARY", "ARUNACHAL", "CAUTION", "COVID"]):
                 p_num = re.sub(r"[\s]", "", val.strip().upper())
                 p_conf = conf
                 p_src = src
@@ -1491,7 +1523,7 @@ class PermitFieldExtractor(BaseFieldExtractor):
         val, conf, src = None, None, None
         for r in regions:
             m_name = re.search(r"^(?:Name|Full\s*Name)\s*[:\s\-]+([A-Za-z\s.\-]{3,40})$", r.text.strip(), re.IGNORECASE)
-            if m_name and not any(w in m_name.group(1).upper() for w in ["PERMIT", "GOVERNMENT", "ARUNACHAL", "CHECK", "COVID"]):
+            if m_name and not any(w in m_name.group(1).upper() for w in ["PERMIT", "GOVERNMENT", "ARUNACHAL", "CHECK", "COVID", "CAUTION"]):
                 val = m_name.group(1).strip()
                 conf = r.confidence
                 src = r.text
@@ -1499,15 +1531,16 @@ class PermitFieldExtractor(BaseFieldExtractor):
 
         if not val:
             val, conf, src = _find_label_value(regions, ["NAME", "HOLDER", "OWNER"])
-            if val and any(w in val.upper() for w in ["PERMIT", "GOVERNMENT", "ARUNACHAL", "CHECK"]):
+            if val and any(w in val.upper() for w in ["PERMIT", "GOVERNMENT", "ARUNACHAL", "CHECK", "COVID"]):
                 val = None
 
         if not val:
             m_raw = re.search(r"\bName\s*[:\s\-]+([A-Za-z\s.\-]{3,40})\b", raw, re.IGNORECASE)
-            if m_raw and not any(w in m_raw.group(1).upper() for w in ["PERMIT", "GOVERNMENT", "ARUNACHAL", "CHECK"]):
+            if m_raw and not any(w in m_raw.group(1).upper() for w in ["PERMIT", "GOVERNMENT", "ARUNACHAL", "CHECK", "COVID"]):
                 val = m_raw.group(1).strip()
                 conf = _get_confidence_for_match(val, regions)
-                src = m_raw.group(0)
+        if val:
+            val = re.sub(r"([a-z])([A-Z])", r"\1 \2", val).strip()
 
         fields["name"] = ExtractedField(name="name", value=val, confidence=conf, source_text=src)
 
@@ -1538,23 +1571,156 @@ class PermitFieldExtractor(BaseFieldExtractor):
 
         fields["permit_type"] = ExtractedField(name="permit_type", value=pt_val, confidence=pt_conf, source_text=pt_src)
 
-        # 4. Vehicle number (optional for personal ILP travel permits)
-        v_val, v_conf = None, None
-        val, conf, src = _find_label_value(regions, ["VEHICLE NO", "VEH NO", "REG NO", "REGISTRATION NO"])
-        if val:
-            v_val = val.strip().upper()
-            v_conf = conf
-        fields["vehicle_no"] = ExtractedField(name="vehicle_no", value=v_val, confidence=v_conf)
+        # 4. Place of Visit / Destination
+        pov_val, pov_conf, pov_src = None, None, None
+        for r in regions:
+            rx, ry, rw, rh = _get_box(r)
+            if re.search(r"(?:Place\s*of\s*visit|Visiting\s*Place|Destination|Permitted\s*Area|Area\s*of\s*Visit|Visiting\s*District)", r.text, re.IGNORECASE):
+                # Look for value on the same line to the right
+                m_inline = re.search(r"(?:Place\s*of\s*visit|Visiting\s*Place|Destination|Permitted\s*Area)\s*[:\s\-]+(.*?)(?=\s*(?:Check\s*Gate|Date\s*of|Type\s*of|Document|Occupation|$))", r.text, re.IGNORECASE)
+                if m_inline and m_inline.group(1).strip():
+                    pov_val = m_inline.group(1).strip()
+                    pov_conf = r.confidence
+                    pov_src = r.text
+                    break
+                # Spatial search: candidate to right in same horizontal row (abs(vy - ry) <= 8)
+                best_cand = None
+                min_dy = 999
+                for v in regions:
+                    vx, vy, vw, vh = _get_box(v)
+                    if vx > rx + 10 and vx < rx + 200 and abs(vy - ry) <= 8:
+                        if not re.search(r"(?:Check\s*Gate|Date|Gender|Occupation|Document|Caution)", v.text, re.IGNORECASE):
+                            if abs(vy - ry) < min_dy:
+                                min_dy = abs(vy - ry)
+                                best_cand = v
+                if best_cand:
+                    pov_val = best_cand.text.strip()
+                    pov_conf = best_cand.confidence
+                    pov_src = pov_val
+                    break
 
-        # 5. Expiry / Return Date
+        if not pov_val:
+            val, conf, src = _find_label_value(regions, ["PLACE OF VISIT", "VISITING PLACE", "DESTINATION", "PERMITTED AREA"])
+            if val:
+                pov_val = val.strip()
+                pov_conf = conf
+                pov_src = src
+
+        if not pov_val:
+            m_pov = re.search(r"(?:Place\s*of\s*visit|Visiting\s*Place|Destination|Permitted\s*Area)\s*[:\s\-]+(.*?)(?=\s*(?:Check\s*Gate|Date\s*of|Type\s*of|Date|Document|$))", raw, re.IGNORECASE)
+            if m_pov:
+                pov_val = m_pov.group(1).strip()
+                pov_conf = _get_confidence_for_match(pov_val, regions)
+                pov_src = m_pov.group(0)
+
+        fields["place_of_visit"] = ExtractedField(name="place_of_visit", value=pov_val, confidence=pov_conf, source_text=pov_src)
+        fields["destination"] = ExtractedField(name="destination", value=pov_val, confidence=pov_conf, source_text=pov_src)
+
+        # 5. Check Gate / Authorized Port
+        cg_val, cg_conf, cg_src = None, None, None
+        for r in regions:
+            rx, ry, rw, rh = _get_box(r)
+            if re.search(r"(?:Caution|Entering|Produce|Vaccine|COVID)", r.text, re.IGNORECASE):
+                continue
+            if re.search(r"\b(?:Check\s*Gate|Check\s*Post|Authorized\s*Port|Entry\s*Gate|Entry\s*Point|Port\s*of\s*Entry)\b", r.text, re.IGNORECASE):
+                # Inline check
+                m_inline = re.search(r"(?:Check\s*Gate|Check\s*Post|Authorized\s*Port|Entry\s*Gate|Entry\s*Point)\s*[:\s\-]+(.*?)(?=\s*(?:Date\s*of|Type\s*of|Place\s*of|Date|$))", r.text, re.IGNORECASE)
+                if m_inline and m_inline.group(1).strip():
+                    cg_val = m_inline.group(1).strip()
+                    cg_conf = r.confidence
+                    cg_src = r.text
+                    break
+
+                # Multi-line spatial block below/next to label
+                next_row_y = 9999
+                for n in regions:
+                    nx, ny, nw, nh = _get_box(n)
+                    if ny > ry + 15 and re.search(r"(?:Date\s*of\s*visit|Type\s*of\s*visit|Place\s*of\s*Issue|Date\s*of\s*Issue)", n.text, re.IGNORECASE):
+                        if ny < next_row_y:
+                            next_row_y = ny
+
+                val_candidates = []
+                for v in regions:
+                    vx, vy, vw, vh = _get_box(v)
+                    if vx > rx + 10 and vy >= ry - 6 and vy < next_row_y:
+                        if not re.search(r"(?:Date\s*of|Type\s*of|Place\s*of|Document|Occupation|Gender|Caution)", v.text, re.IGNORECASE):
+                            val_candidates.append((vy, vx, v))
+                if val_candidates:
+                    val_candidates.sort(key=lambda item: (item[0], item[1]))
+                    texts = [item[2].text.strip() for item in val_candidates]
+                    cg_combined = " ".join(texts)
+                    cg_combined = re.sub(r",\s*", ", ", cg_combined)
+                    cg_combined = re.sub(r"RailwayStation", "Railway Station", cg_combined)
+                    cg_combined = re.sub(r"NaharlagunRailway", "Naharlagun Railway", cg_combined)
+                    cg_val = cg_combined
+                    cg_conf = val_candidates[0][2].confidence
+                    cg_src = cg_val
+                    break
+
+        if not cg_val:
+            val, conf, src = _find_label_value(regions, ["CHECK GATE", "CHECK POST", "AUTHORIZED PORT", "ENTRY GATE", "PORT OF ENTRY"])
+            if val:
+                cg_val = val.strip()
+                cg_conf = conf
+                cg_src = src
+
+        if not cg_val:
+            m_cg = re.search(r"(?:Check\s*Gate|Check\s*Post|Authorized\s*Port|Entry\s*Gate|Entry\s*Point)\s*[:\s\-]+(.*?)(?=\s*(?:Date\s*of\s*visit|Type\s*of\s*visit|Date\s*of\s*return|Place\s*of\s*Issue|Date|$))", raw, re.IGNORECASE)
+            if m_cg:
+                cg_val = m_cg.group(1).strip()
+                cg_conf = _get_confidence_for_match(cg_val, regions)
+                cg_src = m_cg.group(0)
+
+        fields["check_gate"] = ExtractedField(name="check_gate", value=cg_val, confidence=cg_conf, source_text=cg_src)
+        fields["authorized_port"] = ExtractedField(name="authorized_port", value=cg_val, confidence=cg_conf, source_text=cg_src)
+
+        # 6. Dates (Date of visit, Date of return / Expiry, Date of Issue)
+        # A. Date of visit
+        dov_val, dov_conf, dov_src = None, None, None
+        for r in regions:
+            rx, ry, rw, rh = _get_box(r)
+            if re.search(r"(?:Date\s*of\s*visit|Visit\s*Date)", r.text, re.IGNORECASE):
+                m_dt = re.search(r"\b(\d{2}[/\-.]\d{2}[/\-.]\d{4})\b", r.text)
+                if m_dt:
+                    dov_val = m_dt.group(1).replace(".", "-").replace("/", "-")
+                    dov_conf = r.confidence
+                    dov_src = r.text
+                    break
+                for v in regions:
+                    vx, vy, vw, vh = _get_box(v)
+                    if vx > rx and abs(vy - ry) <= 10:
+                        m_dt = re.search(r"\b(\d{2}[/\-.]\d{2}[/\-.]\d{4})\b", v.text)
+                        if m_dt:
+                            dov_val = m_dt.group(1).replace(".", "-").replace("/", "-")
+                            dov_conf = v.confidence
+                            dov_src = v.text
+                            break
+                if dov_val:
+                    break
+        fields["date_of_visit"] = ExtractedField(name="date_of_visit", value=dov_val, confidence=dov_conf, source_text=dov_src)
+
+        # B. Expiry / Return Date
         exp_val, exp_conf, exp_src = None, None, None
         for r in regions:
-            m_exp = re.search(r"(?:Date\s*of\s*return|Return\s*Date|Valid\s*(?:Until|Till|Upto)|Expiry\s*Date|Date\s*of\s*Expiry|Expires)\s*[:\s\-]*(\d{2}[/\-.]\d{2}[/\-.]\d{4})", r.text, re.IGNORECASE)
-            if m_exp:
-                exp_val = m_exp.group(1).replace(".", "-").replace("/", "-")
-                exp_conf = r.confidence
-                exp_src = r.text
-                break
+            rx, ry, rw, rh = _get_box(r)
+            if re.search(r"(?:Dat[ae]\s*of\s*return|Return\s*Date|Valid\s*(?:Until|Till|Upto)|Expiry\s*Date|Date\s*of\s*Expiry|Expires)", r.text, re.IGNORECASE):
+                m_dt = re.search(r"\b(\d{2}[/\-.]\d{2}[/\-.]\d{4})\b", r.text)
+                if m_dt:
+                    exp_val = m_dt.group(1).replace(".", "-").replace("/", "-")
+                    exp_conf = r.confidence
+                    exp_src = r.text
+                    break
+                for v in regions:
+                    vx, vy, vw, vh = _get_box(v)
+                    if vx > rx and abs(vy - ry) <= 10:
+                        m_dt = re.search(r"\b(\d{2}[/\-.]\d{2}[/\-.]\d{4})\b", v.text)
+                        if m_dt:
+                            exp_val = m_dt.group(1).replace(".", "-").replace("/", "-")
+                            exp_conf = v.confidence
+                            exp_src = v.text
+                            break
+                if exp_val:
+                    break
 
         if not exp_val:
             val, conf, src = _find_label_value(regions, ["DATE OF RETURN", "RETURN DATE", "VALID UNTIL", "VALID TILL", "VALID UPTO", "EXPIRY", "EXPIRES"])
@@ -1566,13 +1732,45 @@ class PermitFieldExtractor(BaseFieldExtractor):
                     exp_src = src
 
         if not exp_val:
-            # Check for latest date in document
             all_dates = self._DATE_RE.findall(raw)
             if len(all_dates) >= 2:
                 exp_val = all_dates[-1].replace(".", "-").replace("/", "-")
                 exp_conf = 0.85
 
+        fields["date_of_return"] = ExtractedField(name="date_of_return", value=exp_val, confidence=exp_conf, source_text=exp_src)
         fields["date_of_expiry"] = ExtractedField(name="date_of_expiry", value=exp_val, confidence=exp_conf, source_text=exp_src)
+
+        # C. Date of Issue
+        doi_val, doi_conf, doi_src = None, None, None
+        for r in regions:
+            rx, ry, rw, rh = _get_box(r)
+            if re.search(r"(?:Date\s*of\s*Issue|Issue\s*Date)", r.text, re.IGNORECASE):
+                m_dt = re.search(r"\b(\d{2}[/\-.]\d{2}[/\-.]\d{4})\b", r.text)
+                if m_dt:
+                    doi_val = m_dt.group(1).replace(".", "-").replace("/", "-")
+                    doi_conf = r.confidence
+                    doi_src = r.text
+                    break
+                for v in regions:
+                    vx, vy, vw, vh = _get_box(v)
+                    if vx > rx and abs(vy - ry) <= 10:
+                        m_dt = re.search(r"\b(\d{2}[/\-.]\d{2}[/\-.]\d{4})\b", v.text)
+                        if m_dt:
+                            doi_val = m_dt.group(1).replace(".", "-").replace("/", "-")
+                            doi_conf = v.confidence
+                            doi_src = v.text
+                            break
+                if doi_val:
+                    break
+        fields["date_of_issue"] = ExtractedField(name="date_of_issue", value=doi_val, confidence=doi_conf, source_text=doi_src)
+
+        # 7. Vehicle number (optional for personal ILP travel permits)
+        v_val, v_conf = None, None
+        val, conf, src = _find_label_value(regions, ["VEHICLE NO", "VEH NO", "REG NO", "REGISTRATION NO"])
+        if val:
+            v_val = val.strip().upper()
+            v_conf = conf
+        fields["vehicle_no"] = ExtractedField(name="vehicle_no", value=v_val, confidence=v_conf)
 
         for key in PERMIT_FIELDS:
             if key not in fields:
