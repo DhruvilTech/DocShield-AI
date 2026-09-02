@@ -325,9 +325,9 @@ def analyze_text_tampering(
 
             # Forensic Corroboration:
             is_strong_void = (doc_has_sensor_noise and (noise_void >= 0.55 or (noise_void >= 0.45 and bg_mean_diff >= 3.0)) and feat["raw_bg_std"] < 3.2)
-            is_ela_anomaly = (feat["mean_roi_ela"] >= 14.0 and ela_disparity >= 2.5 and abs(feat["mean_roi_ela"] - neigh_ela) >= 8.0 and cw >= 30 and ch >= 14)
+            is_ela_anomaly = (doc_has_sensor_noise and feat["mean_roi_ela"] >= 14.0 and ela_disparity >= 2.5 and abs(feat["mean_roi_ela"] - neigh_ela) >= 8.0 and cw >= 30 and ch >= 14)
             is_whiteout_patch = (doc_has_sensor_noise and (feat["raw_bg_mean"] - doc_bg_mean) >= 4.0 and cw >= 40 and ch >= 16 and feat["raw_bg_std"] <= doc_bg_noise_std)
-            is_corroborated = (len(cue_scores) >= 2 and (noise_void >= 0.40 or bg_mean_diff >= 3.0 or (ela_disparity >= 1.5 and feat["mean_roi_ela"] >= 6.0)))
+            is_corroborated = (len(cue_scores) >= 2 and (noise_void >= 0.40 or bg_mean_diff >= 3.0 or (doc_has_sensor_noise and ela_disparity >= 1.5 and feat["mean_roi_ela"] >= 6.0)))
 
             if is_strong_void or is_ela_anomaly or is_whiteout_patch or is_corroborated:
                 base_score = float(np.mean(cue_scores)) if cue_scores else 0.70

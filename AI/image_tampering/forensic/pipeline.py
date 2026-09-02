@@ -35,6 +35,11 @@ from image_tampering.forensic.copy_move import analyze_copy_move
 from image_tampering.forensic.metadata import analyze_metadata
 from image_tampering.forensic.stamp import analyze_stamps
 from image_tampering.forensic.splicing import analyze_splicing
+from image_tampering.forensic.pdf_forensics import (
+    analyze_pdf_ela,
+    analyze_pdf_noise,
+    analyze_pdf_copy_move
+)
 from image_tampering.forensic.content_alteration import analyze_content_alteration
 from image_tampering.forensic.text_tampering import analyze_text_tampering
 from image_tampering.forensic.fusion import fuse_signals, fuse_signals_full
@@ -93,22 +98,22 @@ def _run_forensic_pipeline_pdf(
         # Quality (identical to image pipeline)
         quality_data = calculate_quality_metrics(grayscale)
 
-        # Execute standard locked image forensic detectors
-        ela_sig = analyze_ela(
+        # Execute PDF-aware forensic detectors
+        ela_sig = analyze_pdf_ela(
             working_image_rgb=work_rgb,
             quality=95,
             coordinate_mapper=mapper,
             save_debug=save_debug,
             debug_dir=page_dir
         )
-        noise_sig = analyze_noise(
+        noise_sig = analyze_pdf_noise(
             working_image_rgb=work_rgb,
             noise_residual=noise_residual,
             coordinate_mapper=mapper,
             save_debug=save_debug,
             debug_dir=page_dir
         )
-        copymove_sig = analyze_copy_move(
+        copymove_sig = analyze_pdf_copy_move(
             working_image_rgb=work_rgb,
             coordinate_mapper=mapper,
             save_debug=save_debug,
